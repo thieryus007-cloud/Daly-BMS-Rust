@@ -6,6 +6,11 @@ Analyse en mode verbose selon le plan ci-dessous.
 
 ATTENTION HORS SCOPE tous les dossiers suivants: archive, docs, mac-local, test, tools, test-server, scripts, web et ANALYSE DE LA SÉCURITÉ Hors Scope
 
+Aucune regression n'est autorisée
+
+rapport final dans le dossier BMS/docs uniquement
+
+
 **TÂCHES D'ANALYSE :**
 
 1. **DÉTECTION DE BUGS ET ERREURS**
