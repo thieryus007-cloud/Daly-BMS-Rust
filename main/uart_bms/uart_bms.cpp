@@ -343,7 +343,7 @@ static void uart_bms_reset_buffer(void)
 {
 #ifdef ESP_PLATFORM
     if (s_rx_buffer_mutex != nullptr) {
-        xSemaphoreTake(s_rx_buffer_mutex, portMAX_DELAY);
+        xSemaphoreTake(s_rx_buffer_mutex, pdMS_TO_TICKS(5000));
     }
 #endif
     s_rx_length = 0;
@@ -489,7 +489,7 @@ static void uart_bms_consume_bytes(const uint8_t *data, size_t length)
 {
 #ifdef ESP_PLATFORM
     if (s_rx_buffer_mutex != nullptr) {
-        xSemaphoreTake(s_rx_buffer_mutex, portMAX_DELAY);
+        xSemaphoreTake(s_rx_buffer_mutex, pdMS_TO_TICKS(5000));
     }
 #endif
 
@@ -504,7 +504,7 @@ static void uart_bms_consume_bytes(const uint8_t *data, size_t length)
             uart_bms_reset_buffer();
 #ifdef ESP_PLATFORM
             if (s_rx_buffer_mutex != nullptr) {
-                xSemaphoreTake(s_rx_buffer_mutex, portMAX_DELAY);
+                xSemaphoreTake(s_rx_buffer_mutex, pdMS_TO_TICKS(5000));
             }
 #endif
         }
@@ -1085,7 +1085,7 @@ esp_err_t uart_bms_process_frame(const uint8_t *frame, size_t length)
 
 #ifdef ESP_PLATFORM
     if (s_snapshot_mutex != nullptr) {
-        xSemaphoreTake(s_snapshot_mutex, portMAX_DELAY);
+        xSemaphoreTake(s_snapshot_mutex, pdMS_TO_TICKS(5000));
     }
 #endif
     s_shared_snapshot = shared;
@@ -1293,7 +1293,7 @@ const TinyBMS_LiveData *uart_bms_get_latest_shared(void)
     // fields, the caller should copy the data while holding appropriate locks.
 #ifdef ESP_PLATFORM
     if (s_snapshot_mutex != nullptr) {
-        xSemaphoreTake(s_snapshot_mutex, portMAX_DELAY);
+        xSemaphoreTake(s_snapshot_mutex, pdMS_TO_TICKS(5000));
     }
 #endif
 

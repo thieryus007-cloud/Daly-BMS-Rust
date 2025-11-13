@@ -19,6 +19,40 @@
 #include "event_bus.h"
 
 // =============================================================================
+// WebSocket Buffer Pool Configuration
+// =============================================================================
+
+#define WS_BUFFER_POOL_SIZE 8
+#define WS_BUFFER_POOL_BUFFER_SIZE 4096
+
+/**
+ * Buffer pool buffer structure
+ * Uses a free list for O(1) allocation/deallocation
+ */
+typedef struct ws_buffer_pool_buffer {
+    struct ws_buffer_pool_buffer *next;  // Next free buffer (only valid when free)
+    uint8_t data[WS_BUFFER_POOL_BUFFER_SIZE];
+} ws_buffer_pool_buffer_t;
+
+/**
+ * Buffer pool state
+ */
+typedef struct {
+    ws_buffer_pool_buffer_t buffers[WS_BUFFER_POOL_SIZE];
+    ws_buffer_pool_buffer_t *free_list;
+    SemaphoreHandle_t mutex;
+    // Statistics
+    uint32_t total_allocs;
+    uint32_t pool_hits;
+    uint32_t pool_misses;
+    uint32_t peak_usage;
+    uint32_t current_usage;
+    bool initialized;
+} ws_buffer_pool_t;
+
+static ws_buffer_pool_t s_buffer_pool = {0};
+
+// =============================================================================
 // Global WebSocket state
 // =============================================================================
 
@@ -34,6 +68,192 @@ ws_client_t *s_alert_clients = NULL;
 event_bus_subscription_handle_t s_event_subscription = NULL;
 TaskHandle_t s_event_task_handle = NULL;
 volatile bool s_event_task_should_stop = false;
+
+// =============================================================================
+// WebSocket Buffer Pool Implementation
+// =============================================================================
+
+esp_err_t ws_buffer_pool_init(void)
+{
+    if (s_buffer_pool.initialized) {
+        ESP_LOGW(TAG, "Buffer pool already initialized");
+        return ESP_OK;
+    }
+
+    // Create mutex for thread safety
+    s_buffer_pool.mutex = xSemaphoreCreateMutex();
+    if (s_buffer_pool.mutex == NULL) {
+        ESP_LOGE(TAG, "Failed to create buffer pool mutex");
+        return ESP_ERR_NO_MEM;
+    }
+
+    // Initialize free list - all buffers are free initially
+    s_buffer_pool.free_list = NULL;
+    for (int i = WS_BUFFER_POOL_SIZE - 1; i >= 0; i--) {
+        s_buffer_pool.buffers[i].next = s_buffer_pool.free_list;
+        s_buffer_pool.free_list = &s_buffer_pool.buffers[i];
+    }
+
+    // Initialize statistics
+    s_buffer_pool.total_allocs = 0;
+    s_buffer_pool.pool_hits = 0;
+    s_buffer_pool.pool_misses = 0;
+    s_buffer_pool.peak_usage = 0;
+    s_buffer_pool.current_usage = 0;
+    s_buffer_pool.initialized = true;
+
+    ESP_LOGI(TAG, "Buffer pool initialized: %d buffers x %d bytes = %d KB total",
+             WS_BUFFER_POOL_SIZE, WS_BUFFER_POOL_BUFFER_SIZE,
+             (WS_BUFFER_POOL_SIZE * WS_BUFFER_POOL_BUFFER_SIZE) / 1024);
+
+    return ESP_OK;
+}
+
+void ws_buffer_pool_deinit(void)
+{
+    if (!s_buffer_pool.initialized) {
+        return;
+    }
+
+    if (s_buffer_pool.mutex != NULL) {
+        // Log final statistics
+        ESP_LOGI(TAG, "Buffer pool statistics - Total: %u, Hits: %u (%.1f%%), Misses: %u, Peak: %u/%u",
+                 s_buffer_pool.total_allocs,
+                 s_buffer_pool.pool_hits,
+                 s_buffer_pool.total_allocs > 0 ? (s_buffer_pool.pool_hits * 100.0f / s_buffer_pool.total_allocs) : 0.0f,
+                 s_buffer_pool.pool_misses,
+                 s_buffer_pool.peak_usage,
+                 WS_BUFFER_POOL_SIZE);
+
+        vSemaphoreDelete(s_buffer_pool.mutex);
+        s_buffer_pool.mutex = NULL;
+    }
+
+    s_buffer_pool.initialized = false;
+    s_buffer_pool.free_list = NULL;
+}
+
+void *ws_buffer_pool_alloc(size_t size)
+{
+    if (!s_buffer_pool.initialized) {
+        ESP_LOGW(TAG, "Buffer pool not initialized, falling back to malloc");
+        return malloc(size);
+    }
+
+    // Check if size fits in pool buffer
+    if (size > WS_BUFFER_POOL_BUFFER_SIZE) {
+        ESP_LOGD(TAG, "Requested size %zu exceeds pool buffer size %d, using malloc",
+                 size, WS_BUFFER_POOL_BUFFER_SIZE);
+        if (xSemaphoreTake(s_buffer_pool.mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+            s_buffer_pool.total_allocs++;
+            s_buffer_pool.pool_misses++;
+            xSemaphoreGive(s_buffer_pool.mutex);
+        }
+        return malloc(size);
+    }
+
+    // Try to allocate from pool
+    void *buffer = NULL;
+    if (xSemaphoreTake(s_buffer_pool.mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+        s_buffer_pool.total_allocs++;
+
+        if (s_buffer_pool.free_list != NULL) {
+            // O(1) allocation from free list
+            ws_buffer_pool_buffer_t *buf = s_buffer_pool.free_list;
+            s_buffer_pool.free_list = buf->next;
+            buffer = buf->data;
+
+            // Update statistics
+            s_buffer_pool.pool_hits++;
+            s_buffer_pool.current_usage++;
+            if (s_buffer_pool.current_usage > s_buffer_pool.peak_usage) {
+                s_buffer_pool.peak_usage = s_buffer_pool.current_usage;
+            }
+        } else {
+            // Pool exhausted, fall back to malloc
+            s_buffer_pool.pool_misses++;
+            ESP_LOGW(TAG, "Buffer pool exhausted (peak usage: %u/%u), falling back to malloc",
+                     s_buffer_pool.peak_usage, WS_BUFFER_POOL_SIZE);
+        }
+
+        xSemaphoreGive(s_buffer_pool.mutex);
+    }
+
+    // If pool was exhausted or mutex timeout, use malloc
+    if (buffer == NULL) {
+        buffer = malloc(size);
+        if (buffer == NULL) {
+            ESP_LOGE(TAG, "malloc failed for size %zu", size);
+        }
+    }
+
+    return buffer;
+}
+
+void ws_buffer_pool_free(void *ptr)
+{
+    if (ptr == NULL) {
+        return;
+    }
+
+    if (!s_buffer_pool.initialized) {
+        free(ptr);
+        return;
+    }
+
+    // Check if pointer belongs to pool
+    uintptr_t pool_start = (uintptr_t)&s_buffer_pool.buffers[0];
+    uintptr_t pool_end = (uintptr_t)&s_buffer_pool.buffers[WS_BUFFER_POOL_SIZE];
+    uintptr_t ptr_addr = (uintptr_t)ptr;
+
+    bool is_pool_buffer = false;
+    ws_buffer_pool_buffer_t *buf = NULL;
+
+    // Check if ptr is within pool range and points to a data field
+    if (ptr_addr >= pool_start && ptr_addr < pool_end) {
+        // Calculate which buffer this data belongs to
+        for (int i = 0; i < WS_BUFFER_POOL_SIZE; i++) {
+            if (ptr == s_buffer_pool.buffers[i].data) {
+                is_pool_buffer = true;
+                buf = &s_buffer_pool.buffers[i];
+                break;
+            }
+        }
+    }
+
+    if (is_pool_buffer && buf != NULL) {
+        // O(1) return to free list
+        if (xSemaphoreTake(s_buffer_pool.mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+            buf->next = s_buffer_pool.free_list;
+            s_buffer_pool.free_list = buf;
+            if (s_buffer_pool.current_usage > 0) {
+                s_buffer_pool.current_usage--;
+            }
+            xSemaphoreGive(s_buffer_pool.mutex);
+        } else {
+            ESP_LOGW(TAG, "Failed to acquire buffer pool mutex during free");
+        }
+    } else {
+        // Not a pool buffer, use regular free
+        free(ptr);
+    }
+}
+
+void ws_buffer_pool_get_stats(ws_buffer_pool_stats_t *stats)
+{
+    if (stats == NULL || !s_buffer_pool.initialized) {
+        return;
+    }
+
+    if (xSemaphoreTake(s_buffer_pool.mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+        stats->total_allocs = s_buffer_pool.total_allocs;
+        stats->pool_hits = s_buffer_pool.pool_hits;
+        stats->pool_misses = s_buffer_pool.pool_misses;
+        stats->peak_usage = s_buffer_pool.peak_usage;
+        stats->current_usage = s_buffer_pool.current_usage;
+        xSemaphoreGive(s_buffer_pool.mutex);
+    }
+}
 
 // =============================================================================
 // WebSocket client list management
@@ -223,14 +443,23 @@ static void web_server_broadcast_battery_snapshot(ws_client_t **list, const char
         return;
     }
 
-    char wrapped[MONITORING_SNAPSHOT_MAX_SIZE + 32U];
-    int written = snprintf(wrapped, sizeof(wrapped), "{\"battery\":%.*s}", (int)payload_length, payload);
-    if (written <= 0 || (size_t)written >= sizeof(wrapped)) {
+    // Use buffer pool for wrapped message (O(1) allocation)
+    const size_t wrapped_size = MONITORING_SNAPSHOT_MAX_SIZE + 32U;
+    char *wrapped = ws_buffer_pool_alloc(wrapped_size);
+    if (wrapped == NULL) {
+        ESP_LOGW(TAG, "Failed to allocate buffer for telemetry snapshot wrapping");
+        return;
+    }
+
+    int written = snprintf(wrapped, wrapped_size, "{\"battery\":%.*s}", (int)payload_length, payload);
+    if (written <= 0 || (size_t)written >= wrapped_size) {
         ESP_LOGW(TAG, "Failed to wrap telemetry snapshot for broadcast");
+        ws_buffer_pool_free(wrapped);
         return;
     }
 
     ws_client_list_broadcast(list, wrapped, (size_t)written);
+    ws_buffer_pool_free(wrapped);
 }
 
 // =============================================================================
@@ -286,26 +515,28 @@ static esp_err_t web_server_ws_receive(httpd_req_t *req, ws_client_t **list)
     }
 
     if (frame.len > 0) {
-        frame.payload = calloc(1, frame.len + 1);
+        // Use buffer pool for WebSocket frame allocation (O(1) operation)
+        frame.payload = ws_buffer_pool_alloc(frame.len + 1);
         if (frame.payload == NULL) {
             return ESP_ERR_NO_MEM;
         }
+        memset(frame.payload, 0, frame.len + 1);
         err = httpd_ws_recv_frame(req, &frame, frame.len);
         if (err != ESP_OK) {
-            free(frame.payload);
+            ws_buffer_pool_free(frame.payload);
             ESP_LOGE(TAG, "Failed to read frame payload: %s", esp_err_to_name(err));
             return err;
         }
     }
 
     if (frame.type == HTTPD_WS_TYPE_CLOSE) {
-        free(frame.payload);
+        ws_buffer_pool_free(frame.payload);
         return web_server_handle_ws_close(req, list);
     }
 
     err = web_server_ws_control_frame(req, &frame);
     if (err != ESP_OK) {
-        free(frame.payload);
+        ws_buffer_pool_free(frame.payload);
         return err;
     }
 
@@ -313,7 +544,7 @@ static esp_err_t web_server_ws_receive(httpd_req_t *req, ws_client_t **list)
         ESP_LOGD(TAG, "WS message: %.*s", frame.len, frame.payload);
     }
 
-    free(frame.payload);
+    ws_buffer_pool_free(frame.payload);
     return ESP_OK;
 }
 
@@ -555,12 +786,20 @@ static void web_server_event_task(void *context)
 
 void web_server_websocket_init(void)
 {
+    // Initialize buffer pool first
+    esp_err_t err = ws_buffer_pool_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize buffer pool: %s", esp_err_to_name(err));
+        return;
+    }
+
     if (s_ws_mutex == NULL) {
         s_ws_mutex = xSemaphoreCreateMutex();
     }
 
     if (s_ws_mutex == NULL) {
         ESP_LOGE(TAG, "Failed to create websocket mutex");
+        ws_buffer_pool_deinit();
         return;
     }
 
@@ -603,6 +842,9 @@ void web_server_websocket_deinit(void)
         vSemaphoreDelete(s_ws_mutex);
         s_ws_mutex = NULL;
     }
+
+    // Cleanup buffer pool (logs final statistics)
+    ws_buffer_pool_deinit();
 
     ESP_LOGI(TAG, "WebSocket subsystem deinitialized");
 }

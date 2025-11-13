@@ -108,7 +108,7 @@ void mqtt_client_set_event_publisher(event_bus_publish_fn_t publisher)
         return;
     }
 
-    if (!mqtt_client_lock(portMAX_DELAY)) {
+    if (!mqtt_client_lock(pdMS_TO_TICKS(5000))) {
         return;
     }
 

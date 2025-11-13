@@ -381,7 +381,7 @@ void config_manager_deinit(void)
 const config_manager_device_settings_t *config_manager_get_device_settings(void)
 {
     config_manager_ensure_initialised();
-    esp_err_t lock_err = config_manager_lock(portMAX_DELAY);
+    esp_err_t lock_err = config_manager_lock(pdMS_TO_TICKS(5000));
     if (lock_err != ESP_OK) {
         ESP_LOGW(TAG, "Returning device settings without lock");
         return &s_device_settings;
@@ -395,7 +395,7 @@ const config_manager_device_settings_t *config_manager_get_device_settings(void)
 const char *config_manager_get_device_name(void)
 {
     config_manager_ensure_initialised();
-    esp_err_t lock_err = config_manager_lock(portMAX_DELAY);
+    esp_err_t lock_err = config_manager_lock(pdMS_TO_TICKS(5000));
     if (lock_err != ESP_OK) {
         ESP_LOGW(TAG, "Returning device name without lock");
         return config_manager_effective_device_name();
@@ -413,7 +413,7 @@ uint32_t config_manager_get_uart_poll_interval_ms(void)
 {
     config_manager_ensure_initialised();
 
-    esp_err_t lock_err = config_manager_lock(portMAX_DELAY);
+    esp_err_t lock_err = config_manager_lock(pdMS_TO_TICKS(5000));
     if (lock_err != ESP_OK) {
         ESP_LOGW(TAG, "Returning default UART interval due to lock failure");
         return UART_BMS_DEFAULT_POLL_INTERVAL_MS;
@@ -427,7 +427,7 @@ uint32_t config_manager_get_uart_poll_interval_ms(void)
 const config_manager_uart_pins_t *config_manager_get_uart_pins(void)
 {
     config_manager_ensure_initialised();
-    esp_err_t lock_err = config_manager_lock(portMAX_DELAY);
+    esp_err_t lock_err = config_manager_lock(pdMS_TO_TICKS(5000));
     if (lock_err != ESP_OK) {
         ESP_LOGW(TAG, "Returning UART pins without lock");
         return &s_uart_pins;
@@ -441,7 +441,7 @@ const config_manager_uart_pins_t *config_manager_get_uart_pins(void)
 const config_manager_wifi_settings_t *config_manager_get_wifi_settings(void)
 {
     config_manager_ensure_initialised();
-    esp_err_t lock_err = config_manager_lock(portMAX_DELAY);
+    esp_err_t lock_err = config_manager_lock(pdMS_TO_TICKS(5000));
     if (lock_err != ESP_OK) {
         ESP_LOGW(TAG, "Returning WiFi settings without lock");
         return &s_wifi_settings;
@@ -455,7 +455,7 @@ const config_manager_wifi_settings_t *config_manager_get_wifi_settings(void)
 const config_manager_can_settings_t *config_manager_get_can_settings(void)
 {
     config_manager_ensure_initialised();
-    esp_err_t lock_err = config_manager_lock(portMAX_DELAY);
+    esp_err_t lock_err = config_manager_lock(pdMS_TO_TICKS(5000));
     if (lock_err != ESP_OK) {
         ESP_LOGW(TAG, "Returning CAN settings without lock");
         return &s_can_settings;
