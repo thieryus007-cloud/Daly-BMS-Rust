@@ -1,8 +1,10 @@
 Agis comme un expert en revue de code et ingénieur logiciel senior. 
 
-Analyse exhaustive de code sur github: https://github.com/thieryfr/TinyBMS-GW
+Analyse exhaustive de code sur github: https://github.com/thieryus007-cloud/BMS
 
-Analyse en mode verbose selon le plan ci-dessous.
+Analyse en mode verbose selon le plan ci-dessous. 
+
+ATTENTION HORS SCOPE tous les dossiers suivants: archive, docs, mac-local, test, tools, test-server, scripts, web et ANALYSE DE LA SÉCURITÉ Hors Scope
 
 **TÂCHES D'ANALYSE :**
 
@@ -12,10 +14,8 @@ Analyse en mode verbose selon le plan ci-dessous.
    - Vérifie les conditions race, deadlocks et problèmes de concurrence
    - Analyse la gestion des erreurs et des cas limites
 
-2. ** ANALYSE DE LA SÉCURITÉ**
-   - Détecte les vulnérabilités de sécurité (injections, XSS, CSRF, etc.)
-   - Vérifie les pratiques de gestion des authentifications et autorisations
-   - Contrôle la manipulation des données sensibles
+2. ** HORS SCOPE WEB et ANALYSE DE LA SÉCURITÉ**
+
 
 3. **QUALITÉ DU CODE**
    - Évalue la complexité cyclomatique et la maintenabilité
@@ -42,7 +42,4 @@ Analyse en mode verbose selon le plan ci-dessous.
 - Termine par un résumé exécutif et une note globale de qualité
 
 **CONTEXTE SUPPLÉMENTAIRE :**
-C++, ESP32 8N8, ESP IDF, architecture moduleire a respecter, base documentaires constructeurs a respecter
-archive/docs/ESP32-CAN-X2_Wiki_Autosport-Labs.pdf
-archive/docs/TinyBMS_Communication_Protocols_Rev_D.pdf
-archive/docs/VictCan-bus_bms_protocol20210417.pdf
+C++, ESP32 8N8, ESP IDF, architecture modulaire a respecter
