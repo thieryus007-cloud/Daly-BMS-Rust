@@ -54,7 +54,7 @@ body {
                 linear-gradient(to bottom, var(--background), #060a0f);
     color: var(--text-primary);
     min-height: 100vh;
-    font-size: 15px;
+    font-size: 12px;
     line-height: 1.6;
     letter-spacing: -0.011em;
 }
