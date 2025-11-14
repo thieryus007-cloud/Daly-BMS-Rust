@@ -324,7 +324,7 @@ const mqtt_client_config_t *config_manager_get_mqtt_client_config(void)
 {
     config_manager_ensure_initialised();
 
-    esp_err_t lock_err = config_manager_lock(portMAX_DELAY);
+    esp_err_t lock_err = config_manager_lock(pdMS_TO_TICKS(5000));
     if (lock_err != ESP_OK) {
         ESP_LOGW(TAG, "Returning MQTT client config without lock");
         return &s_mqtt_config;
@@ -391,7 +391,7 @@ const config_manager_mqtt_topics_t *config_manager_get_mqtt_topics(void)
 {
     config_manager_ensure_initialised();
 
-    esp_err_t lock_err = config_manager_lock(portMAX_DELAY);
+    esp_err_t lock_err = config_manager_lock(pdMS_TO_TICKS(5000));
     if (lock_err != ESP_OK) {
         ESP_LOGW(TAG, "Returning MQTT topics without lock");
         return &s_mqtt_topics;

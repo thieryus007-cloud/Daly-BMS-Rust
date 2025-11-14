@@ -408,7 +408,7 @@ esp_err_t config_manager_get_registers_json(char *buffer, size_t buffer_size, si
         return ESP_ERR_INVALID_STATE;
     }
 
-    esp_err_t lock_err = config_manager_lock(portMAX_DELAY);
+    esp_err_t lock_err = config_manager_lock(pdMS_TO_TICKS(5000));
     if (lock_err != ESP_OK) {
         return lock_err;
     }

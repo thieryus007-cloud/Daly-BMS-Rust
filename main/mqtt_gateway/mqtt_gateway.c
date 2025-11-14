@@ -663,7 +663,7 @@ static void mqtt_gateway_event_task(void *context)
     }
 
     event_bus_event_t event = {0};
-    while (event_bus_receive(s_gateway.subscription, &event, portMAX_DELAY)) {
+    while (event_bus_receive(s_gateway.subscription, &event, pdMS_TO_TICKS(5000))) {
         mqtt_gateway_handle_event(&event);
     }
 

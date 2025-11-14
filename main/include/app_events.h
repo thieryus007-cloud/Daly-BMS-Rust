@@ -58,6 +58,8 @@ typedef enum {
     APP_EVENT_ID_STORAGE_HISTORY_UNAVAILABLE = 0x1401,
     /** Alert was triggered by the alert manager. */
     APP_EVENT_ID_ALERT_TRIGGERED = 0x1500,
+    /** Software watchdog detected task timeout (potential deadlock). */
+    APP_EVENT_ID_SYSTEM_WATCHDOG_TIMEOUT = 0x1600,
 } app_event_id_t;
 
 /**
