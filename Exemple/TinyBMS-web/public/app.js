@@ -514,7 +514,7 @@ function initCharts() {
                 endAngle: 20,
                 min: -5000,
                 max: 5000,
-                splitNumber: 6,
+                splitNumber: 4,
                 itemStyle: { color: '#6366f1' },
                 progress: { show: true, width: 4 },
                 pointer: {
