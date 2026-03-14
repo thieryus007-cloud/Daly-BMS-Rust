@@ -123,6 +123,18 @@ Daly-BMS-Rust/
     ├── config-bms2.ini
     └── README.md
 ```
+Estimation mémoire
+Service	                RAM minimale	RAM confortable
+daly-bms-server (Rust)	  ~25 MB	          ~50 MB
+Mosquitto	                ~12 MB	          ~20 MB
+InfluxDB 2.x (Go)	        ~200 MB	          ~350 MB
+Grafana	                  ~120 MB	          ~200 MB
+Node-RED (Node.js)	      ~150 MB	          ~250 MB
+Dashboard Rust           	~30 MB	          ~60 MB
+OS Raspberry Pi OS Lite	   ~150 MB	        ~200 MB
+Docker Engine + overhead	~100 MB	          ~150 MB
+Marge tampon / cache	    ~200 MB	          ~400 MB
+            TOTAL	        ~990 MB	          ~1680 MB
 
 ---
 
