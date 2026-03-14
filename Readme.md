@@ -1,7 +1,10 @@
 # DalyBMS — Rust Edition — Documentation Complète & Plan de Mise en Œuvre
 
 **Version Rust complète** (Axum + daly-bms-core) — mise à jour 14 mars 2026  
-Remplacement total de la stack Python/FastAPI par **Rust** (daly-bms-core + daly-bms-server Axum).  
+Remplacement total de la stack Python/FastAPI par **Rust** (daly-bms-core + daly-bms-server Axum). 
+
+https://github.com/slowtec/tokio-modbus
+
 Infrastructure Docker inchangée (Mosquitto, InfluxDB, Grafana, Node-RED).  
 Dashboard React conservé (compatible WebSocket).  
 Déploiement ultra-léger : **un seul binaire statique** (~12–18 Mo).
