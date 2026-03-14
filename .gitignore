@@ -9,10 +9,10 @@
 # Configuration & Secrets
 # =============================================================================
 .env
-.env.docker
 .env.local
 config.toml
 !Config.toml          # Config.toml est le fichier exemple versionné
+# .env.docker est versionnée (c'est le template, pas les vrais secrets)
 
 # =============================================================================
 # Build artifacts
