@@ -1,5 +1,3 @@
----
-
 Plan d'Implémentation : Monitoring de Daly Smart BMS en Rust
 
 Version 1.0
@@ -403,8 +401,8 @@ system.min_cell_voltage 0x91 3-4 uint16 / 1000
 Annexe B : Références
 
 · Documentation Daly UART/485 Protocol V1.2
-· Tokio Serial Documentation
-· Serde Documentation
+· Tokio Serial Documentation https://docs.rs/tokio-serial/latest/tokio_serial/
+· Serde Documentation.       https://serde.rs/
 
 Annexe C : Glossaire
 
