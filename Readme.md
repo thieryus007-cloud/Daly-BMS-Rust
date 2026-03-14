@@ -1,4 +1,4 @@
-# DalyBMS — Rust Edition — Documentation Complète & Plan de Mise en Œuvre
+# Daly-BMS — Rust Edition —
 
 **Version Rust complète** (Axum + daly-bms-core) — mise à jour 14 mars 2026  
 Remplacement total de la stack Python/FastAPI par **Rust** (daly-bms-core + daly-bms-server Axum). 
