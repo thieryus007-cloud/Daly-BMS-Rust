@@ -101,17 +101,18 @@ pub struct RequestFrame {
 impl RequestFrame {
     /// Construit une trame de requête avec les 8 octets de données spécifiés.
     ///
-    /// Protocole Daly UART V1.21 :
-    /// - Byte[1] = PC_ADDRESS (0x40) — adresse broadcast fixe, les BMS en mode
-    ///   "single-unit" (configuration usine) répondent uniquement à 0x40.
-    /// - Pour du multi-BMS adressable, les BMS doivent être configurés via le
-    ///   logiciel Daly pour répondre à leur adresse individuelle, puis
-    ///   PC_ADDRESS peut être remplacé par bms_address ici.
-    /// - `bms_address` est utilisé pour valider l'adresse dans la réponse.
+    /// Protocole Daly RS485 parallèle (Parallel Manage) :
+    /// - Byte[1]  = PC_ADDRESS (0x40) — toujours fixe
+    /// - Data[0]  = adresse BMS cible (Board number : 0x01, 0x02…)
+    ///              0x00 = broadcast (tous les BMS répondent)
+    ///
+    /// C'est data[0] qui sélectionne le BMS, PAS byte[1].
+    /// Les BMS configurés en mode parallèle (Board number ≥ 1) répondent
+    /// uniquement à leur adresse dans data[0] ou au broadcast (0x00).
     pub fn new(bms_address: u8, cmd: DataId, data: [u8; 8]) -> Self {
         let mut bytes = [0u8; FRAME_LEN];
         bytes[0] = START_FLAG;
-        bytes[1] = PC_ADDRESS;   // 0x40 — broadcast (mode single-unit Daly)
+        bytes[1] = PC_ADDRESS;   // 0x40 — toujours
         bytes[2] = cmd as u8;
         bytes[3] = DATA_LEN;
         bytes[4..12].copy_from_slice(&data);
@@ -120,22 +121,32 @@ impl RequestFrame {
         Self { bytes }
     }
 
-    /// Trame de lecture standard (données = 0x00 × 8).
+    /// Trame de lecture standard : data[0] = bms_address (adressage parallèle Daly).
+    ///
+    /// `A5 40 <CMD> 08 <bms_addr> 00 00 00 00 00 00 00 <CS>`
     pub fn read(bms_address: u8, cmd: DataId) -> Self {
-        Self::new(bms_address, cmd, [0u8; 8])
-    }
-
-    /// Trame d'écriture avec 1 octet de payload à l'offset 4.
-    pub fn write_byte(bms_address: u8, cmd: DataId, value: u8) -> Self {
         let mut data = [0u8; 8];
-        data[0] = value;
+        data[0] = bms_address;  // Adresse BMS cible dans data[0]
         Self::new(bms_address, cmd, data)
     }
 
-    /// Trame d'écriture SOC : valeur en % × 10, uint16 BE à l'offset 4.
+    /// Trame d'écriture avec 1 octet de payload.
+    ///
+    /// Pour les commandes d'écriture, l'adresse BMS est dans data[0] et la
+    /// valeur dans data[1] (protocole parallèle Daly).
+    pub fn write_byte(bms_address: u8, cmd: DataId, value: u8) -> Self {
+        let mut data = [0u8; 8];
+        data[0] = bms_address;
+        data[1] = value;
+        Self::new(bms_address, cmd, data)
+    }
+
+    /// Trame d'écriture SOC : valeur en % × 10, uint16 BE.
+    /// data[0] = adresse BMS, data[4..5] = valeur SOC
     pub fn write_soc(bms_address: u8, soc_percent: f32) -> Self {
         let raw = (soc_percent * 10.0) as u16;
         let mut data = [0u8; 8];
+        data[0] = bms_address;
         data[4] = (raw >> 8) as u8;
         data[5] = (raw & 0xFF) as u8;
         Self::new(bms_address, DataId::SetSoc, data)
@@ -197,10 +208,6 @@ impl ResponseFrame {
     }
 
     /// Valide que la réponse correspond à la requête (adresse + cmd).
-    ///
-    /// En mode broadcast (0x40), le BMS répond avec son adresse réelle.
-    /// Si l'adresse reçue est non-nulle et valide, on l'accepte sans erreur —
-    /// un avertissement est laissé au caller si nécessaire.
     pub fn validate_for(
         &self,
         expected_address: u8,
@@ -208,17 +215,12 @@ impl ResponseFrame {
     ) -> crate::error::Result<()> {
         use crate::error::DalyError;
 
-        // Vérification adresse : en mode broadcast 0x40, on accepte toute adresse
-        // BMS valide (non nulle). L'adresse 0x01 répondant à une requête 0x02
-        // est normal quand les BMS ne sont pas configurés en mode adressé.
-        let actual_addr = self.address();
-        if actual_addr == 0 {
+        if self.address() != expected_address {
             return Err(DalyError::UnexpectedAddress {
                 expected: expected_address,
-                actual:   actual_addr,
+                actual:   self.address(),
             });
         }
-
         if self.data_id() != expected_cmd as u8 {
             return Err(DalyError::UnexpectedDataId {
                 expected: expected_cmd as u8,
@@ -338,13 +340,19 @@ mod tests {
 
     #[test]
     fn test_request_frame_checksum() {
-        // Mode broadcast (0x40) : tous les BMS en mode single-unit répondent
-        // checksum = 0xA5 + 0x40 + 0x90 + 0x08 = 0x17D → 0x7D
+        // Protocole parallèle Daly : byte[1]=0x40, data[0]=adresse BMS
+        // BMS 0x01 : checksum = 0xA5 + 0x40 + 0x90 + 0x08 + 0x01 = 0x17E → 0x7E
         let frame = RequestFrame::read(0x01, DataId::PackStatus);
         assert_eq!(frame.bytes[0], START_FLAG);
         assert_eq!(frame.bytes[1], PC_ADDRESS); // 0x40
         assert_eq!(frame.bytes[2], 0x90);
         assert_eq!(frame.bytes[3], DATA_LEN);
-        assert_eq!(frame.bytes[12], 0x7D);
+        assert_eq!(frame.bytes[4], 0x01);       // data[0] = adresse BMS
+        assert_eq!(frame.bytes[12], 0x7E);
+
+        // BMS 0x02 : checksum = 0xA5 + 0x40 + 0x90 + 0x08 + 0x02 = 0x17F → 0x7F
+        let frame2 = RequestFrame::read(0x02, DataId::PackStatus);
+        assert_eq!(frame2.bytes[4], 0x02);      // data[0] = adresse BMS
+        assert_eq!(frame2.bytes[12], 0x7F);
     }
 }
