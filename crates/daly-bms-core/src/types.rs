@@ -43,9 +43,13 @@ pub struct BmsSnapshot {
     #[serde(rename = "ConsumedAmphours")]
     pub consumed_amphours: f32,
 
-    /// Capacité restante calculée (Ah)
+    /// Capacité restante calculée (Ah) — estimation SOC × capacité nominale
     #[serde(rename = "Capacity")]
     pub capacity: f32,
+
+    /// Capacité résiduelle reportée par le BMS (Ah) — coulométrie 0x93 bytes[4-7]
+    #[serde(rename = "BmsCapacity")]
+    pub bms_reported_capacity_ah: f32,
 
     /// État de charge (%)
     #[serde(rename = "Soc")]

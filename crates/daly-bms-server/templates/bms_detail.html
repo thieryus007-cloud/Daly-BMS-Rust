@@ -57,12 +57,16 @@
               id="kpi-d">{{ detail.summary.cell_delta_mv|mv }} mV</span>
       </div>
       <div class="kpi">
-        <span class="kpi-label">Restant</span>
+        <span class="kpi-label">Restant (SOC)</span>
         <span class="kpi-value" id="kpi-c">{{ detail.summary.capacity_ah|f1 }} Ah</span>
       </div>
     </div>
 
     <div class="kpi-row">
+      <div class="kpi">
+        <span class="kpi-label">Cap. BMS</span>
+        <span class="kpi-value" id="kpi-bms-c">{{ detail.summary.bms_capacity_ah|f1 }} Ah</span>
+      </div>
       <div class="kpi">
         <span class="kpi-label">Cycles</span>
         <span class="kpi-value">{{ detail.cycles }}</span>
@@ -210,8 +214,9 @@
     set('kpi-i',   (s.Dc.Current >= 0 ? '+' : '') + fmt1(s.Dc.Current) + ' A');
     set('kpi-p',   fmt0(s.Dc.Power)    + ' W');
     set('kpi-t',   fmt1(s.System.MaxCellTemperature) + ' °C');
-    set('kpi-soc', fmt1(s.Soc) + ' %');
-    set('kpi-c',   fmt1(s.Capacity) + ' Ah');
+    set('kpi-soc',   fmt1(s.Soc) + ' %');
+    set('kpi-c',     fmt1(s.Capacity) + ' Ah');
+    set('kpi-bms-c', s.BmsCapacity > 0.1 ? fmt1(s.BmsCapacity) + ' Ah' : '—');
 
     const delta = (s.System.MaxCellVoltage - s.System.MinCellVoltage) * 1000;
     set('kpi-d', fmt0(delta) + ' mV');
