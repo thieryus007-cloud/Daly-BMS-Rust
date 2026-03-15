@@ -1,21 +1,49 @@
 //! Format des trames UART Daly BMS et calcul du checksum.
 //!
-//! ## Format d'une trame (12 octets)
+//! ## Format d'une trame (13 octets)
 //!
 //! ```text
 //! [0]  0xA5        Start flag
-//! [1]  Adresse     0x40 (PC→BMS) ou 0x01–0xFF (BMS→PC)
+//! [1]  Adresse     PC→BMS : 0x3F + board_number  |  BMS→PC : board_number
 //! [2]  Data ID     Commande (0x90, 0x91, …)
 //! [3]  0x08        Longueur du champ Data (toujours 8)
-//! [4-11] Data      8 octets de données (requête : 0x00, réponse : valeurs)
-//! [11] Checksum    Somme des octets [0–10] & 0xFF
+//! [4-11] Data      8 octets (requête : réservés 0x00 ; réponse : valeurs)
+//! [12] Checksum    Somme des octets [0–11] & 0xFF
 //! ```
+//!
+//! ## Adressage multi-BMS (protocole Daly V1.21 §2.1)
+//!
+//! Le BMS filtre les requêtes sur `byte[1]` (son adresse PC écoutée).
+//! Le board number N correspond à `byte[1] = 0x3F + N` dans la requête PC.
+//!
+//! ```text
+//! Board 1  →  requête byte[1] = 0x40,  réponse byte[1] = 0x01
+//! Board 2  →  requête byte[1] = 0x41,  réponse byte[1] = 0x02
+//! Board N  →  requête byte[1] = 0x3F+N, réponse byte[1] = N
+//! ```
+//!
+//! Les 8 octets de données sont réservés (0x00) dans la direction PC→BMS.
 
 /// Longueur totale d'une trame Daly (requête ou réponse simple).
 pub const FRAME_LEN: usize = 13;
 
-/// Adresse PC (Host → BMS).
+/// Base de l'adresse PC : `PC_BASE + board_number` = adresse écoutée par ce BMS.
+pub const PC_BASE: u8 = 0x3F;
+
+/// Adresse PC pour le board 1 (valeur historique, conservée pour compatibilité).
 pub const PC_ADDRESS: u8 = 0x40;
+
+/// Calcule l'adresse PC à mettre dans `byte[1]` pour le board/BMS `addr`.
+///
+/// ```
+/// use daly_bms_core::protocol::pc_address_for;
+/// assert_eq!(pc_address_for(1), 0x40);
+/// assert_eq!(pc_address_for(2), 0x41);
+/// ```
+#[inline]
+pub fn pc_address_for(bms_addr: u8) -> u8 {
+    PC_BASE.wrapping_add(bms_addr)
+}
 
 /// Octet de démarrage de trame.
 pub const START_FLAG: u8 = 0xA5;
@@ -101,52 +129,38 @@ pub struct RequestFrame {
 impl RequestFrame {
     /// Construit une trame de requête avec les 8 octets de données spécifiés.
     ///
-    /// Protocole Daly RS485 parallèle (Parallel Manage) :
-    /// - Byte[1]  = PC_ADDRESS (0x40) — toujours fixe
-    /// - Data[0]  = adresse BMS cible (Board number : 0x01, 0x02…)
-    ///              0x00 = broadcast (tous les BMS répondent)
-    ///
-    /// C'est data[0] qui sélectionne le BMS, PAS byte[1].
-    /// Les BMS configurés en mode parallèle (Board number ≥ 1) répondent
-    /// uniquement à leur adresse dans data[0] ou au broadcast (0x00).
+    /// Protocole Daly V1.21 §2.3.1 :
+    /// - `byte[1]` = `0x3F + bms_address` (adresse PC écoutée par ce BMS)
+    /// - `data[0..7]` = réservés (0x00) sauf pour certaines commandes d'écriture
     pub fn new(bms_address: u8, cmd: DataId, data: [u8; 8]) -> Self {
         let mut bytes = [0u8; FRAME_LEN];
         bytes[0] = START_FLAG;
-        bytes[1] = PC_ADDRESS;   // 0x40 — toujours
+        bytes[1] = pc_address_for(bms_address);  // 0x3F + bms_address
         bytes[2] = cmd as u8;
         bytes[3] = DATA_LEN;
         bytes[4..12].copy_from_slice(&data);
         bytes[12] = checksum(&bytes[..12]);
-        let _ = bms_address;
         Self { bytes }
     }
 
-    /// Trame de lecture standard : data[0] = bms_address (adressage parallèle Daly).
+    /// Trame de lecture standard : data[0..7] = 0x00 (réservé).
     ///
-    /// `A5 40 <CMD> 08 <bms_addr> 00 00 00 00 00 00 00 <CS>`
+    /// `A5 [0x3F+addr] <CMD> 08 00 00 00 00 00 00 00 00 <CS>`
     pub fn read(bms_address: u8, cmd: DataId) -> Self {
-        let mut data = [0u8; 8];
-        data[0] = bms_address;  // Adresse BMS cible dans data[0]
-        Self::new(bms_address, cmd, data)
+        Self::new(bms_address, cmd, [0u8; 8])
     }
 
-    /// Trame d'écriture avec 1 octet de payload.
-    ///
-    /// Pour les commandes d'écriture, l'adresse BMS est dans data[0] et la
-    /// valeur dans data[1] (protocole parallèle Daly).
+    /// Trame d'écriture avec 1 octet de payload dans data[0].
     pub fn write_byte(bms_address: u8, cmd: DataId, value: u8) -> Self {
         let mut data = [0u8; 8];
-        data[0] = bms_address;
-        data[1] = value;
+        data[0] = value;
         Self::new(bms_address, cmd, data)
     }
 
-    /// Trame d'écriture SOC : valeur en % × 10, uint16 BE.
-    /// data[0] = adresse BMS, data[4..5] = valeur SOC
+    /// Trame d'écriture SOC : valeur en % × 10, uint16 BE dans data[4..5].
     pub fn write_soc(bms_address: u8, soc_percent: f32) -> Self {
         let raw = (soc_percent * 10.0) as u16;
         let mut data = [0u8; 8];
-        data[0] = bms_address;
         data[4] = (raw >> 8) as u8;
         data[5] = (raw & 0xFF) as u8;
         Self::new(bms_address, DataId::SetSoc, data)
@@ -340,19 +354,28 @@ mod tests {
 
     #[test]
     fn test_request_frame_checksum() {
-        // Protocole parallèle Daly : byte[1]=0x40, data[0]=adresse BMS
-        // BMS 0x01 : checksum = 0xA5 + 0x40 + 0x90 + 0x08 + 0x01 = 0x17E → 0x7E
+        // BMS board 1 : byte[1] = 0x3F+1 = 0x40, data = 0x00
+        // checksum = 0xA5 + 0x40 + 0x90 + 0x08 = 0x17D → 0x7D
         let frame = RequestFrame::read(0x01, DataId::PackStatus);
         assert_eq!(frame.bytes[0], START_FLAG);
-        assert_eq!(frame.bytes[1], PC_ADDRESS); // 0x40
+        assert_eq!(frame.bytes[1], 0x40);   // pc_address_for(1) = 0x40
         assert_eq!(frame.bytes[2], 0x90);
         assert_eq!(frame.bytes[3], DATA_LEN);
-        assert_eq!(frame.bytes[4], 0x01);       // data[0] = adresse BMS
-        assert_eq!(frame.bytes[12], 0x7E);
+        assert_eq!(frame.bytes[4], 0x00);   // data[0] réservé = 0x00
+        assert_eq!(frame.bytes[12], 0x7D);
 
-        // BMS 0x02 : checksum = 0xA5 + 0x40 + 0x90 + 0x08 + 0x02 = 0x17F → 0x7F
+        // BMS board 2 : byte[1] = 0x3F+2 = 0x41, data = 0x00
+        // checksum = 0xA5 + 0x41 + 0x90 + 0x08 = 0x17E → 0x7E
         let frame2 = RequestFrame::read(0x02, DataId::PackStatus);
-        assert_eq!(frame2.bytes[4], 0x02);      // data[0] = adresse BMS
-        assert_eq!(frame2.bytes[12], 0x7F);
+        assert_eq!(frame2.bytes[1], 0x41);  // pc_address_for(2) = 0x41
+        assert_eq!(frame2.bytes[4], 0x00);  // data[0] réservé = 0x00
+        assert_eq!(frame2.bytes[12], 0x7E);
+    }
+
+    #[test]
+    fn test_pc_address_for() {
+        assert_eq!(pc_address_for(1), 0x40);
+        assert_eq!(pc_address_for(2), 0x41);
+        assert_eq!(pc_address_for(3), 0x42);
     }
 }
