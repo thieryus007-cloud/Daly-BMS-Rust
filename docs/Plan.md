@@ -1,7 +1,7 @@
 # Plan d'Implémentation — DalyBMS Rust Edition
 
-**Version** : 2.0
-**Date** : 14 Mars 2026
+**Version** : 2.1
+**Date** : 15 Mars 2026
 **Référence Python** : [thieryus007-cloud/Daly-BMS](https://github.com/thieryus007-cloud/Daly-BMS)
 **Dépôt Rust** : [thieryus007-cloud/Daly-BMS-Rust](https://github.com/thieryus007-cloud/Daly-BMS-Rust)
 
@@ -287,7 +287,36 @@ make ps     # vérifier
 
 ---
 
-### Phase 2 — Validation port série (PROCHAINE ÉTAPE)
+### Phase 1.5 — Intégration Venus OS / NanoPi ✅ COMPLÉTÉ (15 mars 2026)
+
+#### Architecture validée en production
+
+- **Flux confirmé** : MQTT → `dbus-mqtt-battery` → D-Bus Venus OS
+- **Service CAN stoppé** : `svc -d /service/dbus-canbattery.can0` (récupère ~60 MB RAM + 6% CPU)
+- **publish_interval_sec** réduit de 5s → **1s** pour rafraîchissement temps réel
+
+#### État ressources NanoPi Cerbo GX (512 MB RAM)
+
+| Process | RAM | CPU |
+|---|---|---|
+| node-red | ~229 MB | ~4% |
+| gui (VNC) | ~164 MB | ~6% |
+| dbus-modbus-client | ~91 MB | 0% |
+| dbus-canbattery.can0 | stoppé | — |
+| dbus-mqtt-battery x2 | ~84 MB | ~2% |
+
+RAM disponible : ~77 MB. Le binary Rust (~10 MB) remplacera plusieurs scripts Python.
+
+#### Compatibilité Raspberry Pi 5 Compute Module
+
+- Architecture ARM64 (aarch64) identique → **binaire directement compatible**
+- Seul `Config.toml` à adapter (port série, IP MQTT)
+- Service manager différent : `systemd` sur RPi5 vs `runit/s6` sur Cerbo GX
+- Compilation native : `cargo build --release` sur le RPi5
+
+---
+
+### Phase 2 — Validation port série (PROCHAINE ÉTAPE — RPi5)
 
 **Durée estimée** : 3–5 jours | **Prérequis** : Matériel BMS physique
 
@@ -589,4 +618,4 @@ curl http://localhost:8000/api/v1/system/status | jq
 
 ---
 
-*Document mis à jour le 14 mars 2026 — Version 2.0*
+*Document mis à jour le 15 mars 2026 — Version 2.1*
