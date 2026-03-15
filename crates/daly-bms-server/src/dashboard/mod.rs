@@ -87,43 +87,114 @@ fn parse_addr(s: &str) -> Option<u8> {
 // Structures de données pour les templates
 // =============================================================================
 
+/// Résumé d'une cellule individuelle pour la page d'accueil.
+#[derive(Debug, Clone)]
+pub struct CellInfo {
+    pub num:    u16,
+    pub v:      f32,
+    pub is_min: bool,
+    pub is_max: bool,
+    pub is_bal: bool,
+}
+
 /// Résumé d'un BMS pour la carte de la page d'accueil.
 #[derive(Debug, Clone)]
 pub struct BmsSummary {
-    pub address:        u8,
-    pub address_hex:    String,   // "0x01"
-    pub soc:            f32,
-    pub voltage:        f32,
-    pub current:        f32,
-    pub power:          f32,
-    pub temp_max:       f32,
-    pub cell_delta_mv:  f32,
-    pub capacity_ah:    f32,
-    pub any_alarm:      bool,
-    pub charge_ok:      bool,
-    pub discharge_ok:   bool,
-    pub last_update:    String,   // "HH:MM:SS"
-    pub soc_gauge_json: String,   // option ECharts (JSON brut)
+    pub address:               u8,
+    pub address_hex:           String,   // "0x01"
+    pub soc:                   f32,
+    pub voltage:               f32,
+    pub current:               f32,
+    pub power:                 f32,
+    pub temp_max:              f32,
+    pub temp_min:              f32,
+    pub cell_delta_mv:         f32,
+    pub capacity_ah:           f32,
+    pub installed_capacity:    f32,
+    pub any_alarm:             bool,
+    pub charge_ok:             bool,
+    pub discharge_ok:          bool,
+    pub last_update:           String,   // "HH:MM:SS"
+    // Carte enrichie Node-RED style
+    pub name:                  String,   // "BMS 320Ah"
+    pub can_id:                String,   // "CAN02"
+    pub cell_count:            u8,
+    pub cells:                 Vec<CellInfo>,
+    pub min_cell_id:           String,   // "C3"
+    pub max_cell_id:           String,   // "C12"
+    pub min_cell_v:            f32,
+    pub max_cell_v:            f32,
+    pub cycles:                u32,
+    pub max_charge_current:    f32,
+    pub max_discharge_current: f32,
+    // Alarmes individuelles
+    pub alarm_high_voltage:    bool,
+    pub alarm_low_voltage:     bool,
+    pub alarm_high_temp:       bool,
+    pub alarm_imbalance:       bool,
+    pub alarm_low_soc:         bool,
 }
 
 impl BmsSummary {
     fn from_snapshot(snap: &BmsSnapshot) -> Self {
         let delta = (snap.system.max_cell_voltage - snap.system.min_cell_voltage) * 1000.0;
+
+        // Nom de la carte : depuis BmsConfig (via snap.name), sinon fallback capacité
+        let name = if !snap.name.is_empty() {
+            snap.name.clone()
+        } else if snap.installed_capacity > 0.1 {
+            format!("BMS-{:.0}Ah", snap.installed_capacity)
+        } else {
+            format!("BMS-{:#04x}", snap.address)
+        };
+
+        // Cellules triées numériquement avec flags MIN/MAX/balance
+        let mut sorted: Vec<(&String, &f32)> = snap.voltages.iter().collect();
+        sorted.sort_by_key(|(k, _)| k.trim_start_matches("Cell").parse::<u16>().unwrap_or(0));
+        let cells: Vec<CellInfo> = sorted.iter().map(|&(k, &v)| {
+            let num   = k.trim_start_matches("Cell").parse::<u16>().unwrap_or(0);
+            let short = format!("C{}", num);
+            CellInfo {
+                num,
+                v,
+                is_min: short == snap.system.min_voltage_cell_id,
+                is_max: short == snap.system.max_voltage_cell_id,
+                is_bal: snap.balances.get(k).copied().unwrap_or(0) != 0,
+            }
+        }).collect();
+
         Self {
-            address:        snap.address,
-            address_hex:    format!("{:#04x}", snap.address),
-            soc:            snap.soc,
-            voltage:        snap.dc.voltage,
-            current:        snap.dc.current,
-            power:          snap.dc.power,
-            temp_max:       snap.system.max_cell_temperature,
-            cell_delta_mv:  delta,
-            capacity_ah:    snap.capacity,
-            any_alarm:      snap.alarms.any_active(),
-            charge_ok:      snap.io.allow_to_charge  != 0,
-            discharge_ok:   snap.io.allow_to_discharge != 0,
-            last_update:    snap.timestamp.format("%H:%M:%S").to_string(),
-            soc_gauge_json: charts::soc_gauge(snap.soc, "mini"),
+            address:               snap.address,
+            address_hex:           format!("{:#04x}", snap.address),
+            soc:                   snap.soc,
+            voltage:               snap.dc.voltage,
+            current:               snap.dc.current,
+            power:                 snap.dc.power,
+            temp_max:              snap.system.max_cell_temperature,
+            temp_min:              snap.system.min_cell_temperature,
+            cell_delta_mv:         delta,
+            capacity_ah:           snap.capacity,
+            installed_capacity:    snap.installed_capacity,
+            any_alarm:             snap.alarms.any_active(),
+            charge_ok:             snap.io.allow_to_charge     != 0,
+            discharge_ok:          snap.io.allow_to_discharge  != 0,
+            last_update:           snap.timestamp.format("%H:%M:%S").to_string(),
+            name,
+            can_id:                format!("RS485-{}", snap.address),
+            cell_count:            snap.system.nr_of_cells_per_battery,
+            cells,
+            min_cell_id:           snap.system.min_voltage_cell_id.clone(),
+            max_cell_id:           snap.system.max_voltage_cell_id.clone(),
+            min_cell_v:            snap.system.min_cell_voltage,
+            max_cell_v:            snap.system.max_cell_voltage,
+            cycles:                snap.history.charge_cycles,
+            max_charge_current:    snap.info.max_charge_current,
+            max_discharge_current: snap.info.max_discharge_current,
+            alarm_high_voltage:    snap.alarms.high_voltage    != 0,
+            alarm_low_voltage:     snap.alarms.low_voltage     != 0,
+            alarm_high_temp:       snap.alarms.high_temperature != 0,
+            alarm_imbalance:       snap.alarms.cell_imbalance  != 0,
+            alarm_low_soc:         snap.alarms.low_soc         != 0,
         }
     }
 }

@@ -284,6 +284,10 @@ pub struct BmsConfig {
     pub cell_count: u8,
     pub temp_sensor_count: u8,
     pub installed_capacity_ah: f32,
+    /// Courant de charge maximal configuré (A) ; 0 = inconnu
+    pub max_charge_current_a: f32,
+    /// Courant de décharge maximal configuré (A) ; 0 = inconnu
+    pub max_discharge_current_a: f32,
 }
 
 impl BmsConfig {
@@ -294,6 +298,8 @@ impl BmsConfig {
             cell_count: 16,
             temp_sensor_count: 4,
             installed_capacity_ah: 100.0,
+            max_charge_current_a: 0.0,
+            max_discharge_current_a: 0.0,
         }
     }
 }

@@ -24,6 +24,10 @@ pub struct BmsSnapshot {
     /// Adresse RS485 du BMS (0x01–0xFF)
     pub address: BmsAddress,
 
+    /// Nom personnalisé du BMS (ex : "BMS-360Ah")
+    #[serde(rename = "Name")]
+    pub name: String,
+
     /// Timestamp UTC du snapshot
     pub timestamp: DateTime<Utc>,
 

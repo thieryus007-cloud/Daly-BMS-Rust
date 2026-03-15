@@ -107,6 +107,7 @@ async fn main() -> anyhow::Result<()> {
                 influxdb:  config::InfluxConfig::default(),
                 alerts:    config::AlertsConfig::default(),
                 read_only: config::ReadOnlyConfig::default(),
+                bms:       Vec::new(),
             }
         }
     };
@@ -236,6 +237,15 @@ async fn main() -> anyhow::Result<()> {
                                 let mut bms = BmsConfig::new(addr);
                                 bms.cell_count        = config.serial.default_cell_count;
                                 bms.temp_sensor_count = config.serial.default_temp_sensors;
+                                // Surcharges depuis [[bms]] si présentes
+                                if let Some(dev_cfg) = config.bms.iter()
+                                    .find(|b| b.parsed_address() == Some(addr))
+                                {
+                                    if let Some(n)  = &dev_cfg.name           { bms.name = n.clone(); }
+                                    if let Some(c)  = dev_cfg.capacity_ah      { bms.installed_capacity_ah    = c; }
+                                    if let Some(mc) = dev_cfg.max_charge_a     { bms.max_charge_current_a    = mc; }
+                                    if let Some(md) = dev_cfg.max_discharge_a  { bms.max_discharge_current_a = md; }
+                                }
                                 bms
                             })
                             .collect();

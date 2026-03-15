@@ -206,6 +206,7 @@ impl SimBmsState {
 
         BmsSnapshot {
             address:            self.address,
+            name:               format!("BMS-{:.0}Ah", self.installed_ah),
             timestamp:          Utc::now(),
             dc: DcData {
                 power,
