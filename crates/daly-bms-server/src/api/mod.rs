@@ -5,6 +5,7 @@
 pub mod system;
 pub mod bms;
 
+use crate::dashboard;
 use crate::state::AppState;
 use axum::{
     Router,
@@ -21,6 +22,9 @@ pub fn build_router(state: AppState) -> Router {
         .allow_headers(Any);
 
     Router::new()
+        // ── Dashboard HTML ────────────────────────────────────────────────────
+        .merge(dashboard::build_dashboard_router())
+
         // ── Système ─────────────────────────────────────────────────────────
         .route("/api/v1/system/status",  get(system::get_status))
         .route("/api/v1/config",         get(system::get_config))

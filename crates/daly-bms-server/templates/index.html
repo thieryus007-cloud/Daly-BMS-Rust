@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}Vue d'ensemble — DalyBMS{% endblock %}
+
+{% block content %}
+
+{# ─── Barre d'info ───────────────────────────────────────────────────────── #}
+<div class="info-bar">
+  <div style="display:flex;align-items:center;gap:0.5rem;">
+    <div class="dot {% if polling %}active{% else %}{% endif %}"></div>
+    {% if polling %}
+      <strong>Polling actif</strong>
+    {% else %}
+      <span style="color:var(--muted)">Polling arrêté</span>
+    {% endif %}
+  </div>
+  <div><strong>{{ bms_count }}</strong> BMS détecté{{ bms_count|pluralize }}</div>
+  <div style="margin-left:auto;font-size:0.7rem;color:var(--muted)" id="last-refresh">
+    Dernière maj : <span id="refresh-ts">—</span>
+  </div>
+</div>
+
+{# ─── Grille de cartes BMS ──────────────────────────────────────────────── #}
+{% if bms_count == 0 %}
+<div class="card" style="text-align:center;padding:3rem;color:var(--muted)">
+  <div style="font-size:2.5rem;margin-bottom:1rem">🔌</div>
+  <div style="font-size:1rem;margin-bottom:0.5rem">Aucun BMS détecté</div>
+  <div style="font-size:0.8rem">Démarrez le serveur avec <code>--simulate</code> pour tester,<br>
+  ou vérifiez le câblage RS485.</div>
+</div>
+{% else %}
+<div class="bms-grid" id="bms-grid">
+{% for bms in bms_list %}
+  <div class="bms-card {% if bms.any_alarm %}alarm{% endif %}" data-addr="{{ bms.address }}">
+
+    {# En-tête : adresse + horodatage #}
+    <div class="bms-card-header">
+      <span class="bms-addr">BMS {{ bms.address_hex }}</span>
+      <span class="bms-time" id="ts-{{ bms.address }}">{{ bms.last_update }}</span>
+    </div>
+
+    {# Corps : jauge SOC + stats #}
+    <div class="bms-body">
+      <div class="gauge-wrap" id="gauge-{{ bms.address }}"></div>
+
+      <div class="stats-grid">
+        <div class="stat">
+          <span class="stat-label">Tension</span>
+          <span class="stat-value" id="v-{{ bms.address }}">{{ bms.voltage|f1 }} V</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Courant</span>
+          <span class="stat-value {% if bms.current > 0.0 %}pos{% else if bms.current < -0.1 %}neg{% endif %}"
+                id="i-{{ bms.address }}">{{ bms.current|sign }} A</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Puissance</span>
+          <span class="stat-value" id="p-{{ bms.address }}">{{ bms.power|f0 }} W</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Temp. max</span>
+          <span class="stat-value {% if bms.temp_max > 45.0 %}err{% else if bms.temp_max > 35.0 %}warn{% endif %}"
+                id="t-{{ bms.address }}">{{ bms.temp_max|f1 }} °C</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Δ cellules</span>
+          <span class="stat-value {% if bms.cell_delta_mv > 100.0 %}err{% else if bms.cell_delta_mv > 50.0 %}warn{% endif %}"
+                id="d-{{ bms.address }}">{{ bms.cell_delta_mv|mv }} mV</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Restant</span>
+          <span class="stat-value" id="c-{{ bms.address }}">{{ bms.capacity_ah|f1 }} Ah</span>
+        </div>
+      </div>
+    </div>
+
+    {# Pied : badges MOS + lien détail #}
+    <div class="bms-footer">
+      <div class="mos-badges">
+        {% if bms.charge_ok %}
+          <span class="badge ok">CHG ✓</span>
+        {% else %}
+          <span class="badge off">CHG ✗</span>
+        {% endif %}
+        {% if bms.discharge_ok %}
+          <span class="badge ok">DCH ✓</span>
+        {% else %}
+          <span class="badge off">DCH ✗</span>
+        {% endif %}
+        {% if bms.any_alarm %}
+          <span class="badge alarm">⚠ ALARME</span>
+        {% endif %}
+      </div>
+      <a href="/dashboard/bms/{{ bms.address }}" class="link-detail">Détail →</a>
+    </div>
+
+    {# JSON option ECharts (caché, lu par JS) #}
+    <script type="application/json" id="opt-{{ bms.address }}">{{ bms.soc_gauge_json|safe }}</script>
+
+  </div>
+{% endfor %}
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ─── Initialisation des jauges ECharts ───────────────────────────────────────
+const _gauges = {};   // addr → echarts instance
+
+document.querySelectorAll('.bms-card[data-addr]').forEach(function(card) {
+  const addr = parseInt(card.dataset.addr, 10);
+  const dom  = document.getElementById('gauge-' + addr);
+  const opt  = document.getElementById('opt-'   + addr);
+  if (!dom || !opt) return;
+
+  const chart = echarts.init(dom, null, { renderer: 'svg' });
+  chart.setOption(JSON.parse(opt.textContent));
+  _gauges[addr] = chart;
+});
+
+// ─── Mise à jour temps-réel via WebSocket ────────────────────────────────────
+window.onBmsUpdate = function(snaps) {
+  const now = new Date().toLocaleTimeString();
+  const tsEl = document.getElementById('refresh-ts');
+  if (tsEl) tsEl.textContent = now;
+
+  snaps.forEach(function(s) {
+    const a = s.address;
+
+    // Jauge SOC
+    const g = _gauges[a];
+    if (g) g.setOption({ series: [{ data: [{ value: s.Soc, name: 'SOC' }] }] });
+
+    // Helpers de mise à jour DOM
+    function set(id, txt) {
+      const el = document.getElementById(id + '-' + a);
+      if (el) el.textContent = txt;
+    }
+    function fmt1(n) { return n.toFixed(1); }
+    function fmt0(n) { return n.toFixed(0); }
+
+    set('v',  fmt1(s.Dc.Voltage) + ' V');
+    set('i',  (s.Dc.Current >= 0 ? '+' : '') + fmt1(s.Dc.Current) + ' A');
+    set('p',  fmt0(s.Dc.Power)   + ' W');
+    set('t',  fmt1(s.System.MaxCellTemperature) + ' °C');
+
+    const delta = (s.System.MaxCellVoltage - s.System.MinCellVoltage) * 1000;
+    set('d',  fmt0(delta) + ' mV');
+    set('c',  fmt1(s.Capacity) + ' Ah');
+
+    // Horodatage
+    const tsEl2 = document.getElementById('ts-' + a);
+    if (tsEl2) {
+      const d = new Date(s.timestamp);
+      tsEl2.textContent = isNaN(d) ? '—' : d.toLocaleTimeString();
+    }
+
+    // Couleur courant
+    const iEl = document.getElementById('i-' + a);
+    if (iEl) {
+      iEl.className = 'stat-value ' + (s.Dc.Current > 0.1 ? 'pos' : s.Dc.Current < -0.1 ? 'neg' : '');
+    }
+
+    // Alarme : bordure rouge sur la carte
+    const card = document.querySelector('.bms-card[data-addr="' + a + '"]');
+    if (card) {
+      const hasAlarm = s.Alarms && Object.values(s.Alarms).some(v => v !== 0);
+      card.classList.toggle('alarm', hasAlarm);
+    }
+  });
+};
+</script>
+{% endblock %}

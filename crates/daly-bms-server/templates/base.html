@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}DalyBMS{% endblock %}</title>
+  <style>
+    /* ─── Variables ───────────────────────────────────────────────────── */
+    :root {
+      --bg:       #0d1117;
+      --surface:  #161b22;
+      --surface2: #21262d;
+      --border:   #30363d;
+      --text:     #e6edf3;
+      --muted:    #8b949e;
+      --accent:   #58a6ff;
+      --green:    #3fb950;
+      --yellow:   #d29922;
+      --orange:   #fb8500;
+      --red:      #f85149;
+      --radius:   8px;
+      --shadow:   0 4px 16px rgba(0,0,0,0.4);
+    }
+
+    /* ─── Reset & Base ────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 14px; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ─── Nav ─────────────────────────────────────────────────────────── */
+    .nav {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      padding: 0.75rem 1.5rem;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-brand {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      letter-spacing: -0.3px;
+    }
+    .nav-brand span { color: var(--accent); }
+    .nav-links { display: flex; gap: 1rem; flex: 1; }
+    .nav-links a {
+      color: var(--muted);
+      font-size: 0.875rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .nav-links a:hover, .nav-links a.active {
+      color: var(--text);
+      background: var(--surface2);
+      text-decoration: none;
+    }
+    .nav-status {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+    }
+    .dot.active { background: var(--green); animation: pulse 2s infinite; }
+    .dot.alarm  { background: var(--red);   animation: pulse 1s infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+
+    /* ─── Main ────────────────────────────────────────────────────────── */
+    main {
+      flex: 1;
+      padding: 1.5rem;
+      max-width: 1600px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    /* ─── Cards ───────────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      box-shadow: var(--shadow);
+    }
+    .card-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+
+    /* ─── Grille BMS (overview) ───────────────────────────────────────── */
+    .bms-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 1rem;
+    }
+
+    /* ─── Carte BMS ───────────────────────────────────────────────────── */
+    .bms-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      box-shadow: var(--shadow);
+      transition: border-color 0.2s;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .bms-card:hover { border-color: var(--accent); }
+    .bms-card.alarm { border-color: var(--red); }
+
+    .bms-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .bms-addr {
+      font-size: 1rem;
+      font-weight: 700;
+      font-family: monospace;
+      color: var(--accent);
+    }
+    .bms-time {
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+
+    /* ─── Layout gauge + stats ────────────────────────────────────────── */
+    .bms-body {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 0.75rem;
+      align-items: center;
+    }
+    .gauge-wrap { height: 130px; }
+
+    /* ─── Stats horizontaux ───────────────────────────────────────────── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.4rem 0.75rem;
+    }
+    .stat { display: flex; flex-direction: column; }
+    .stat-label { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; }
+    .stat-value { font-size: 0.95rem; font-weight: 600; font-family: monospace; }
+    .stat-value.pos { color: var(--green); }
+    .stat-value.neg { color: var(--accent); }
+    .stat-value.warn{ color: var(--yellow); }
+    .stat-value.err { color: var(--red); }
+
+    /* ─── Badges ──────────────────────────────────────────────────────── */
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+    }
+    .badge.ok     { background: rgba(63,185,80,0.15);  color: var(--green); }
+    .badge.warn   { background: rgba(210,153,34,0.15); color: var(--yellow); }
+    .badge.alarm  { background: rgba(248,81,73,0.2);   color: var(--red); }
+    .badge.off    { background: rgba(139,148,158,0.15); color: var(--muted); }
+
+    .bms-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+    .mos-badges { display: flex; gap: 0.35rem; }
+    .link-detail {
+      font-size: 0.75rem;
+      color: var(--accent);
+      padding: 0.25rem 0.75rem;
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+      transition: background 0.15s;
+    }
+    .link-detail:hover { background: rgba(88,166,255,0.1); text-decoration: none; }
+
+    /* ─── Page Détail ─────────────────────────────────────────────────── */
+    .detail-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+    .detail-header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      font-family: monospace;
+    }
+    .back-link {
+      font-size: 0.8rem;
+      color: var(--muted);
+      padding: 0.3rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+    }
+    .back-link:hover { color: var(--text); text-decoration: none; background: var(--surface2); }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .detail-gauge { height: 200px; }
+
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 0.75rem;
+    }
+    .kpi {
+      background: var(--surface2);
+      border-radius: var(--radius);
+      padding: 0.75rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+    .kpi-label { font-size: 0.65rem; text-transform: uppercase; color: var(--muted); }
+    .kpi-value {
+      font-size: 1.25rem;
+      font-weight: 700;
+      font-family: monospace;
+    }
+    .kpi-value.green  { color: var(--green); }
+    .kpi-value.blue   { color: var(--accent); }
+    .kpi-value.yellow { color: var(--yellow); }
+    .kpi-value.red    { color: var(--red); }
+    .kpi-value.orange { color: var(--orange); }
+
+    /* ─── Charts ──────────────────────────────────────────────────────── */
+    .chart-section { margin-bottom: 1rem; }
+    .chart-section h3 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+      padding-left: 0.25rem;
+    }
+    .chart-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .chart-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    /* ─── Tableau alarmes ─────────────────────────────────────────────── */
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    thead th {
+      text-align: left;
+      padding: 0.5rem 0.75rem;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+    }
+    tbody td { padding: 0.45rem 0.75rem; border-bottom: 1px solid var(--surface2); }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: var(--surface2); }
+
+    /* ─── Info-bar accueil ────────────────────────────────────────────── */
+    .info-bar {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      margin-bottom: 1.25rem;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+    .info-bar strong { color: var(--text); }
+
+    /* ─── Footer ──────────────────────────────────────────────────────── */
+    footer {
+      padding: 0.75rem 1.5rem;
+      text-align: center;
+      font-size: 0.7rem;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+    }
+
+    /* ─── Responsive ──────────────────────────────────────────────────── */
+    @media (max-width: 680px) {
+      main { padding: 0.75rem; }
+      .bms-grid { grid-template-columns: 1fr; }
+      .detail-grid { grid-template-columns: 1fr; }
+      .chart-row { grid-template-columns: 1fr; }
+      .kpi-row { grid-template-columns: repeat(2, 1fr); }
+      .bms-body { grid-template-columns: 120px 1fr; }
+      .gauge-wrap { height: 110px; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-brand">⚡ Daly<span>BMS</span></div>
+  <div class="nav-links">
+    <a href="/dashboard">Vue d'ensemble</a>
+    <a href="/api/v1/system/status" target="_blank">API</a>
+  </div>
+  <div class="nav-status" id="ws-status">
+    <div class="dot" id="ws-dot"></div>
+    <span id="ws-label">Connexion…</span>
+  </div>
+</nav>
+
+<main>
+  {% block content %}{% endblock %}
+</main>
+
+<footer>
+  DalyBMS Rust Edition &nbsp;·&nbsp;
+  <a href="/api/v1/system/status">API status</a> &nbsp;·&nbsp;
+  <a href="/ws/bms/stream">WebSocket</a>
+</footer>
+
+<!-- Apache ECharts 5.5 (CDN — remplacer par /static/echarts.min.js pour usage hors-ligne) -->
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+
+<script>
+// ─── Client WebSocket temps réel ───────────────────────────────────────────
+(function() {
+  const dot   = document.getElementById('ws-dot');
+  const label = document.getElementById('ws-label');
+
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const url   = `${proto}://${location.host}/ws/bms/stream`;
+
+  let ws, retryDelay = 2000;
+
+  function connect() {
+    ws = new WebSocket(url);
+
+    ws.onopen = () => {
+      dot.className   = 'dot active';
+      label.textContent = 'Connecté';
+      retryDelay = 2000;
+    };
+
+    ws.onmessage = (ev) => {
+      let snaps;
+      try { snaps = JSON.parse(ev.data); } catch { return; }
+      if (!Array.isArray(snaps)) return;
+      // Dispatcher aux handlers de la page courante
+      if (typeof window.onBmsUpdate === 'function') window.onBmsUpdate(snaps);
+    };
+
+    ws.onclose = () => {
+      dot.className   = 'dot';
+      label.textContent = `Reconnexion dans ${retryDelay/1000}s…`;
+      setTimeout(connect, retryDelay);
+      retryDelay = Math.min(retryDelay * 2, 30000);
+    };
+
+    ws.onerror = () => ws.close();
+  }
+
+  connect();
+})();
+</script>
+
+{% block scripts %}{% endblock %}
+
+</body>
+</html>

@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+
+{% block title %}BMS {{ detail.summary.address_hex }} — DalyBMS{% endblock %}
+
+{% block content %}
+
+{# ─── En-tête ─────────────────────────────────────────────────────────────── #}
+<div class="detail-header">
+  <a href="/dashboard" class="back-link">← Retour</a>
+  <h1>BMS {{ detail.summary.address_hex }}</h1>
+  <span class="badge {% if detail.summary.any_alarm %}alarm{% else %}ok{% endif %}" style="font-size:0.85rem">
+    {% if detail.summary.any_alarm %}⚠ ALARME{% else %}✓ Normal{% endif %}
+  </span>
+  <span style="margin-left:auto;font-size:0.75rem;color:var(--muted)">
+    Dernier snapshot : <span id="last-ts">{{ detail.summary.last_update }}</span>
+  </span>
+</div>
+
+{# ─── Ligne 1 : jauge SOC + KPIs ─────────────────────────────────────────── #}
+<div class="detail-grid" style="margin-bottom:1rem">
+
+  {# Jauge #}
+  <div class="card" style="display:flex;align-items:center;justify-content:center;">
+    <div class="detail-gauge" id="soc-gauge" style="width:200px;height:200px"></div>
+  </div>
+
+  {# KPIs #}
+  <div style="display:flex;flex-direction:column;gap:0.75rem">
+    <div class="kpi-row">
+      <div class="kpi">
+        <span class="kpi-label">Tension pack</span>
+        <span class="kpi-value blue" id="kpi-v">{{ detail.summary.voltage|f1 }} V</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">Courant</span>
+        <span class="kpi-value {% if detail.summary.current > 0.0 %}green{% else if detail.summary.current < -0.1 %}blue{% endif %}"
+              id="kpi-i">{{ detail.summary.current|sign }} A</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">Puissance</span>
+        <span class="kpi-value" id="kpi-p">{{ detail.summary.power|f0 }} W</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">Temp. max</span>
+        <span class="kpi-value {% if detail.summary.temp_max > 45.0 %}red{% else if detail.summary.temp_max > 35.0 %}yellow{% endif %}"
+              id="kpi-t">{{ detail.summary.temp_max|f1 }} °C</span>
+      </div>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi">
+        <span class="kpi-label">SOC</span>
+        <span class="kpi-value {% if detail.summary.soc < 15.0 %}red{% else if detail.summary.soc < 25.0 %}orange{% else if detail.summary.soc < 40.0 %}yellow{% else %}green{% endif %}"
+              id="kpi-soc">{{ detail.summary.soc|f1 }} %</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">SOH</span>
+        <span class="kpi-value {% if detail.soh < 70.0 %}red{% else if detail.soh < 85.0 %}yellow{% else %}green{% endif %}">
+          {{ detail.soh|f1 }} %</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">Δ cellules</span>
+        <span class="kpi-value {% if detail.summary.cell_delta_mv > 100.0 %}red{% else if detail.summary.cell_delta_mv > 50.0 %}yellow{% endif %}"
+              id="kpi-d">{{ detail.summary.cell_delta_mv|mv }} mV</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">Restant</span>
+        <span class="kpi-value" id="kpi-c">{{ detail.summary.capacity_ah|f1 }} Ah</span>
+      </div>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi">
+        <span class="kpi-label">Cycles</span>
+        <span class="kpi-value">{{ detail.cycles }}</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">Autonomie</span>
+        <span class="kpi-value" id="kpi-ttg">
+          {% if detail.time_to_go_h > 0.0 %}{{ detail.time_to_go_h|f1 }} h{% else %}—{% endif %}
+        </span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">Cellules</span>
+        <span class="kpi-value">{{ detail.cell_count }}</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">MOS CHG/DCH</span>
+        <span class="kpi-value" style="font-size:0.9rem">
+          {% if detail.summary.charge_ok %}<span style="color:var(--green)">C✓</span>{% else %}<span style="color:var(--red)">C✗</span>{% endif %}
+          &nbsp;
+          {% if detail.summary.discharge_ok %}<span style="color:var(--green)">D✓</span>{% else %}<span style="color:var(--red)">D✗</span>{% endif %}
+        </span>
+      </div>
+    </div>
+
+    {# Min/Max cellules #}
+    <div style="display:flex;gap:0.75rem;font-size:0.8rem;color:var(--muted);padding:0 0.25rem">
+      <span>Min : <strong style="color:var(--text)">{{ detail.min_cell_id }}</strong> = <span id="kpi-vmin">{{ detail.min_cell_v|f3 }}</span> V</span>
+      <span>Max : <strong style="color:var(--text)">{{ detail.max_cell_id }}</strong> = <span id="kpi-vmax">{{ detail.max_cell_v|f3 }}</span> V</span>
+    </div>
+  </div>
+</div>
+
+{# ─── Tensions des cellules ───────────────────────────────────────────────── #}
+<div class="chart-section">
+  <h3>Tensions cellules</h3>
+  <div class="chart-box">
+    <div id="chart-cells" style="height:220px"></div>
+  </div>
+</div>
+
+{# ─── Historique SOC + Courant (2 colonnes) ──────────────────────────────── #}
+<div class="chart-row">
+  <div class="chart-section" style="margin-bottom:0">
+    <h3>Historique SOC</h3>
+    <div class="chart-box">
+      <div id="chart-soc" style="height:200px"></div>
+    </div>
+  </div>
+  <div class="chart-section" style="margin-bottom:0">
+    <h3>Historique Courant</h3>
+    <div class="chart-box">
+      <div id="chart-cur" style="height:200px"></div>
+    </div>
+  </div>
+</div>
+
+{# ─── Tension + Température ───────────────────────────────────────────────── #}
+<div class="chart-section">
+  <h3>Tension &amp; Température (historique)</h3>
+  <div class="chart-box">
+    <div id="chart-vt" style="height:220px"></div>
+  </div>
+</div>
+
+{# ─── Tableau des alarmes ─────────────────────────────────────────────────── #}
+<div class="card chart-section">
+  <div class="card-title">État des alarmes</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Alarme</th>
+        <th style="text-align:center">État</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for alarm in detail.alarms %}
+      <tr>
+        <td>{{ alarm.name }}</td>
+        <td style="text-align:center">
+          {% if alarm.active %}
+            <span class="badge alarm">⚠ ACTIF</span>
+          {% else %}
+            <span class="badge ok">OK</span>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{# JSON ECharts (cachés) #}
+<script type="application/json" id="opt-gauge">{{ detail.soc_gauge_json|safe }}</script>
+<script type="application/json" id="opt-cells">{{ detail.cells_bar_json|safe }}</script>
+<script type="application/json" id="opt-soc">{{ detail.soc_history_json|safe }}</script>
+<script type="application/json" id="opt-cur">{{ detail.current_history_json|safe }}</script>
+<script type="application/json" id="opt-vt">{{ detail.volt_temp_json|safe }}</script>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  const BMS_ADDR = {{ detail.summary.address }};
+
+  // ─── Initialisation des 5 graphiques ──────────────────────────────────────
+  function initChart(domId, optId) {
+    const dom = document.getElementById(domId);
+    const opt = document.getElementById(optId);
+    if (!dom || !opt) return null;
+    const c = echarts.init(dom, null, { renderer: 'svg' });
+    c.setOption(JSON.parse(opt.textContent));
+    return c;
+  }
+
+  const cGauge = initChart('soc-gauge', 'opt-gauge');
+  const cCells = initChart('chart-cells','opt-cells');
+  const cSoc   = initChart('chart-soc',  'opt-soc');
+  const cCur   = initChart('chart-cur',  'opt-cur');
+  const cVT    = initChart('chart-vt',   'opt-vt');
+
+  // ─── Resize automatique ────────────────────────────────────────────────────
+  window.addEventListener('resize', function() {
+    [cGauge, cCells, cSoc, cCur, cVT].forEach(function(c) { if (c) c.resize(); });
+  });
+
+  // ─── Helpers ───────────────────────────────────────────────────────────────
+  function set(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  }
+  function fmt1(n) { return (+n).toFixed(1); }
+  function fmt0(n) { return (+n).toFixed(0); }
+  function fmt3(n) { return (+n).toFixed(3); }
+
+  // ─── Mise à jour en temps-réel (WebSocket) ─────────────────────────────────
+  window.onBmsUpdate = function(snaps) {
+    const s = snaps.find(function(x) { return x.address === BMS_ADDR; });
+    if (!s) return;
+
+    // Jauge SOC
+    if (cGauge) cGauge.setOption({ series: [{ data: [{ value: s.Soc, name: 'SOC' }] }] });
+
+    // KPIs texte
+    set('kpi-v',   fmt1(s.Dc.Voltage)  + ' V');
+    set('kpi-i',   (s.Dc.Current >= 0 ? '+' : '') + fmt1(s.Dc.Current) + ' A');
+    set('kpi-p',   fmt0(s.Dc.Power)    + ' W');
+    set('kpi-t',   fmt1(s.System.MaxCellTemperature) + ' °C');
+    set('kpi-soc', fmt1(s.Soc) + ' %');
+    set('kpi-c',   fmt1(s.Capacity) + ' Ah');
+
+    const delta = (s.System.MaxCellVoltage - s.System.MinCellVoltage) * 1000;
+    set('kpi-d', fmt0(delta) + ' mV');
+    set('kpi-vmin', fmt3(s.System.MinCellVoltage));
+    set('kpi-vmax', fmt3(s.System.MaxCellVoltage));
+
+    // Horodatage
+    const d = new Date(s.timestamp);
+    set('last-ts', isNaN(d) ? '—' : d.toLocaleTimeString());
+
+    // Bar chart cellules (mise à jour directe des valeurs)
+    if (cCells && s.Voltages) {
+      const entries = Object.entries(s.Voltages).sort(function(a, b) {
+        return parseInt(a[0].replace(/\D/g,'')) - parseInt(b[0].replace(/\D/g,''));
+      });
+      const labels = entries.map(function(e) { return '"C' + e[0].replace(/\D/g,'') + '"'; });
+      const values = entries.map(function(e) { return +e[1]; });
+      cCells.setOption({
+        xAxis: { data: labels.map(function(l) { return l.replace(/"/g,''); }) },
+        series: [{ data: values }]
+      });
+    }
+  };
+
+  // ─── Rafraîchissement de l'historique (toutes les 30 s) ───────────────────
+  function refreshHistory() {
+    fetch('/api/v1/bms/' + BMS_ADDR + '/history')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!Array.isArray(data) || data.length === 0) return;
+
+        // data est un tableau de BmsSnapshot en ordre (plus récent en premier si history_for reverse)
+        // On suppose ici ordre chronologique (ancien → récent) après reverse côté serveur
+        const ts   = data.map(function(s) { return new Date(s.timestamp).toLocaleTimeString(); });
+        const soc  = data.map(function(s) { return s.Soc; });
+        const cur  = data.map(function(s) { return s.Dc.Current; });
+        const volt = data.map(function(s) { return s.Dc.Voltage; });
+        const temp = data.map(function(s) { return s.System.MaxCellTemperature; });
+
+        if (cSoc) cSoc.setOption({ xAxis: { data: ts }, series: [{ data: soc }] });
+        if (cCur) cCur.setOption({ xAxis: { data: ts }, series: [{ data: cur }] });
+        if (cVT)  cVT.setOption({
+          xAxis: { data: ts },
+          series: [{ data: volt }, { data: temp }]
+        });
+      })
+      .catch(function() {});
+  }
+
+  // Premier rafraîchissement après 5 s, puis toutes les 30 s
+  setTimeout(refreshHistory, 5000);
+  setInterval(refreshHistory, 30000);
+})();
+</script>
+{% endblock %}
