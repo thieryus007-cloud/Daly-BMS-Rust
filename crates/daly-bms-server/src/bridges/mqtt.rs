@@ -122,10 +122,39 @@ async fn publish_str(client: &AsyncClient, topic: &str, value: &str) {
         .await;
 }
 
+/// Extrait le numéro entier d'un identifiant de cellule ("C3" → 3, "Cell3" → 3).
+fn cell_id_to_int(id: &str) -> u32 {
+    id.trim_start_matches("Cell")
+      .trim_start_matches('C')
+      .parse()
+      .unwrap_or(0)
+}
+
 /// Construit le payload au format dbus-mqtt-battery (Venus OS).
 ///
 /// Compatible avec https://github.com/mr-manuel/venus-os_dbus-mqtt-battery
+///
+/// Points importants du format attendu par Victron :
+/// - `System.MinVoltageCellId` : entier (1-based), pas une chaîne
+/// - `Voltages` : clés "cell_1", "cell_2", … (minuscule + underscore) + clé "sum"
 fn build_venus_payload(snap: &BmsSnapshot) -> serde_json::Value {
+    // Voltages : "Cell1" → "cell_1", avec clé "sum" en plus
+    let mut voltages_map = serde_json::Map::new();
+    let mut sum = 0.0_f32;
+    for (k, &v) in &snap.voltages {
+        let n = k.trim_start_matches("Cell").trim_start_matches('C');
+        voltages_map.insert(format!("cell_{}", n), json!(v));
+        sum += v;
+    }
+    voltages_map.insert("sum".into(), json!(sum));
+
+    // Balances : même transformation de clés
+    let mut balances_map = serde_json::Map::new();
+    for (k, &v) in &snap.balances {
+        let n = k.trim_start_matches("Cell").trim_start_matches('C');
+        balances_map.insert(format!("cell_{}", n), json!(v));
+    }
+
     json!({
         "Dc": {
             "Power":       snap.dc.power,
@@ -135,7 +164,7 @@ fn build_venus_payload(snap: &BmsSnapshot) -> serde_json::Value {
         },
         "InstalledCapacity":  snap.installed_capacity,
         "ConsumedAmphours":   snap.consumed_amphours,
-        "Capacity":           snap.capacity,
+        "Capacity":           snap.bms_reported_capacity_ah,
         "Soc":                snap.soc,
         "Soh":                snap.soh,
         "TimeToGo":           snap.time_to_go,
@@ -157,13 +186,14 @@ fn build_venus_payload(snap: &BmsSnapshot) -> serde_json::Value {
             "FuseBlown":              snap.alarms.fuse_blown,
         },
         "System": {
-            "MinVoltageCellId":               snap.system.min_voltage_cell_id,
+            // Entiers 1-based requis par dbus-mqtt-battery
+            "MinVoltageCellId":               cell_id_to_int(&snap.system.min_voltage_cell_id),
             "MinCellVoltage":                 snap.system.min_cell_voltage,
-            "MaxVoltageCellId":               snap.system.max_voltage_cell_id,
+            "MaxVoltageCellId":               cell_id_to_int(&snap.system.max_voltage_cell_id),
             "MaxCellVoltage":                 snap.system.max_cell_voltage,
-            "MinTemperatureCellId":           snap.system.min_temperature_cell_id,
+            "MinTemperatureCellId":           cell_id_to_int(&snap.system.min_temperature_cell_id),
             "MinCellTemperature":             snap.system.min_cell_temperature,
-            "MaxTemperatureCellId":           snap.system.max_temperature_cell_id,
+            "MaxTemperatureCellId":           cell_id_to_int(&snap.system.max_temperature_cell_id),
             "MaxCellTemperature":             snap.system.max_cell_temperature,
             "NrOfCellsPerBattery":            snap.system.nr_of_cells_per_battery,
             "NrOfModulesOnline":              snap.system.nr_of_modules_online,
@@ -171,8 +201,8 @@ fn build_venus_payload(snap: &BmsSnapshot) -> serde_json::Value {
             "NrOfModulesBlockingCharge":      snap.system.nr_of_modules_blocking_charge,
             "NrOfModulesBlockingDischarge":   snap.system.nr_of_modules_blocking_discharge,
         },
-        "Voltages":   snap.voltages,
-        "Balances":   snap.balances,
+        "Voltages": voltages_map,
+        "Balances": balances_map,
         "Io": {
             "AllowToCharge":    snap.io.allow_to_charge,
             "AllowToDischarge": snap.io.allow_to_discharge,
@@ -180,7 +210,7 @@ fn build_venus_payload(snap: &BmsSnapshot) -> serde_json::Value {
             "AllowToHeat":      snap.io.allow_to_heat,
             "ExternalRelay":    snap.io.external_relay,
         },
-        "Heating":    snap.heating,
-        "TimeToSoC":  snap.time_to_soc,
+        "Heating":   snap.heating,
+        "TimeToSoC": snap.time_to_soc,
     })
 }

@@ -85,9 +85,11 @@ fn snapshot_to_points(snap: &BmsSnapshot) -> Vec<DataPoint> {
             .field("cell_delta_mv", snap.system.cell_delta_mv() as f64)
             .field("min_cell_v",  snap.system.min_cell_voltage as f64)
             .field("max_cell_v",  snap.system.max_cell_voltage as f64)
-            .field("charge_mos",  snap.io.allow_to_charge as i64)
+            .field("charge_mos",   snap.io.allow_to_charge as i64)
             .field("discharge_mos", snap.io.allow_to_discharge as i64)
-            .field("any_alarm",   snap.alarms.any_active() as i64)
+            .field("any_alarm",    snap.alarms.any_active() as i64)
+            .field("bms_capacity", snap.bms_reported_capacity_ah as f64)
+            .field("cycles",       snap.history.charge_cycles as i64)
             .timestamp(ts_ns as i64)
             .build()
             .expect("point valide"),
