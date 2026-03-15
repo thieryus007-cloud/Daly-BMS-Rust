@@ -190,9 +190,9 @@
         </span>
       </div>
       <div class="info4-cell">
-        <span class="info4-lbl">Cap. nom.</span>
-        <span class="info4-val">
-          {% if bms.installed_capacity > 0.1 %}{{ bms.installed_capacity|f0 }} Ah{% else %}—{% endif %}
+        <span class="info4-lbl">Cap. BMS</span>
+        <span class="info4-val" id="bms-cap-{{ bms.address }}">
+          {% if bms.bms_capacity_ah > 0.1 %}{{ bms.bms_capacity_ah|f1 }} Ah{% else %}—{% endif %}
         </span>
       </div>
     </div>
@@ -246,6 +246,9 @@ window.onBmsUpdate = function(snaps) {
     const chgE = el('chg'); if (chgE) { const on = s.Io.AllowToCharge; chgE.textContent = on ? 'ON' : 'OFF'; chgE.className = 'kpi4-val ' + (on ? 'mos-on' : 'mos-off'); }
     const dsgE = el('dsg'); if (dsgE) { const on = s.Io.AllowToDischarge; dsgE.textContent = on ? 'ON' : 'OFF'; dsgE.className = 'kpi4-val ' + (on ? 'mos-on' : 'mos-off'); }
     set('cap', fmt1(s.Capacity) + ' Ah');
+    // Cap. BMS (coulométrie 0x93)
+    var bmsCap = document.getElementById('bms-cap-' + a);
+    if (bmsCap) bmsCap.textContent = s.BmsCapacity > 0.1 ? fmt1(s.BmsCapacity) + ' Ah' : '—';
 
     // Barre SOC
     const bar = el('soc-bar');

@@ -206,7 +206,8 @@ async fn poll_device(
         dc,
         installed_capacity: device.installed_capacity_ah,
         consumed_amphours:  consumed_ah,
-        capacity:           capacity_ah,
+        capacity:                 capacity_ah,
+        bms_reported_capacity_ah: mos.residual_capacity_mah as f32 / 1000.0,
         soc:                soc_data.soc,
         soh:                100.0, // non disponible directement
         time_to_go:         compute_time_to_go(capacity_ah, soc_data.current),
