@@ -1,6 +1,6 @@
 # Daly-BMS — Rust Edition
 
-**Version Rust complète** — mise à jour 14 mars 2026
+**Version Rust complète** — mise à jour 15 mars 2026
 Remplacement total de la stack Python/FastAPI par **Rust** (workspace multi-crates : `daly-bms-core` + `daly-bms-server` + `daly-bms-cli`).
 
 > Infrastructure Docker **inchangée** (Mosquitto, InfluxDB, Grafana, Node-RED).
@@ -15,17 +15,27 @@ Raspberry pi os lite (64-bit)
 ## Architecture globale
 
 ```
-Pack A (0x01) ─┐
-Pack B (0x02) ─┤── RS485/USB ── RPi CM5 ──[ daly-bms-server ]── Dashboard React
-Pack C (0x03) ─┤                              (Axum natif)         WebSocket /ws/bms/stream
-Pack D (0x04) ─┘                                    │
-(jusqu'à 32)                          ┌─────────────┼─────────────┐
-                                      ▼             ▼             ▼
-                                 Mosquitto      InfluxDB      AlertEngine
-                                 (MQTT)         (séries)      (SQLite)
-                                      │
-                                 dbus-mqtt-battery (Venus OS / NanoPi)
+Pack A (0x28) ─┐
+Pack B (0x29) ─┤── RS485/USB ── RPi CM5 ──[ daly-bms-server ]── Dashboard React
+               │                              (Axum natif)         WebSocket /ws/bms/stream
+               │                                    │
+               │                    ┌───────────────┼───────────────┐
+               │                    ▼               ▼               ▼
+               │               Mosquitto        InfluxDB        AlertEngine
+               │               (MQTT)           (séries)        (SQLite)
+               │                    │
+               │      dbus-mqtt-battery-41/42 (Venus OS / NanoPi)
+               │                    │
+               │                    ▼
+               │              D-Bus Venus OS
+               │         (GUI / VRM / systemcalc)
+               │
+               └── [TRANSITION] dbus-canbattery.can0 (stoppé — remplacé par flux MQTT)
 ```
+
+> **Architecture confirmée** : `dbus-mqtt-battery` fonctionne en mode **MQTT → D-Bus**
+> (abonnement MQTT → service virtuel Venus OS). La connexion CAN directe est donc
+> redondante une fois le RPi CM5 opérationnel.
 
 ### Workspace Rust
 
@@ -152,6 +162,22 @@ Marge tampon / cache	    ~200 MB	          ~400 MB
 **Matériel** : Raspberry Pi CM5 (ou Pi 4/5) + adaptateur USB/RS485
 **OS** : Debian Bookworm / Ubuntu 24.04 (aarch64 ou x86_64)
 **Permissions** : `sudo usermod -aG dialout $USER`
+
+### Compatibilité Raspberry Pi 5 Compute Module
+
+Le binary Rust compilé pour `aarch64` est **directement compatible** RPi5 CM sans recompilation.
+Seul le `Config.toml` doit être adapté (port série, IP MQTT).
+
+| Paramètre | Cerbo GX / NanoPi | Raspberry Pi 5 CM |
+|---|---|---|
+| `serial.port` | `/dev/ttyUSB0` | `/dev/ttyUSB0` ou `/dev/ttyAMA0` |
+| `mqtt.host` | IP locale | IP locale |
+| Service manager | `runit/s6` (`svc`) | `systemd` (`systemctl`) |
+
+Compilation native sur le RPi5 :
+```bash
+cargo build --release
+```
 
 ---
 
@@ -357,12 +383,15 @@ RUST_LOG=debug daly-bms-server
 - [x] Phase 0 : Bridges (MQTT, InfluxDB, AlertEngine)
 - [x] Phase 0 : CLI (clap, toutes les commandes)
 - [x] Phase 1 : Infrastructure Docker
-- [ ] Phase 2 : Port série réel + tests sur matériel BMS
+- [x] Phase 1 : MQTT publish_interval_sec réduit à 1s (temps réel)
+- [x] Phase 1 : Architecture Venus OS confirmée (MQTT → D-Bus via dbus-mqtt-battery)
+- [x] Phase 1 : Service dbus-canbattery.can0 stoppé sur NanoPi (CAN remplacé par MQTT)
+- [ ] Phase 2 : Déploiement RPi5 CM — port série réel + tests sur matériel BMS
 - [ ] Phase 2 : Commandes d'écriture activées (MOS, SOC, reset)
 - [ ] Phase 2 : Découverte auto + tests d'intégration
 - [ ] Phase 3 : Docker complet (binaire Rust + nginx + dashboard)
 - [ ] Phase 4 : Dashboard Rust natif (Leptos/Dioxus)
-- [ ] Phase 4 : Support Venus OS natif via dbus
+- [ ] Phase 4 : Support Venus OS natif via D-Bus (fork dbus-serialbattery)
 
 ---
 
