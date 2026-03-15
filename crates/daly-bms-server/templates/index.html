@@ -15,7 +15,7 @@
     {% endif %}
   </div>
   <div><strong>{{ bms_count }}</strong> BMS détecté{{ bms_count|pluralize }}</div>
-  <div style="margin-left:auto;font-size:0.7rem;color:var(--muted)" id="last-refresh">
+  <div style="margin-left:auto;font-size:0.7rem;color:var(--muted)">
     Dernière maj : <span id="refresh-ts">—</span>
   </div>
 </div>
@@ -31,73 +31,175 @@
 {% else %}
 <div class="bms-grid" id="bms-grid">
 {% for bms in bms_list %}
-  <div class="bms-card {% if bms.any_alarm %}alarm{% endif %}" data-addr="{{ bms.address }}">
 
-    {# En-tête : adresse + horodatage #}
-    <div class="bms-card-header">
-      <span class="bms-addr">BMS {{ bms.address_hex }}</span>
-      <span class="bms-time" id="ts-{{ bms.address }}">{{ bms.last_update }}</span>
-    </div>
+  <a href="/dashboard/bms/{{ bms.address }}" style="text-decoration:none;color:inherit;display:block;">
+  <div class="bms-card-ng {% if bms.any_alarm %}alarm{% endif %}" data-addr="{{ bms.address }}">
 
-    {# Corps : jauge SOC + stats #}
-    <div class="bms-body">
-      <div class="gauge-wrap" id="gauge-{{ bms.address }}"></div>
-
-      <div class="stats-grid">
-        <div class="stat">
-          <span class="stat-label">Tension</span>
-          <span class="stat-value" id="v-{{ bms.address }}">{{ bms.voltage|f1 }} V</span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Courant</span>
-          <span class="stat-value {% if bms.current > 0.0 %}pos{% else if bms.current < -0.1 %}neg{% endif %}"
-                id="i-{{ bms.address }}">{{ bms.current|sign }} A</span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Puissance</span>
-          <span class="stat-value" id="p-{{ bms.address }}">{{ bms.power|f0 }} W</span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Temp. max</span>
-          <span class="stat-value {% if bms.temp_max > 45.0 %}err{% else if bms.temp_max > 35.0 %}warn{% endif %}"
-                id="t-{{ bms.address }}">{{ bms.temp_max|f1 }} °C</span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Δ cellules</span>
-          <span class="stat-value {% if bms.cell_delta_mv > 100.0 %}err{% else if bms.cell_delta_mv > 50.0 %}warn{% endif %}"
-                id="d-{{ bms.address }}">{{ bms.cell_delta_mv|mv }} mV</span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Restant</span>
-          <span class="stat-value" id="c-{{ bms.address }}">{{ bms.capacity_ah|f1 }} Ah</span>
-        </div>
+    {# ── En-tête ──────────────────────────────────────────────────────────── #}
+    <div class="bms-hdr">
+      <div class="bms-hdr-title">
+        🔋 {{ bms.name }}
+      </div>
+      <div class="bms-hdr-right">
+        <span class="bms-live-dot" id="live-dot-{{ bms.address }}"></span>
+        <span>LIVE</span>
+        <span class="bms-can-badge">{{ bms.can_id }}</span>
+        <span class="bms-hdr-ts" id="ts-{{ bms.address }}">{{ bms.last_update }}</span>
       </div>
     </div>
 
-    {# Pied : badges MOS + lien détail #}
-    <div class="bms-footer">
-      <div class="mos-badges">
-        {% if bms.charge_ok %}
-          <span class="badge ok">CHG ✓</span>
-        {% else %}
-          <span class="badge off">CHG ✗</span>
-        {% endif %}
-        {% if bms.discharge_ok %}
-          <span class="badge ok">DCH ✓</span>
-        {% else %}
-          <span class="badge off">DCH ✗</span>
-        {% endif %}
-        {% if bms.any_alarm %}
-          <span class="badge alarm">⚠ ALARME</span>
-        {% endif %}
+    {# ── KPI ligne 1 : Tension · SOC · Courant · Puissance ──────────────── #}
+    <div class="kpi4">
+      <div class="kpi4-cell kpi4-v">
+        <div class="kpi4-lbl">TENSION</div>
+        <div class="kpi4-val" id="v-{{ bms.address }}">{{ bms.voltage|f1 }} V</div>
       </div>
-      <a href="/dashboard/bms/{{ bms.address }}" class="link-detail">Détail →</a>
+      <div class="kpi4-cell kpi4-soc">
+        <div class="kpi4-lbl">SOC</div>
+        <div class="kpi4-val" id="soc-{{ bms.address }}">{{ bms.soc|f1 }}%</div>
+      </div>
+      <div class="kpi4-cell kpi4-i">
+        <div class="kpi4-lbl">COURANT</div>
+        <div class="kpi4-val {% if bms.current > 0.1 %}chg{% else if bms.current < -0.1 %}dch{% endif %}"
+             id="i-{{ bms.address }}">{{ bms.current|sign }} A</div>
+      </div>
+      <div class="kpi4-cell kpi4-p">
+        <div class="kpi4-lbl">PUISSANCE</div>
+        <div class="kpi4-val" id="p-{{ bms.address }}">{{ bms.power|f0 }} W</div>
+      </div>
     </div>
 
-    {# JSON option ECharts (caché, lu par JS) #}
-    <script type="application/json" id="opt-{{ bms.address }}">{{ bms.soc_gauge_json|safe }}</script>
+    {# ── KPI ligne 2 : MOS CHG · MOS DSG · Cycles · Capacité ────────────── #}
+    <div class="kpi4">
+      <div class="kpi4-cell">
+        <div class="kpi4-lbl">CHG MOS</div>
+        <div class="kpi4-val {% if bms.charge_ok %}mos-on{% else %}mos-off{% endif %}"
+             id="chg-{{ bms.address }}">{% if bms.charge_ok %}ON{% else %}OFF{% endif %}</div>
+      </div>
+      <div class="kpi4-cell">
+        <div class="kpi4-lbl">DSG MOS</div>
+        <div class="kpi4-val {% if bms.discharge_ok %}mos-on{% else %}mos-off{% endif %}"
+             id="dsg-{{ bms.address }}">{% if bms.discharge_ok %}ON{% else %}OFF{% endif %}</div>
+      </div>
+      <div class="kpi4-cell">
+        <div class="kpi4-lbl">CYCLES</div>
+        <div class="kpi4-val" id="cyc-{{ bms.address }}">{{ bms.cycles }}</div>
+      </div>
+      <div class="kpi4-cell">
+        <div class="kpi4-lbl">CAPACITÉ</div>
+        <div class="kpi4-val" id="cap-{{ bms.address }}">{{ bms.capacity_ah|f1 }} Ah</div>
+      </div>
+    </div>
+
+    {# ── Barre SOC ───────────────────────────────────────────────────────── #}
+    <div class="soc-bar-row">
+      <span>SOC</span>
+      <div class="soc-bar-wrap">
+        <div class="soc-bar-fill" id="soc-bar-{{ bms.address }}"
+             style="width:{{ bms.soc|f0 }}%;background:{% if bms.soc < 15.0 %}#f85149{% else if bms.soc < 25.0 %}#fb8500{% else if bms.soc < 40.0 %}#d29922{% else %}#3fb950{% endif %}"></div>
+      </div>
+      <span id="soc-pct-{{ bms.address }}">{{ bms.soc|f0 }}%</span>
+      <span style="color:var(--muted)">100%</span>
+    </div>
+
+    {# ── Grille de cellules ──────────────────────────────────────────────── #}
+    <div class="cells-section">
+      <div class="cells-hdr">
+        CELLULES ({{ bms.cell_count }}S LiFePO4) —
+        MIN : <span class="c-min">{{ bms.min_cell_v|f3 }} V {{ bms.min_cell_id }}</span> |
+        MAX : <span class="c-max">{{ bms.max_cell_v|f3 }} V {{ bms.max_cell_id }}</span> |
+        Δ : <span class="c-dlt {% if bms.cell_delta_mv > 100.0 %}crit{% else if bms.cell_delta_mv > 50.0 %}warn{% else %}ok{% endif %}">{{ bms.cell_delta_mv|mv }} mV</span>
+      </div>
+      <div class="cells-grid" id="cells-{{ bms.address }}">
+        {% for cell in bms.cells %}
+          <div class="cell-box{% if cell.is_min %} cell-min{% else if cell.is_max %} cell-max{% endif %}{% if cell.is_bal %} cell-bal{% endif %}">
+            <span class="c-n">{{ cell.num }}</span>
+            <span class="c-v">{{ cell.v|f3 }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    {# ── Températures ────────────────────────────────────────────────────── #}
+    <div class="temp4">
+      <div class="temp4-cell">
+        <span class="temp4-lbl">T1 (min)</span>
+        <span class="temp4-val" id="tmin-{{ bms.address }}">{{ bms.temp_min|f1 }} °C</span>
+      </div>
+      <div class="temp4-cell">
+        <span class="temp4-lbl">T2 (max)</span>
+        <span class="temp4-val {% if bms.temp_max > 45.0 %}a-bad{% else if bms.temp_max > 35.0 %}warn{% endif %}"
+              id="tmax-{{ bms.address }}">{{ bms.temp_max|f1 }} °C</span>
+      </div>
+      <div class="temp4-cell">
+        <span class="temp4-lbl">T3</span>
+        <span class="temp4-val" style="color:var(--muted)">—</span>
+      </div>
+      <div class="temp4-cell">
+        <span class="temp4-lbl">T4</span>
+        <span class="temp4-val" style="color:var(--muted)">—</span>
+      </div>
+    </div>
+
+    {# ── Alarmes ──────────────────────────────────────────────────────────── #}
+    <div class="alarm4">
+      <div class="alarm4-cell">
+        <span class="alarm4-name">Sur-tension</span>
+        <span class="{% if bms.alarm_high_voltage %}a-bad{% else %}a-ok{% endif %}">
+          {% if bms.alarm_high_voltage %}ALARM{% else %}OK{% endif %}
+        </span>
+      </div>
+      <div class="alarm4-cell">
+        <span class="alarm4-name">Sous-tension</span>
+        <span class="{% if bms.alarm_low_voltage %}a-bad{% else %}a-ok{% endif %}">
+          {% if bms.alarm_low_voltage %}ALARM{% else %}OK{% endif %}
+        </span>
+      </div>
+      <div class="alarm4-cell">
+        <span class="alarm4-name">Temp. haute</span>
+        <span class="{% if bms.alarm_high_temp %}a-bad{% else %}a-ok{% endif %}">
+          {% if bms.alarm_high_temp %}ALARM{% else %}OK{% endif %}
+        </span>
+      </div>
+      <div class="alarm4-cell">
+        <span class="alarm4-name">Imbalance</span>
+        <span class="{% if bms.alarm_imbalance %}a-bad{% else %}a-ok{% endif %}">
+          {% if bms.alarm_imbalance %}ALARM{% else %}OK{% endif %}
+        </span>
+      </div>
+    </div>
+
+    {# ── Informations du bas ───────────────────────────────────────────────── #}
+    <div class="info4">
+      <div class="info4-cell">
+        <span class="info4-lbl">SOC bas</span>
+        <span class="info4-val {% if bms.alarm_low_soc %}a-bad{% else %}a-ok{% endif %}">
+          {% if bms.alarm_low_soc %}ALARM{% else %}OK{% endif %}
+        </span>
+      </div>
+      <div class="info4-cell">
+        <span class="info4-lbl">Max CHG</span>
+        <span class="info4-val">
+          {% if bms.max_charge_current > 0.1 %}{{ bms.max_charge_current|f0 }} A{% else %}—{% endif %}
+        </span>
+      </div>
+      <div class="info4-cell">
+        <span class="info4-lbl">Max DCH</span>
+        <span class="info4-val">
+          {% if bms.max_discharge_current > 0.1 %}{{ bms.max_discharge_current|f0 }} A{% else %}—{% endif %}
+        </span>
+      </div>
+      <div class="info4-cell">
+        <span class="info4-lbl">Cap. nom.</span>
+        <span class="info4-val">
+          {% if bms.installed_capacity > 0.1 %}{{ bms.installed_capacity|f0 }} Ah{% else %}—{% endif %}
+        </span>
+      </div>
+    </div>
 
   </div>
+  </a>
+
 {% endfor %}
 </div>
 {% endif %}
@@ -106,20 +208,6 @@
 
 {% block scripts %}
 <script>
-// ─── Initialisation des jauges ECharts ───────────────────────────────────────
-const _gauges = {};   // addr → echarts instance
-
-document.querySelectorAll('.bms-card[data-addr]').forEach(function(card) {
-  const addr = parseInt(card.dataset.addr, 10);
-  const dom  = document.getElementById('gauge-' + addr);
-  const opt  = document.getElementById('opt-'   + addr);
-  if (!dom || !opt) return;
-
-  const chart = echarts.init(dom, null, { renderer: 'svg' });
-  chart.setOption(JSON.parse(opt.textContent));
-  _gauges[addr] = chart;
-});
-
 // ─── Mise à jour temps-réel via WebSocket ────────────────────────────────────
 window.onBmsUpdate = function(snaps) {
   const now = new Date().toLocaleTimeString();
@@ -129,45 +217,95 @@ window.onBmsUpdate = function(snaps) {
   snaps.forEach(function(s) {
     const a = s.address;
 
-    // Jauge SOC
-    const g = _gauges[a];
-    if (g) g.setOption({ series: [{ data: [{ value: s.Soc, name: 'SOC' }] }] });
-
-    // Helpers de mise à jour DOM
-    function set(id, txt) {
-      const el = document.getElementById(id + '-' + a);
-      if (el) el.textContent = txt;
-    }
-    function fmt1(n) { return n.toFixed(1); }
-    function fmt0(n) { return n.toFixed(0); }
-
-    set('v',  fmt1(s.Dc.Voltage) + ' V');
-    set('i',  (s.Dc.Current >= 0 ? '+' : '') + fmt1(s.Dc.Current) + ' A');
-    set('p',  fmt0(s.Dc.Power)   + ' W');
-    set('t',  fmt1(s.System.MaxCellTemperature) + ' °C');
-
-    const delta = (s.System.MaxCellVoltage - s.System.MinCellVoltage) * 1000;
-    set('d',  fmt0(delta) + ' mV');
-    set('c',  fmt1(s.Capacity) + ' Ah');
+    function el(id) { return document.getElementById(id + '-' + a); }
+    function set(id, txt) { const e = el(id); if (e) e.textContent = txt; }
+    function fmt1(n) { return (+n).toFixed(1); }
+    function fmt0(n) { return (+n).toFixed(0); }
+    function fmt3(n) { return (+n).toFixed(3); }
 
     // Horodatage
-    const tsEl2 = document.getElementById('ts-' + a);
-    if (tsEl2) {
+    const tsE = el('ts');
+    if (tsE) {
       const d = new Date(s.timestamp);
-      tsEl2.textContent = isNaN(d) ? '—' : d.toLocaleTimeString();
+      tsE.textContent = isNaN(d) ? '—' : d.toLocaleTimeString();
     }
 
-    // Couleur courant
-    const iEl = document.getElementById('i-' + a);
-    if (iEl) {
-      iEl.className = 'stat-value ' + (s.Dc.Current > 0.1 ? 'pos' : s.Dc.Current < -0.1 ? 'neg' : '');
+    // KPI ligne 1
+    set('v',   fmt1(s.Dc.Voltage) + ' V');
+    set('soc', fmt1(s.Soc) + '%');
+    set('soc-pct', fmt0(s.Soc) + '%');
+    const cur = s.Dc.Current;
+    const curEl = el('i');
+    if (curEl) {
+      curEl.textContent = (cur >= 0 ? '+' : '') + fmt1(cur) + ' A';
+      curEl.className = 'kpi4-val' + (cur > 0.1 ? ' chg' : (cur < -0.1 ? ' dch' : ''));
+    }
+    set('p', fmt0(s.Dc.Power) + ' W');
+
+    // KPI ligne 2
+    const chgE = el('chg'); if (chgE) { const on = s.Io.AllowToCharge; chgE.textContent = on ? 'ON' : 'OFF'; chgE.className = 'kpi4-val ' + (on ? 'mos-on' : 'mos-off'); }
+    const dsgE = el('dsg'); if (dsgE) { const on = s.Io.AllowToDischarge; dsgE.textContent = on ? 'ON' : 'OFF'; dsgE.className = 'kpi4-val ' + (on ? 'mos-on' : 'mos-off'); }
+    set('cap', fmt1(s.Capacity) + ' Ah');
+
+    // Barre SOC
+    const bar = el('soc-bar');
+    if (bar) {
+      const soc = +s.Soc;
+      const pct = Math.max(0, Math.min(100, soc));
+      bar.style.width = pct + '%';
+      bar.style.background = soc < 15 ? '#f85149' : soc < 25 ? '#fb8500' : soc < 40 ? '#d29922' : '#3fb950';
     }
 
-    // Alarme : bordure rouge sur la carte
-    const card = document.querySelector('.bms-card[data-addr="' + a + '"]');
+    // Températures
+    set('tmin', fmt1(s.System.MinCellTemperature) + ' °C');
+    set('tmax', fmt1(s.System.MaxCellTemperature) + ' °C');
+
+    // Alarme : contour carte
+    const card = document.querySelector('.bms-card-ng[data-addr="' + a + '"]');
     if (card) {
-      const hasAlarm = s.Alarms && Object.values(s.Alarms).some(v => v !== 0);
-      card.classList.toggle('alarm', hasAlarm);
+      const hasAlarm = s.Alarms && Object.values(s.Alarms).some(function(v) { return v !== 0; });
+      card.classList.toggle('alarm', !!hasAlarm);
+    }
+
+    // Grille cellules
+    const cellsDiv = el('cells');
+    if (cellsDiv && s.Voltages) {
+      const minId = (s.System && s.System.MinVoltageCellId) || '';
+      const maxId = (s.System && s.System.MaxVoltageCellId) || '';
+      const bal   = s.Balances || {};
+
+      var entries = Object.entries(s.Voltages).sort(function(a, b) {
+        return parseInt(a[0].replace(/\D/g,''), 10) - parseInt(b[0].replace(/\D/g,''), 10);
+      });
+      var html = '';
+      entries.forEach(function(e) {
+        var num   = e[0].replace(/\D/g,'');
+        var v     = +e[1];
+        var short = 'C' + num;
+        var isBal = !!bal[e[0]];
+        var cls   = 'cell-box';
+        if (short === minId) cls += ' cell-min';
+        else if (short === maxId) cls += ' cell-max';
+        if (isBal) cls += ' cell-bal';
+        html += '<div class="' + cls + '">'
+              + '<span class="c-n">' + num + '</span>'
+              + '<span class="c-v">' + v.toFixed(3) + '</span>'
+              + '</div>';
+      });
+      cellsDiv.innerHTML = html;
+
+      // Mise à jour en-tête Δ cellules
+      var minV = Infinity, maxV = -Infinity;
+      entries.forEach(function(e) { var v = +e[1]; if (v < minV) minV = v; if (v > maxV) maxV = v; });
+      var delta = (maxV - minV) * 1000;
+      var hdr = document.querySelector('.bms-card-ng[data-addr="' + a + '"] .cells-hdr');
+      if (hdr) {
+        var dCls = delta > 100 ? 'crit' : delta > 50 ? 'warn' : 'ok';
+        hdr.innerHTML = 'CELLULES (' + entries.length + 'S LiFePO4) — '
+          + 'MIN : <span class="c-min">' + minV.toFixed(3) + ' V ' + minId + '</span> | '
+          + 'MAX : <span class="c-max">' + maxV.toFixed(3) + ' V ' + maxId + '</span> | '
+          + 'Δ : <span class="c-dlt ' + dCls + '">' + delta.toFixed(0) + ' mV</span>';
+      }
     }
   });
 };
