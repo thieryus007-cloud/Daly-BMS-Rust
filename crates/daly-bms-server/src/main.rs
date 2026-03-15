@@ -18,6 +18,7 @@ mod state;
 mod api;
 mod bridges;
 mod simulator;
+mod dashboard;
 
 use crate::bridges::{alerts, influx, mqtt};
 use crate::config::AppConfig;
