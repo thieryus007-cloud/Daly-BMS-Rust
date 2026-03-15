@@ -201,6 +201,7 @@ async fn poll_device(
 
     let snapshot = BmsSnapshot {
         address:            addr,
+        name:               device.name.clone(),
         timestamp:          Utc::now(),
         dc,
         installed_capacity: device.installed_capacity_ah,
@@ -212,7 +213,11 @@ async fn poll_device(
         balancing:          balance_flags.flags.iter().any(|&f| f) as u8,
         system_switch:      u8::from(mos.charge_mos || mos.discharge_mos),
         alarms,
-        info:               InfoData::default(),
+        info:               InfoData {
+            max_charge_current:    device.max_charge_current_a,
+            max_discharge_current: device.max_discharge_current_a,
+            ..InfoData::default()
+        },
         history,
         system,
         voltages:           cell_voltages.to_named_map(),

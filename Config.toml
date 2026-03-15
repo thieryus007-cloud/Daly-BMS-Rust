@@ -144,6 +144,28 @@ enabled = false
 
 
 # =============================================================================
+# Configurations individuelles par BMS (optionnel)
+# =============================================================================
+# Une section [[bms]] par appareil.  Si absente, les valeurs par défaut sont
+# utilisées (capacité 100 Ah, pas de nom personnalisé).
+# L'adresse est l'adresse RS485 décimale ou hexadécimale.
+
+[[bms]]
+address         = "0x28"       # RS485-40 (decimal 40)
+name            = "BMS-360Ah"
+capacity_ah     = 360.0
+max_charge_a    = 200.0
+max_discharge_a = 120.0
+
+[[bms]]
+address         = "0x29"       # RS485-41 (decimal 41)
+name            = "BMS-320Ah"
+capacity_ah     = 320.0
+max_charge_a    = 200.0
+max_discharge_a = 120.0
+
+
+# =============================================================================
 # Notes supplémentaires
 # =============================================================================
 # - Les chemins absolus sont fortement recommandés en systemd/Docker

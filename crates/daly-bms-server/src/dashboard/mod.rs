@@ -139,11 +139,13 @@ impl BmsSummary {
     fn from_snapshot(snap: &BmsSnapshot) -> Self {
         let delta = (snap.system.max_cell_voltage - snap.system.min_cell_voltage) * 1000.0;
 
-        // Nom de la carte : "BMS 320Ah" si capacité installée connue
-        let name = if snap.installed_capacity > 0.1 {
-            format!("BMS {:.0}Ah", snap.installed_capacity)
+        // Nom de la carte : depuis BmsConfig (via snap.name), sinon fallback capacité
+        let name = if !snap.name.is_empty() {
+            snap.name.clone()
+        } else if snap.installed_capacity > 0.1 {
+            format!("BMS-{:.0}Ah", snap.installed_capacity)
         } else {
-            format!("BMS {}", &format!("{:#04x}", snap.address))
+            format!("BMS-{:#04x}", snap.address)
         };
 
         // Cellules triées numériquement avec flags MIN/MAX/balance
@@ -178,7 +180,7 @@ impl BmsSummary {
             discharge_ok:          snap.io.allow_to_discharge  != 0,
             last_update:           snap.timestamp.format("%H:%M:%S").to_string(),
             name,
-            can_id:                format!("CAN{:02}", snap.address),
+            can_id:                format!("RS485-{}", snap.address),
             cell_count:            snap.system.nr_of_cells_per_battery,
             cells,
             min_cell_id:           snap.system.min_voltage_cell_id.clone(),

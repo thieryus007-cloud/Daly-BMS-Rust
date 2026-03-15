@@ -34,6 +34,50 @@ pub struct AppConfig {
 
     #[serde(default)]
     pub read_only: ReadOnlyConfig,
+
+    /// Configurations individuelles par BMS (optionnel)
+    #[serde(default)]
+    pub bms: Vec<BmsDeviceConfig>,
+}
+
+// =============================================================================
+// Configuration par BMS
+// =============================================================================
+
+/// Surcharges de configuration pour un BMS individuel.
+///
+/// ```toml
+/// [[bms]]
+/// address        = "0x28"     # adresse RS485 (décimal ou hex)
+/// name           = "BMS-360Ah"
+/// capacity_ah    = 360.0
+/// max_charge_a   = 200.0
+/// max_discharge_a= 120.0
+/// ```
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+pub struct BmsDeviceConfig {
+    /// Adresse RS485 (ex : "0x01", "1", "40")
+    pub address: String,
+    /// Nom affiché dans le dashboard
+    pub name: Option<String>,
+    /// Capacité nominale installée (Ah)
+    pub capacity_ah: Option<f32>,
+    /// Courant de charge maximal autorisé (A)
+    pub max_charge_a: Option<f32>,
+    /// Courant de décharge maximal autorisé (A)
+    pub max_discharge_a: Option<f32>,
+}
+
+impl BmsDeviceConfig {
+    /// Parse l'adresse en u8 (supporte "0x28", "40", "1")
+    pub fn parsed_address(&self) -> Option<u8> {
+        let s = self.address.trim();
+        if s.starts_with("0x") || s.starts_with("0X") {
+            u8::from_str_radix(&s[2..], 16).ok()
+        } else {
+            s.parse::<u8>().ok()
+        }
+    }
 }
 
 impl AppConfig {

@@ -9,16 +9,16 @@
 use daly_bms_core::types::BmsSnapshot;
 use std::collections::BTreeMap;
 
-// ─── Palette couleurs (dark theme GitHub-like) ───────────────────────────────
+// ─── Palette couleurs (light theme) ─────────────────────────────────────────
 const C_BG:      &str = "transparent";
-const C_MUTED:   &str = "#8b949e";
-const C_GRID:    &str = "#21262d";
-const C_AXIS:    &str = "#30363d";
-const C_BLUE:    &str = "#58a6ff";
-const C_GREEN:   &str = "#3fb950";
-const C_YELLOW:  &str = "#d29922";
-const C_RED:     &str = "#f85149";
-const C_ORANGE:  &str = "#fb8500";
+const C_MUTED:   &str = "#57606a";
+const C_GRID:    &str = "#e8ecf0";
+const C_AXIS:    &str = "#d0d7de";
+const C_BLUE:    &str = "#0969da";
+const C_GREEN:   &str = "#1a7f37";
+const C_YELLOW:  &str = "#9a6700";
+const C_RED:     &str = "#cf222e";
+const C_ORANGE:  &str = "#bc4c00";
 
 // =============================================================================
 // Jauge SOC (page d'accueil — mini, et détail — grande)
@@ -452,8 +452,8 @@ pub fn cell_boxplot(
   ]
 }}"#,
         bg      = C_BG,
-        surface = "#161b22",
-        text    = "#e6edf3",
+        surface = "#ffffff",
+        text    = "#1f2328",
         n       = history.len(),
         labels  = labels.join(", "),
         data    = box_data.join(", "),
