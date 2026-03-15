@@ -7,7 +7,7 @@ use crate::bus::{BmsConfig, DalyBusManager, DalyPort};
 use crate::commands;
 use crate::error::DalyError;
 use crate::types::{
-    Alarms, BmsSnapshot, DcData, HistoryData, InfoData, IoData, SystemData,
+    BmsSnapshot, DcData, HistoryData, InfoData, IoData, SystemData,
 };
 use chrono::Utc;
 use std::collections::BTreeMap;
@@ -137,7 +137,7 @@ async fn poll_device(
 
     // ── 0x96 : Températures individuelles — sensor_count issu du 0x94 ────────
     let sensor_count = if status.temp_sensor_count > 0 { status.temp_sensor_count } else { device.temp_sensor_count };
-    let temperatures = retry(config.retries, || {
+    let _temperatures = retry(config.retries, || {
         commands::get_temperatures(port, addr, sensor_count)
     }).await.unwrap_or_default();
 

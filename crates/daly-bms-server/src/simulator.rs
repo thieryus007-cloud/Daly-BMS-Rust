@@ -125,7 +125,7 @@ impl SimBmsState {
     /// Températures simulées (légèrement corrélées au courant absolu).
     fn temperature(&self) -> f32 {
         let heat = self.current.abs() * 0.08; // ~0.8°C par 10A
-        let ambient_variation = ((self.tick as f32 / 900.0).sin() * 1.5); // ±1.5°C sur 15 min
+        let ambient_variation = (self.tick as f32 / 900.0).sin() * 1.5; // ±1.5°C sur 15 min
         (self.temp_base + heat + ambient_variation).clamp(15.0, 50.0)
     }
 

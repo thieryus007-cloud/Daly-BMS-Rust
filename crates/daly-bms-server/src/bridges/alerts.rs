@@ -28,6 +28,7 @@ pub enum Severity {
 }
 
 impl Severity {
+    #[allow(dead_code)]
     fn icon(&self) -> &'static str {
         match self {
             Self::Warning  => "⚠️",
@@ -57,6 +58,7 @@ pub struct AlertContext<'a> {
 pub struct AlertRule {
     pub id:          &'static str,
     pub description: &'static str,
+    #[allow(dead_code)]
     pub severity:    Severity,
     pub cooldown:    Duration,
     pub trigger:     Box<dyn Fn(&AlertContext) -> Option<f32> + Send + Sync>,

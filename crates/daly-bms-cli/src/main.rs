@@ -26,7 +26,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use daly_bms_core::{
-    bus::{BmsConfig, DalyBusManager, DalyPort},
+    bus::{DalyBusManager, DalyPort},
     commands,
     write,
 };
@@ -274,7 +274,7 @@ async fn cmd_discover(port: &Arc<DalyPort>, start: u8, end: u8) {
     }
 }
 
-async fn cmd_poll(port: &Arc<DalyPort>, addr: u8, cells: u8, interval_sec: u64) -> Result<()> {
+async fn cmd_poll(port: &Arc<DalyPort>, addr: u8, _cells: u8, interval_sec: u64) -> Result<()> {
     use tokio::time::{sleep, Duration};
     println!("Polling BMS {:#04x} (Ctrl+C pour arrêter)…", addr);
     loop {
