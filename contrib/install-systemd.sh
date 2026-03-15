@@ -17,7 +17,7 @@ BINARY_DEST="/usr/local/bin/daly-bms-server"
 SERVICE_SRC="contrib/daly-bms.service"
 SERVICE_DEST="/etc/systemd/system/daly-bms.service"
 
-CONFIG_EXAMPLE="config.example.toml"
+CONFIG_EXAMPLE="Config.toml"
 CONFIG_DEST="/etc/daly-bms/config.toml"
 
 CONFIG_DIR="/etc/daly-bms"

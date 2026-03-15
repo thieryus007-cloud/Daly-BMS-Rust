@@ -1,1 +1,37 @@
+[Unit]
+Description=DalyBMS Server — Rust RS485 BMS monitor
+Documentation=https://github.com/thieryus007-cloud/Daly-BMS-Rust
+After=network.target
+Wants=network.target
 
+[Service]
+Type=simple
+User=dalybms
+Group=dalybms
+
+# Fichier de configuration TOML
+Environment=DALY_CONFIG=/etc/daly-bms/config.toml
+
+# Niveau de log (trace, debug, info, warn, error)
+Environment=RUST_LOG=info
+
+ExecStart=/usr/local/bin/daly-bms-server
+
+# Redémarrage automatique en cas de crash
+Restart=on-failure
+RestartSec=5s
+
+# Accès au port série RS485 (/dev/ttyUSB* ou /dev/ttyACM*)
+SupplementaryGroups=dialout
+
+# Sécurité minimale
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Logs via journald
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=daly-bms
+
+[Install]
+WantedBy=multi-user.target
