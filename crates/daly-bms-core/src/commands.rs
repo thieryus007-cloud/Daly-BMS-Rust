@@ -16,13 +16,19 @@ use std::sync::Arc;
 use tracing::trace;
 
 /// Lit le statut pack : tension totale, courant, SOC (Data ID 0x90).
+///
+/// Layout du champ Data (8 octets, protocole Daly UART V1.21) :
+/// - D0-D1 : Tension totale pack      (uint16 BE, 0.1 V)
+/// - D2-D3 : Tension acquisition      (uint16 BE, 0.1 V) — ignoré ici
+/// - D4-D5 : Courant                  (uint16 BE, offset 30000, 0.1 A)
+/// - D6-D7 : SOC                      (uint16 BE, 0.1 %)
 pub async fn get_pack_status(port: &Arc<DalyPort>, addr: u8) -> Result<SocData> {
     let frame = port.send_command(addr, DataId::PackStatus, [0u8; 8]).await?;
     let d = frame.data();
     Ok(SocData {
         voltage: decode_voltage(d, 0),
-        current: decode_current(d, 2),
-        soc:     decode_soc(d, 4),
+        current: decode_current(d, 4),
+        soc:     decode_soc(d, 6),
     })
 }
 
