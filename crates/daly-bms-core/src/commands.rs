@@ -97,32 +97,30 @@ pub async fn get_status_info(port: &Arc<DalyPort>, addr: u8) -> Result<StatusInf
 
 /// Lit les tensions individuelles de toutes les cellules (0x95, multi-trames).
 ///
-/// Le protocole Daly envoie 3 tensions par trame (uint16 BE, en millivolts).
-/// Le nombre de trames = ceil(cell_count / 3).
-/// Chaque trame successive incrémente automatiquement l'index de bloc.
+/// Le BMS répond avec toutes les trames d'un coup après une seule requête.
+/// Chaque trame contient 3 tensions (uint16 BE, millivolts) :
+///   data[0]   = numéro de trame (1-based)
+///   data[1-2] = cellule N
+///   data[3-4] = cellule N+1
+///   data[5-6] = cellule N+2
 pub async fn get_cell_voltages(
     port: &Arc<DalyPort>,
     addr: u8,
     cell_count: u8,
 ) -> Result<CellVoltages> {
     let frame_count = (cell_count as usize + 2) / 3;
+    let frames = port.send_command_multi(addr, DataId::CellVoltages1, frame_count).await?;
+
     let mut voltages = Vec::with_capacity(cell_count as usize);
-
-    for i in 0..frame_count {
-        // La trame de requête précise le numéro de bloc dans data[0]
-        let mut data = [0u8; 8];
-        data[0] = (i + 1) as u8;
-        let frame = port.send_command(addr, DataId::CellVoltages1, data).await?;
+    for (i, frame) in frames.iter().enumerate() {
         let d = frame.data();
-
-        // 3 cellules par trame, octets 1-2, 3-4, 5-6 (octet 0 = frame index)
+        // 3 cellules par trame, aux offsets 1-2, 3-4, 5-6 (offset 0 = frame index)
         for j in 0..3 {
             let cell_idx = i * 3 + j;
             if cell_idx >= cell_count as usize {
                 break;
             }
-            let offset = 1 + j * 2;
-            voltages.push(decode_cell_voltage(d, offset));
+            voltages.push(decode_cell_voltage(d, 1 + j * 2));
         }
         trace!(addr = format!("{:#04x}", addr), frame = i + 1, "tensions cellules lues");
     }
@@ -132,21 +130,21 @@ pub async fn get_cell_voltages(
 
 /// Lit les températures individuelles de tous les capteurs (0x96, multi-trames).
 ///
-/// 7 températures par trame (7 octets, encodage = valeur + 40).
+/// Le BMS répond avec toutes les trames d'un coup après une seule requête.
+/// Chaque trame contient 7 températures (encodage = valeur + 40) :
+///   data[0]   = numéro de trame (1-based)
+///   data[1-7] = températures capteurs
 pub async fn get_temperatures(
     port: &Arc<DalyPort>,
     addr: u8,
     sensor_count: u8,
 ) -> Result<CellTemperatures> {
     let frame_count = (sensor_count as usize + 6) / 7;
+    let frames = port.send_command_multi(addr, DataId::Temperatures, frame_count).await?;
+
     let mut temperatures = Vec::with_capacity(sensor_count as usize);
-
-    for i in 0..frame_count {
-        let mut data = [0u8; 8];
-        data[0] = (i + 1) as u8;
-        let frame = port.send_command(addr, DataId::Temperatures, data).await?;
+    for (i, frame) in frames.iter().enumerate() {
         let d = frame.data();
-
         for j in 0..7 {
             let sensor_idx = i * 7 + j;
             if sensor_idx >= sensor_count as usize {

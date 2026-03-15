@@ -129,14 +129,16 @@ async fn poll_device(
         commands::get_status_info(port, addr)
     }).await?;
 
-    // ── 0x95 : Tensions individuelles ─────────────────────────────────────────
+    // ── 0x95 : Tensions individuelles — cell_count issu du 0x94 ──────────────
+    let cell_count = if status.cell_count > 0 { status.cell_count } else { device.cell_count };
     let cell_voltages = retry(config.retries, || {
-        commands::get_cell_voltages(port, addr, device.cell_count)
+        commands::get_cell_voltages(port, addr, cell_count)
     }).await.unwrap_or_default();
 
-    // ── 0x96 : Températures individuelles ─────────────────────────────────────
+    // ── 0x96 : Températures individuelles — sensor_count issu du 0x94 ────────
+    let sensor_count = if status.temp_sensor_count > 0 { status.temp_sensor_count } else { device.temp_sensor_count };
     let temperatures = retry(config.retries, || {
-        commands::get_temperatures(port, addr, device.temp_sensor_count)
+        commands::get_temperatures(port, addr, sensor_count)
     }).await.unwrap_or_default();
 
     // ── 0x97 : Flags d'équilibrage ────────────────────────────────────────────
