@@ -143,6 +143,80 @@ impl DalyPort {
         }
     }
 
+    /// Envoie une commande et lit N trames de réponse successives sans flush entre elles.
+    ///
+    /// Utilisé pour les commandes multi-trames (0x95, 0x96) où le BMS envoie toutes
+    /// les trames d'un coup après une seule requête.
+    pub async fn send_command_multi(
+        &self,
+        bms_address: u8,
+        cmd: DataId,
+        n_frames: usize,
+    ) -> Result<Vec<ResponseFrame>> {
+        if n_frames == 0 {
+            return Ok(Vec::new());
+        }
+
+        let request = RequestFrame::new(bms_address, cmd, [0u8; 8]);
+        let mut port = self.inner.lock().await;
+
+        // Vider le buffer avant l'envoi
+        let _ = Self::flush_input(&mut *port).await;
+
+        let req_bytes = request.as_bytes();
+        trace!(
+            bms = format!("{:#04x}", bms_address),
+            cmd = format!("{:#04x}", cmd as u8),
+            n_frames,
+            raw = format!("{:02X?}", req_bytes),
+            "→ envoi trame multi"
+        );
+        port.write_all(req_bytes).await?;
+        port.flush().await?;
+
+        // Délai TX→RX une seule fois
+        tokio::time::sleep(Duration::from_millis(INTER_FRAME_DELAY_MS)).await;
+
+        // Lire N trames consécutives sans flush entre elles
+        let mut frames = Vec::with_capacity(n_frames);
+        for frame_idx in 0..n_frames {
+            let mut buf = [0u8; FRAME_LEN];
+            let read_result = timeout(
+                Duration::from_millis(self.timeout_ms),
+                port.read_exact(&mut buf),
+            )
+            .await;
+
+            match read_result {
+                Err(_elapsed) => {
+                    warn!(
+                        bms   = format!("{:#04x}", bms_address),
+                        cmd   = format!("{:#04x}", cmd as u8),
+                        frame = frame_idx,
+                        "Timeout trame multi"
+                    );
+                    return Err(DalyError::Timeout { bms_id: bms_address, cmd: cmd as u8 });
+                }
+                Ok(Err(e)) => return Err(e.into()),
+                Ok(Ok(_)) => {
+                    trace!(
+                        bms   = format!("{:#04x}", bms_address),
+                        cmd   = format!("{:#04x}", cmd as u8),
+                        frame = frame_idx,
+                        raw   = format!("{:02X?}", &buf),
+                        "← trame multi reçue"
+                    );
+                    let frame = ResponseFrame::parse(&buf)?;
+                    // Valider adresse et commande (le numéro de trame est dans data[0])
+                    frame.validate_for(bms_address, cmd)?;
+                    frames.push(frame);
+                }
+            }
+        }
+
+        Ok(frames)
+    }
+
     /// Vide le buffer de réception (lecture non-bloquante avec timeout court).
     async fn flush_input(port: &mut tokio_serial::SerialStream) -> std::io::Result<()> {
         let mut tmp = [0u8; 256];
