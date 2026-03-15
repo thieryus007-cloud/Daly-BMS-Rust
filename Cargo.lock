@@ -578,6 +578,7 @@ name = "daly-bms-probe"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "daly-bms-core",
  "tokio",
  "tokio-serial",
  "tokio-util",

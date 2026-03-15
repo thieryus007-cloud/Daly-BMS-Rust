@@ -8,6 +8,7 @@ name = "daly-bms-probe"
 path = "src/main.rs"
 
 [dependencies]
+daly-bms-core = { path = "../daly-bms-core" }
 tokio        = { workspace = true }
 tokio-serial = { workspace = true }
 clap         = { workspace = true }
