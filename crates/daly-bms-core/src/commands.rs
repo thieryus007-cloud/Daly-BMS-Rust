@@ -10,7 +10,7 @@ use crate::protocol::{
     decode_voltage, read_u16_be,
 };
 use crate::types::{
-    BalanceFlags, CellTemperatures, CellVoltages, MosStatus, SocData, StatusInfo, SystemData,
+    BalanceFlags, CellTemperatures, CellVoltages, MosStatus, SocData, StatusInfo,
 };
 use std::sync::Arc;
 use tracing::trace;

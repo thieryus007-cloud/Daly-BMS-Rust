@@ -10,9 +10,8 @@ use axum::{
 use axum::extract::ws::{Message, WebSocket};
 use daly_bms_core::types::BmsSnapshot;
 use futures::{SinkExt, StreamExt};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::{json, Value};
-use std::sync::Arc;
 
 // =============================================================================
 // Helpers
@@ -214,7 +213,9 @@ pub async fn compare_all(State(state): State<AppState>) -> Json<Value> {
 
 #[derive(Deserialize)]
 pub struct MosCommand {
+    #[allow(dead_code)]
     pub charge: Option<bool>,
+    #[allow(dead_code)]
     pub discharge: Option<bool>,
 }
 
@@ -230,6 +231,7 @@ pub async fn set_mos(
 
 #[derive(Deserialize)]
 pub struct SocCommand {
+    #[allow(dead_code)]
     pub soc: f32,
 }
 

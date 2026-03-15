@@ -162,6 +162,7 @@ pub struct MqttConfig {
 }
 
 impl MqttConfig {
+    #[allow(dead_code)]
     pub fn default_enabled() -> Self {
         Self {
             enabled:              false,
@@ -189,6 +190,7 @@ pub struct InfluxConfig {
 }
 
 impl InfluxConfig {
+    #[allow(dead_code)]
     pub fn default_enabled() -> Self {
         Self {
             enabled:                  false,

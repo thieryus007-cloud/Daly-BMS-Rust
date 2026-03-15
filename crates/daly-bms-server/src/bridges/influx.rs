@@ -11,7 +11,6 @@ use influxdb2::Client;
 use influxdb2::models::DataPoint;
 use tracing::{error, info, warn};
 use std::time::Duration;
-use tokio::sync::mpsc;
 
 /// Démarre la tâche d'écriture InfluxDB en arrière-plan.
 pub async fn run_influx_bridge(state: AppState, cfg: InfluxConfig) {
