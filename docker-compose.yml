@@ -98,7 +98,7 @@ services:
       - "3001:3000"
     environment:
       GF_SECURITY_ADMIN_USER:     ${GRAFANA_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Erreur: GRAFANA_ADMIN_PASSWORD manquant dans .env}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD manquant dans .env}
       GF_USERS_ALLOW_SIGN_UP:     "false"
       GF_AUTH_ANONYMOUS_ENABLED:  "false"
       # Passer le token InfluxDB pour le provisioning datasource
