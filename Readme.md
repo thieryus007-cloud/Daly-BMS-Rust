@@ -1,22 +1,23 @@
 # Daly-BMS — Rust Edition
 
-**Version Rust complète** — mise à jour 15 mars 2026
-Remplacement total de la stack Python/FastAPI par **Rust** (workspace multi-crates : `daly-bms-core` + `daly-bms-server` + `daly-bms-cli`).
+**Version Rust complète** — mise à jour 16 mars 2026
+Remplacement total de la stack Python/FastAPI par **Rust** (workspace multi-crates : `daly-bms-core` + `daly-bms-server` + `daly-bms-cli` + `daly-bms-probe`).
 
+> Dashboard intégré **SSR Rust** (Askama + ECharts) — aucun npm, aucun React.
 > Infrastructure Docker **inchangée** (Mosquitto, InfluxDB, Grafana, Node-RED).
-> Dashboard React **conservé** (compatible WebSocket Axum).
 > Déploiement ultra-léger : **un seul binaire statique** (~12–18 Mo).
+> Compatible **Windows** (testé) et **Linux/aarch64** (Raspberry Pi).
 
 ---
 
 Raspberry Pi Compute Module 5 Wireless, 4GB RAM, 32GB eMMC
-Raspberry pi os lite (64-bit)
+Raspberry Pi OS Lite (64-bit)
 
 ## Architecture globale
 
 ```
 Pack A (0x28) ─┐
-Pack B (0x29) ─┤── RS485/USB ── RPi CM5 ──[ daly-bms-server ]── Dashboard React
+Pack B (0x29) ─┤── RS485/USB ── RPi CM5 ──[ daly-bms-server ]── Dashboard SSR (/dashboard)
                │                              (Axum natif)         WebSocket /ws/bms/stream
                │                                    │
                │                    ┌───────────────┼───────────────┐
@@ -34,21 +35,26 @@ Pack B (0x29) ─┤── RS485/USB ── RPi CM5 ──[ daly-bms-server ]─
 ```
 
 > **Architecture confirmée** : `dbus-mqtt-battery` fonctionne en mode **MQTT → D-Bus**
-> (abonnement MQTT → service virtuel Venus OS). La connexion CAN directe est donc
+> (abonnement MQTT → service virtuel Venus OS). La connexion CAN directe est
 > redondante une fois le RPi CM5 opérationnel.
+
+> **Mode simulateur** : le serveur peut démarrer sans matériel (`--simulate`) pour
+> tester la stack complète. **Validé sur Windows et Linux.**
 
 ### Workspace Rust
 
 | Crate / Binaire        | Rôle |
 |------------------------|------|
 | `daly-bms-core`        | Protocole UART, parsing trames, types (`BmsSnapshot`), bus partagé, commandes lecture/écriture, polling |
-| `daly-bms-server`      | API Axum (REST + WebSocket) + ring buffer + bridges (MQTT, InfluxDB, Alertes) |
+| `daly-bms-server`      | API Axum (REST + WebSocket) + Dashboard SSR + ring buffer + simulateur + bridges (MQTT, InfluxDB, Alertes) |
 | `daly-bms-cli`         | Outil CLI de diagnostic et contrôle RS485 |
+| `daly-bms-probe`       | Outil diagnostic bas niveau — envoie des trames brutes, teste 3 variantes d'adressage |
 
 ### Flux de données
 
 ```
-BMS UART ──► daly_bms_core::poll_loop()
+BMS UART  ──► daly_bms_core::poll_loop()   ← mode hardware
+Simulateur ──► run_simulator()              ← mode --simulate (sans matériel)
                     │
                     ▼  on_snapshot(snap)
              AppState::on_snapshot()
@@ -81,11 +87,14 @@ BMS UART ──► daly_bms_core::poll_loop()
 ```
 Daly-BMS-Rust/
 ├── Cargo.toml                 ← Workspace Rust (résolver v2)
+├── Cargo.lock
 ├── Config.toml                ← Fichier de configuration exemple (TOML)
 ├── Makefile                   ← Commandes build/test/deploy/docker
+├── Dockerfile                 ← Image Docker multi-stage (builder + runtime)
+├── docker-compose.yml         ← Stack complète (serveur + infra)
+├── docker-compose.infra.yml   ← Infra seule (Mosquitto, InfluxDB, Grafana)
 ├── .env                       ← Variables Docker (InfluxDB, Grafana)
 ├── .gitignore
-├── docker-compose.infra.yml   ← Infra Docker (Phase 1)
 │
 ├── crates/
 │   ├── daly-bms-core/         ← Bibliothèque protocole
@@ -93,7 +102,7 @@ Daly-BMS-Rust/
 │   │       ├── lib.rs
 │   │       ├── error.rs       ← DalyError, Result<T>
 │   │       ├── types.rs       ← BmsSnapshot, Alarms, SystemData…
-│   │       ├── protocol.rs    ← DataId, RequestFrame, checksum
+│   │       ├── protocol.rs    ← DataId, RequestFrame, checksum + 7 tests unitaires
 │   │       ├── bus.rs         ← DalyPort (Mutex), DalyBusManager
 │   │       ├── commands.rs    ← get_pack_status, get_cell_voltages…
 │   │       ├── write.rs       ← set_charge_mos, set_soc, reset_bms
@@ -101,23 +110,30 @@ Daly-BMS-Rust/
 │   │
 │   ├── daly-bms-server/       ← Serveur principal
 │   │   └── src/
-│   │       ├── main.rs        ← Entrypoint, init, spawn tasks
-│   │       ├── config.rs      ← AppConfig (TOML → struct)
-│   │       ├── state.rs       ← AppState, ring buffer, broadcast
+│   │       ├── main.rs        ← Entrypoint, CLI flags (--simulate, --port, --bms…)
+│   │       ├── config.rs      ← AppConfig (TOML → struct), per-BMS config
+│   │       ├── state.rs       ← AppState, ring buffer, broadcast channel
+│   │       ├── simulator.rs   ← Simulateur BMS (physique LiFePO4, sans matériel)
+│   │       ├── autodetect.rs  ← Détection automatique port série + adresses BMS
 │   │       ├── api/
 │   │       │   ├── mod.rs     ← Router Axum (toutes les routes)
 │   │       │   ├── system.rs  ← GET /api/v1/system/*
 │   │       │   └── bms.rs     ← GET/POST /api/v1/bms/*, WebSocket
-│   │       └── bridges/
-│   │           ├── mod.rs
-│   │           ├── mqtt.rs    ← rumqttc, topics, Venus OS payload
-│   │           ├── influx.rs  ← influxdb2-client, batch write
-│   │           └── alerts.rs  ← AlertEngine, SQLite, Telegram/SMTP
+│   │       ├── bridges/
+│   │       │   ├── mod.rs
+│   │       │   ├── mqtt.rs    ← rumqttc, topics, Venus OS payload
+│   │       │   ├── influx.rs  ← influxdb2-client, batch write
+│   │       │   └── alerts.rs  ← AlertEngine, SQLite, Telegram/SMTP
+│   │       └── dashboard/
+│   │           ├── mod.rs     ← Routes /dashboard, templates Askama
+│   │           └── charts.rs  ← Génération JSON ECharts (boxplot, séries…)
 │   │
-│   └── daly-bms-cli/          ← Outil CLI
-│       └── src/main.rs        ← clap, sous-commandes
+│   ├── daly-bms-cli/          ← Outil CLI
+│   │   └── src/main.rs        ← clap, sous-commandes
+│   │
+│   └── daly-bms-probe/        ← Outil diagnostic bas niveau
+│       └── src/main.rs        ← Trames brutes, test 3 variantes d'adressage
 │
-├── dashboard/                 ← SPA React (WebSocket /ws/bms/stream)
 ├── contrib/
 │   ├── daly-bms.service       ← Service systemd
 │   ├── nginx.conf             ← Reverse proxy nginx
@@ -134,18 +150,20 @@ Daly-BMS-Rust/
     ├── config-bms2.ini
     └── README.md
 ```
-Estimation mémoire
-Service	                RAM minimale	RAM confortable
-daly-bms-server (Rust)	  ~25 MB	          ~50 MB
-Mosquitto	                ~12 MB	          ~20 MB
-InfluxDB 2.x (Go)	        ~200 MB	          ~350 MB
-Grafana	                  ~120 MB	          ~200 MB
-Node-RED (Node.js)	      ~150 MB	          ~250 MB
-Dashboard Rust           	~30 MB	          ~60 MB
-OS Raspberry Pi OS Lite	   ~150 MB	        ~200 MB
-Docker Engine + overhead	~100 MB	          ~150 MB
-Marge tampon / cache	    ~200 MB	          ~400 MB
-            TOTAL	        ~990 MB	          ~1680 MB
+
+### Estimation mémoire (RPi5 / production)
+
+| Service                    | RAM minimale | RAM confortable |
+|----------------------------|-------------|-----------------|
+| daly-bms-server (Rust)     | ~25 MB      | ~50 MB          |
+| Mosquitto                  | ~12 MB      | ~20 MB          |
+| InfluxDB 2.x (Go)          | ~200 MB     | ~350 MB         |
+| Grafana                    | ~120 MB     | ~200 MB         |
+| Node-RED (Node.js)         | ~150 MB     | ~250 MB         |
+| OS Raspberry Pi OS Lite    | ~150 MB     | ~200 MB         |
+| Docker Engine + overhead   | ~100 MB     | ~150 MB         |
+| Marge tampon / cache       | ~200 MB     | ~400 MB         |
+| **TOTAL**                  | **~957 MB** | **~1420 MB**    |
 
 ---
 
@@ -156,34 +174,44 @@ Marge tampon / cache	    ~200 MB	          ~400 MB
 | Rust      | 1.80+   | Compilation |
 | Docker    | 24+     | Infra (MQTT, InfluxDB, Grafana) |
 | Docker Compose v2 | — | `make up` |
-| Node.js   | 20 LTS  | Dashboard (dev uniquement) |
 | cross     | dernière | Cross-compilation ARM (optionnel) |
 
+> Le dashboard est **SSR (Askama + ECharts)** — Node.js/npm ne sont plus nécessaires.
+
 **Matériel** : Raspberry Pi CM5 (ou Pi 4/5) + adaptateur USB/RS485
-**OS** : Debian Bookworm / Ubuntu 24.04 (aarch64 ou x86_64)
-**Permissions** : `sudo usermod -aG dialout $USER`
+**OS** : Debian Bookworm / Ubuntu 24.04 (aarch64 ou x86_64), **Windows 10/11 supporté**
+**Permissions Linux** : `sudo usermod -aG dialout $USER`
 
-### Compatibilité Raspberry Pi 5 Compute Module
+### Compatibilité multi-plateforme
 
-Le binary Rust compilé pour `aarch64` est **directement compatible** RPi5 CM sans recompilation.
-Seul le `Config.toml` doit être adapté (port série, IP MQTT).
-
-| Paramètre | Cerbo GX / NanoPi | Raspberry Pi 5 CM |
+| Plateforme | Statut | Notes |
 |---|---|---|
-| `serial.port` | `/dev/ttyUSB0` | `/dev/ttyUSB0` ou `/dev/ttyAMA0` |
-| `mqtt.host` | IP locale | IP locale |
-| Service manager | `runit/s6` (`svc`) | `systemd` (`systemctl`) |
-
-Compilation native sur le RPi5 :
-```bash
-cargo build --release
-```
+| Windows 10/11 (x86_64) | ✅ Testé | Port COMx, auto-détection |
+| Linux x86_64 | ✅ Compilé | `/dev/ttyUSB0` |
+| Raspberry Pi 5 / CM5 (aarch64) | ✅ `make build-arm` | Cross-compile ou natif |
+| Cerbo GX / NanoPi Venus OS | N/A | Sert le MQTT, ne fait pas tourner le serveur |
 
 ---
 
 ## Démarrage rapide
 
-### Phase 1 — Infrastructure Docker (5 min)
+### Mode simulateur (sans matériel BMS — Windows ou Linux)
+
+```bash
+# Compiler
+cargo build --release
+
+# Lancer avec 2 BMS simulés
+cargo run --bin daly-bms-server -- --simulate --sim-bms 0x28,0x29
+
+# Ou avec Make
+make run-simulate
+
+# Accéder au dashboard
+# http://localhost:8000/dashboard
+```
+
+### Infrastructure Docker (5 min)
 
 ```bash
 cp .env.example .env          # adapter les tokens
@@ -191,7 +219,7 @@ make up                        # Mosquitto:1883 InfluxDB:8086 Grafana:3001 Node-
 make ps                        # vérifier l'état
 ```
 
-### Phase 2 — Configuration
+### Configuration
 
 ```bash
 sudo mkdir -p /etc/daly-bms
@@ -199,10 +227,10 @@ sudo cp Config.toml /etc/daly-bms/config.toml
 sudo nano /etc/daly-bms/config.toml   # adapter port série + adresses BMS
 ```
 
-### Phase 3 — Compilation et Lancement
+### Compilation et Lancement (hardware réel)
 
 ```bash
-# Développement (local, sans cross-compile)
+# Développement (local)
 make run-debug
 
 # Production sur le Pi (cross-compile)
@@ -210,12 +238,32 @@ make build-arm
 make deploy PI_HOST=pi@192.168.1.100
 ```
 
-### Phase 4 — Service systemd
+### Service systemd (Linux/RPi5)
 
 ```bash
 make install        # copie le binaire + installe daly-bms.service
 journalctl -u daly-bms -f
 ```
+
+---
+
+## Dashboard intégré
+
+Le dashboard est **embarqué dans le binaire** (SSR Askama + ECharts). Aucun npm, aucun serveur web séparé.
+
+| URL | Description |
+|-----|-------------|
+| `http://localhost:8000/dashboard` | Vue synthèse de tous les BMS |
+| `http://localhost:8000/dashboard/bms/1` | Détail BMS (cellules, températures, historique) |
+
+**Fonctionnalités :**
+- Cartes par BMS : SOC, tension, courant, température, puissance
+- Boxplot tensions cellules (min/max/avg) avec colorisation
+- Indicateur équilibrage actif (cellules hautes/basses)
+- Profil températures
+- Historique temps réel (ring buffer)
+- Thème clair, badge RS485 multi-BMS
+- Noms personnalisés par BMS (`name = "BMS-360Ah"`)
 
 ---
 
@@ -289,13 +337,16 @@ daly-bms-cli --port /dev/ttyUSB0 --addr 0x01 set-soc --value 80.0
 ## Commandes Make
 
 ```bash
-make up            # Démarrer Docker
+make up            # Démarrer Docker (infra)
 make down          # Arrêter Docker
 make build         # Compiler (release, local)
-make build-arm     # Cross-compiler pour aarch64
+make build-arm     # Cross-compiler pour aarch64 (RPi)
+make build-all     # Tous les binaires
 make run           # Lancer le serveur
 make run-debug     # Debug (RUST_LOG=debug)
+make run-simulate  # Mode simulateur (sans matériel)
 make test          # Tests unitaires
+make test-core     # Tests protocole uniquement
 make lint          # Clippy
 make fmt           # Format code
 make check         # check + fmt + clippy
@@ -303,6 +354,31 @@ make deploy        # Cross-compile + deploy SSH sur le Pi
 make install       # Installer service systemd
 make doc           # Générer et ouvrir la doc Rust
 ```
+
+---
+
+## Simulateur BMS
+
+Le mode simulateur génère des données **LiFePO4 réalistes** sans matériel :
+
+```bash
+# 1 BMS simulé (adresse 0x01 par défaut)
+cargo run --bin daly-bms-server -- --simulate
+
+# 2 BMS simulés (adresses 0x28 et 0x29 comme en production)
+cargo run --bin daly-bms-server -- --simulate --sim-bms 0x28,0x29
+```
+
+**Physique simulée :**
+- SOC : courbe de décharge, recharge automatique à 10%, cycle à 95%
+- Tension : courbe OCV LiFePO4 (44V vide → 58,4V plein pour 16 cellules)
+- Courant : variation sinusoïdale autour de -8,5 A (décharge)
+- Température : corrélée au courant + dérive ambiante
+- Tensions cellules : déséquilibre réaliste (-15 à +15 mV par cellule)
+- Équilibrage : activé automatiquement quand delta > 10 mV
+- Alarmes : déclenchées sur seuils SOC/delta
+
+Le simulateur alimente les mêmes bridges que le hardware réel : **MQTT, InfluxDB, AlertEngine, WebSocket, Dashboard**.
 
 ---
 
@@ -369,29 +445,36 @@ make logs
 
 # Niveau de logs augmenté
 RUST_LOG=debug daly-bms-server
+
+# Diagnostic bas niveau (trame brute)
+cargo run --bin daly-bms-probe -- --port /dev/ttyUSB0
 ```
 
 ---
 
 ## Roadmap
 
-- [x] Phase 0 : Structure workspace Rust (Cargo.toml, crates)
+- [x] Phase 0 : Structure workspace Rust (Cargo.toml, 4 crates)
 - [x] Phase 0 : Types de données (BmsSnapshot ↔ JSONData.json)
 - [x] Phase 0 : Protocole UART + checksum + tests unitaires
 - [x] Phase 0 : API Axum (toutes les routes définies)
 - [x] Phase 0 : AppState + ring buffer + broadcast WebSocket
 - [x] Phase 0 : Bridges (MQTT, InfluxDB, AlertEngine)
 - [x] Phase 0 : CLI (clap, toutes les commandes)
-- [x] Phase 1 : Infrastructure Docker
+- [x] Phase 0 : Outil probe (diagnostic bas niveau)
+- [x] Phase 1 : Infrastructure Docker (Mosquitto, InfluxDB, Grafana, Node-RED)
+- [x] Phase 1 : Docker complet (Dockerfile + docker-compose.yml stack complète)
+- [x] Phase 1 : Simulateur BMS avec physique LiFePO4 (validé Windows + Linux)
+- [x] Phase 1 : Auto-détection port série et adresses BMS
+- [x] Phase 1 : Dashboard SSR intégré (Askama + ECharts, sans npm)
 - [x] Phase 1 : MQTT publish_interval_sec réduit à 1s (temps réel)
 - [x] Phase 1 : Architecture Venus OS confirmée (MQTT → D-Bus via dbus-mqtt-battery)
 - [x] Phase 1 : Service dbus-canbattery.can0 stoppé sur NanoPi (CAN remplacé par MQTT)
-- [ ] Phase 2 : Déploiement RPi5 CM — port série réel + tests sur matériel BMS
-- [ ] Phase 2 : Commandes d'écriture activées (MOS, SOC, reset)
-- [ ] Phase 2 : Découverte auto + tests d'intégration
-- [ ] Phase 3 : Docker complet (binaire Rust + nginx + dashboard)
-- [ ] Phase 4 : Dashboard Rust natif (Leptos/Dioxus)
-- [ ] Phase 4 : Support Venus OS natif via D-Bus (fork dbus-serialbattery)
+- [x] Phase 1 : Compatibilité Windows 10/11 validée
+- [ ] Phase 2 : Déploiement RPi5 CM — port série réel + tests sur matériel BMS physique
+- [ ] Phase 2 : Validation commandes d'écriture (MOS, SOC, reset) sur hardware
+- [ ] Phase 2 : Tests intégration 24h stabilité
+- [ ] Phase 3 : Support Venus OS natif via D-Bus (fork dbus-serialbattery)
 
 ---
 
