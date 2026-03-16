@@ -2,7 +2,6 @@
 # Grafana — Provisioning datasource InfluxDB 2.x (Flux)
 # =============================================================================
 # Ce fichier est monté en lecture seule dans /etc/grafana/provisioning/datasources/
-# Les variables ${...} sont résolues depuis les variables d'environnement Grafana.
 
 apiVersion: 1
 
@@ -13,14 +12,13 @@ datasources:
     access: proxy
     url: http://influxdb:8086
     isDefault: true
-    editable: false
+    editable: true
 
     jsonData:
       version: Flux
-      organization: ${INFLUX_ORG:-santuario}
-      defaultBucket: ${INFLUX_BUCKET:-daly_bms}
-      # Timeout des requêtes Flux (secondes)
+      organization: santuario
+      defaultBucket: daly_bms
       timeInterval: "10s"
 
     secureJsonData:
-      token: ${INFLUX_TOKEN}
+      token: $INFLUX_TOKEN
