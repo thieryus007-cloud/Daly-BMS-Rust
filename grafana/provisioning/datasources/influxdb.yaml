@@ -21,4 +21,4 @@ datasources:
       timeInterval: "10s"
 
     secureJsonData:
-      token: $INFLUX_TOKEN
+      token: ${INFLUX_TOKEN}
