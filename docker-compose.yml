@@ -69,7 +69,7 @@ services:
       DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUXDB_ADMIN_PASSWORD:-supersecret123}
       DOCKER_INFLUXDB_INIT_ORG:      ${INFLUX_ORG:-santuario}
       DOCKER_INFLUXDB_INIT_BUCKET:   ${INFLUX_BUCKET:-daly_bms}
-      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUX_TOKEN:?Erreur: INFLUX_TOKEN manquant dans .env}
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUX_TOKEN:?INFLUX_TOKEN manquant dans .env}
       # Rétention par défaut du bucket : 30 jours
       DOCKER_INFLUXDB_INIT_RETENTION: 720h
     volumes:
@@ -98,7 +98,7 @@ services:
       - "3001:3000"
     environment:
       GF_SECURITY_ADMIN_USER:     ${GRAFANA_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Erreur: GRAFANA_ADMIN_PASSWORD manquant dans .env}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD manquant dans .env}
       GF_USERS_ALLOW_SIGN_UP:     "false"
       GF_AUTH_ANONYMOUS_ENABLED:  "false"
       # Passer le token InfluxDB pour le provisioning datasource
