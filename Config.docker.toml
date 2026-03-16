@@ -55,7 +55,7 @@ url     = "http://dalybms-influxdb:8086"
 # !! IMPORTANT : mettre ici le même token que INFLUX_TOKEN dans votre .env !!
 # Exemple : si .env contient  INFLUX_TOKEN=montoken123
 # alors mettre ici :           token = "montoken123"
-token   = "REMPLACEZ_PAR_VOTRE_INFLUX_TOKEN"
+token   = "UK0sGQBQ8HH1EyB3SSC0W8GAPzlZLNyNdXR56Ld8KNdGt_SKAwdCD-XW_jkZuGzP8Iyg5XaY3VXh-8qY4NjrGw=="
 
 org                      = "santuario"
 bucket                   = "daly_bms"
