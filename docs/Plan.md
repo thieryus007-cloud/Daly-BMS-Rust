@@ -266,12 +266,13 @@ pub struct BmsSnapshot {
 
 ### Phase 0 — Squelette et types ✅ COMPLÉTÉ
 
-**Durée** : 2–3 jours | **Livrable** : Structure compilable, tests protocole
+**Livrable** : Structure compilable, tests protocole
 
-- [x] Workspace Cargo.toml avec toutes les dépendances
+- [x] Workspace Cargo.toml avec toutes les dépendances (4 crates)
 - [x] `daly-bms-core` : error, types, protocol, bus, commands, write, poll
-- [x] `daly-bms-server` : config, state, api/, bridges/
-- [x] `daly-bms-cli` : toutes les commandes
+- [x] `daly-bms-server` : config, state, api/, bridges/, dashboard/, simulator, autodetect
+- [x] `daly-bms-cli` : toutes les commandes (status, cells, temps, mos, alarms, discover, poll, set-*)
+- [x] `daly-bms-probe` : outil diagnostic bas niveau, trames brutes, 3 variantes adressage
 - [x] Makefile, .gitignore, docs mis à jour
 
 ---
@@ -287,9 +288,32 @@ make ps     # vérifier
 
 ---
 
-### Phase 1.5 — Intégration Venus OS / NanoPi ✅ COMPLÉTÉ (15 mars 2026)
+### Phase 1.5 — Simulateur + Dashboard + Intégration Venus OS ✅ COMPLÉTÉ
 
-#### Architecture validée en production
+#### Simulateur BMS (sans matériel)
+
+- **Fichier** : `crates/daly-bms-server/src/simulator.rs` (308 LOC)
+- **Activation** : `--simulate` ou `--simulate --sim-bms 0x28,0x29`
+- **Physique LiFePO4** : SOC, tension OCV, courant, température, déséquilibre cellules, équilibrage
+- **Validé sur Windows 10/11 et Linux x86_64**
+- Alimente tous les bridges (MQTT, InfluxDB, AlertEngine, WebSocket, Dashboard)
+
+#### Dashboard SSR intégré
+
+- **Technologie** : Askama (templates compilés) + Apache ECharts — **aucun npm**
+- Routes : `/dashboard` (vue synthèse) + `/dashboard/bms/:id` (détail)
+- Boxplot tensions cellules, colorisation min/max, indicateur équilibrage
+- Noms personnalisés par BMS, badge RS485, thème clair
+- **Embarqué dans le binaire** — zéro dépendance externe au runtime
+
+#### Auto-détection port série
+
+- **Fichier** : `crates/daly-bms-server/src/autodetect.rs`
+- Scan des ports COM/tty, détection signature Daly
+- `port = ""` dans Config.toml → auto-détection au démarrage
+- Fix double ouverture port sur Windows
+
+#### Intégration Venus OS / NanoPi (15 mars 2026)
 
 - **Flux confirmé** : MQTT → `dbus-mqtt-battery` → D-Bus Venus OS
 - **Service CAN stoppé** : `svc -d /service/dbus-canbattery.can0` (récupère ~60 MB RAM + 6% CPU)
@@ -307,16 +331,20 @@ make ps     # vérifier
 
 RAM disponible : ~77 MB. Le binary Rust (~10 MB) remplacera plusieurs scripts Python.
 
-#### Compatibilité Raspberry Pi 5 Compute Module
+#### Compatibilité multi-plateforme confirmée
 
-- Architecture ARM64 (aarch64) identique → **binaire directement compatible**
-- Seul `Config.toml` à adapter (port série, IP MQTT)
+| Plateforme | Statut |
+|---|---|
+| Windows 10/11 (x86_64) | ✅ Testé avec simulateur |
+| Linux x86_64 | ✅ Compilé et fonctionnel |
+| Raspberry Pi 5 / CM5 (aarch64) | ✅ `make build-arm` (cross-compile) |
+
 - Service manager différent : `systemd` sur RPi5 vs `runit/s6` sur Cerbo GX
-- Compilation native : `cargo build --release` sur le RPi5
+- Compilation native RPi5 : `cargo build --release`
 
 ---
 
-### Phase 2 — Validation port série (PROCHAINE ÉTAPE — RPi5)
+### Phase 2 — Validation hardware réel (PROCHAINE ÉTAPE — RPi5 + BMS physiques)
 
 **Durée estimée** : 3–5 jours | **Prérequis** : Matériel BMS physique
 
@@ -606,15 +634,19 @@ curl http://localhost:8000/api/v1/system/status | jq
 
 ## Annexe — Correspondance Python → Rust
 
-| Module Python | Module Rust | Statut Phase 0 |
-|--------------|-------------|----------------|
-| `daly_protocol.py` | `core/commands.rs` + `protocol.rs` | Squelette complet |
-| `daly_write.py` | `core/write.rs` | Squelette complet |
-| `daly_api.py` | `server/api/` | Routes définies |
-| `daly_mqtt.py` | `server/bridges/mqtt.rs` | Bridge complet |
-| `daly_influx.py` | `server/bridges/influx.rs` | Bridge complet |
-| `daly_alerts.py` | `server/bridges/alerts.rs` | Moteur complet |
-| `config.py` | `server/config.rs` | Complet |
+| Module Python | Module Rust | Statut |
+|--------------|-------------|--------|
+| `daly_protocol.py` | `core/commands.rs` + `protocol.rs` | ✅ Complet + 7 tests unitaires |
+| `daly_write.py` | `core/write.rs` | ✅ Implémenté (à valider sur hardware) |
+| `daly_api.py` | `server/api/` | ✅ Toutes les routes opérationnelles |
+| `daly_mqtt.py` | `server/bridges/mqtt.rs` | ✅ Validé en production (Venus OS) |
+| `daly_influx.py` | `server/bridges/influx.rs` | ✅ Complet |
+| `daly_alerts.py` | `server/bridges/alerts.rs` | ✅ Moteur complet |
+| `config.py` | `server/config.rs` | ✅ Complet, per-BMS config |
+| `dashboard/` (React) | `server/dashboard/` (Askama+ECharts) | ✅ SSR sans npm |
+| N/A | `server/simulator.rs` | ✅ Nouveau — physique LiFePO4 |
+| N/A | `server/autodetect.rs` | ✅ Nouveau — auto-détection port/BMS |
+| N/A | `daly-bms-probe` | ✅ Nouveau — diagnostic bas niveau |
 
 ---
 
