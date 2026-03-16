@@ -14,7 +14,7 @@ services:
       - "1883:1883"       # MQTT standard
       - "9001:9001"       # MQTT over WebSocket (pour Node-RED si besoin)
     volumes:
-      - ./docker/mosquitto/config:/mosquitto/config:ro
+      - ./docker/mosquitto/config:/mosquitto/config
       - mosquitto-data:/mosquitto/data
       - mosquitto-log:/mosquitto/log
     healthcheck:
