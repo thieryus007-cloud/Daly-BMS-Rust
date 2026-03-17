@@ -452,6 +452,55 @@ Serveur Rust (natif, hors Docker) :
 
 ---
 
+### Phase 1.8 — Reset base InfluxDB (données parasites 0x28/0x29) ✅ COMPLÉTÉ (17 mars 2026)
+
+#### Problème observé
+
+Grafana affichait 4 BMS (0x01, 0x02, 0x28, 0x29) alors que seuls 0x01 et 0x02 sont connectés.
+Les adresses 0x28/0x29 correspondent aux anciennes adresses RS485 utilisées pendant la phase NanoPi.
+Ces données résiduelles polluaient tous les panels Grafana.
+
+#### Solution : repartir avec une base InfluxDB vierge
+
+Le token est **conservé** car `DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUX_TOKEN}` est dans
+`docker-compose.infra.yml` — InfluxDB se réinitialise avec le même token au redémarrage.
+
+**Commandes sur le RPi5 :**
+```bash
+cd ~/Daly-BMS-Rust
+
+# Option 1 — Reset InfluxDB uniquement (Grafana et Node-RED conservés)
+make reset-influx
+
+# Option 2 — Reset complet (tout efface, tout recrée proprement)
+make reset
+make up
+```
+
+**Vérification après reset :**
+```bash
+# Attendre ~15 secondes que InfluxDB démarre
+docker logs dalybms-influxdb --tail 20
+
+# Relancer le serveur Rust pour qu'il recommence à écrire
+sudo systemctl restart daly-bms    # si installé en service systemd
+```
+
+Grafana affichera uniquement 0x01 et 0x02 dès les premières données reçues (< 5 secondes).
+
+#### Makefile — cibles disponibles
+
+| Commande | Effet |
+|---|---|
+| `make up` | Démarre toute l'infra Docker |
+| `make down` | Arrête les containers (volumes conservés) |
+| `make reset-influx` | Supprime uniquement le volume InfluxDB, redémarre |
+| `make reset` | Supprime TOUS les volumes (InfluxDB + Grafana + Node-RED) |
+| `make logs` | Suit les logs de tous les containers |
+| `make ps` | État des containers |
+
+---
+
 ### Phase 2 — Validation hardware réel (PROCHAINE ÉTAPE — RPi5 + BMS physiques)
 
 **Durée estimée** : 3–5 jours | **Prérequis** : Matériel BMS physique
