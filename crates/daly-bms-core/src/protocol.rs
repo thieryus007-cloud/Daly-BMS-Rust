@@ -79,10 +79,41 @@ pub enum DataId {
     AlarmFlags        = 0x98,
 
     // ── Commandes d'écriture ──────────────────────────────────────────────────
+    // ── Commandes de lecture — paramètres/configuration ──────────────────────
+    /// Capacité nominale du pack + tension nominale de cellule (mAh, mV)
+    RatedCapacity     = 0x50,
+    /// Seuils d'alarme tension cellule L1/L2 haut/bas (mV)
+    CellVoltAlarms    = 0x59,
+    /// Seuils d'alarme tension pack L1/L2 haut/bas (0.1 V)
+    PackVoltAlarms    = 0x5A,
+    /// Seuils d'alarme courant charge/décharge L1/L2 (offset 30000, 0.1 A)
+    CurrentAlarms     = 0x5B,
+    /// Seuils d'alarme delta tension cellule + delta température L1/L2
+    DeltaAlarms       = 0x5E,
+    /// Seuils de démarrage et delta acceptable pour le balancing (mV)
+    BalancingThresh   = 0x5F,
+    /// Version logicielle (multi-trames, 7 chars par trame)
+    FirmwareSW        = 0x62,
+    /// Version matérielle (multi-trames, 7 chars par trame)
+    FirmwareHW        = 0x63,
+
+    // ── Commandes d'écriture ──────────────────────────────────────────────────
     /// Reset BMS
     Reset             = 0x00,
     /// Calibration SOC (uint16 BE × 10 à l'offset 4)
     SetSoc            = 0x21,
+    /// Écriture capacité nominale + tension nominale de cellule
+    SetRatedCapacity  = 0x10,
+    /// Écriture seuils d'alarme tension cellule L1/L2
+    SetCellVoltAlarms = 0x19,
+    /// Écriture seuils d'alarme tension pack L1/L2
+    SetPackVoltAlarms = 0x1A,
+    /// Écriture seuils d'alarme courant L1/L2
+    SetCurrentAlarms  = 0x1B,
+    /// Écriture seuils delta tension/température L1/L2
+    SetDeltaAlarms    = 0x1E,
+    /// Écriture seuils balancing (activation + delta)
+    SetBalancingThresh = 0x1F,
     /// Commande MOS décharge (0x01 = on, 0x00 = off)
     SetDischargeMos   = 0xD9,
     /// Commande MOS charge (0x01 = on, 0x00 = off)
@@ -102,8 +133,22 @@ impl DataId {
             0x96 => Some(Self::Temperatures),
             0x97 => Some(Self::BalanceStatus),
             0x98 => Some(Self::AlarmFlags),
+            0x50 => Some(Self::RatedCapacity),
+            0x59 => Some(Self::CellVoltAlarms),
+            0x5A => Some(Self::PackVoltAlarms),
+            0x5B => Some(Self::CurrentAlarms),
+            0x5E => Some(Self::DeltaAlarms),
+            0x5F => Some(Self::BalancingThresh),
+            0x62 => Some(Self::FirmwareSW),
+            0x63 => Some(Self::FirmwareHW),
             0x00 => Some(Self::Reset),
             0x21 => Some(Self::SetSoc),
+            0x10 => Some(Self::SetRatedCapacity),
+            0x19 => Some(Self::SetCellVoltAlarms),
+            0x1A => Some(Self::SetPackVoltAlarms),
+            0x1B => Some(Self::SetCurrentAlarms),
+            0x1E => Some(Self::SetDeltaAlarms),
+            0x1F => Some(Self::SetBalancingThresh),
             0xD9 => Some(Self::SetDischargeMos),
             0xDA => Some(Self::SetChargeMos),
             _    => None,
@@ -112,7 +157,14 @@ impl DataId {
 
     /// `true` si c'est une commande d'écriture (dangereux sans confirmation).
     pub fn is_write(self) -> bool {
-        matches!(self, Self::Reset | Self::SetSoc | Self::SetDischargeMos | Self::SetChargeMos)
+        matches!(
+            self,
+            Self::Reset | Self::SetSoc
+            | Self::SetRatedCapacity | Self::SetCellVoltAlarms
+            | Self::SetPackVoltAlarms | Self::SetCurrentAlarms
+            | Self::SetDeltaAlarms | Self::SetBalancingThresh
+            | Self::SetDischargeMos | Self::SetChargeMos
+        )
     }
 }
 

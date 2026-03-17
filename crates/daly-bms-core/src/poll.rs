@@ -10,7 +10,7 @@ use crate::types::{
     BmsSnapshot, DcData, HistoryData, InfoData, IoData, SystemData,
 };
 use chrono::Utc;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{error, info, warn};
@@ -54,12 +54,36 @@ pub async fn poll_loop<F>(
 {
     let on_snapshot = Arc::new(on_snapshot);
     let mut backoff_ms = config.backoff_initial_ms;
+    // Cache des versions firmware (lues une seule fois par BMS)
+    let mut fw_cache: HashMap<u8, (String, String)> = HashMap::new();
 
     loop {
         let cycle_start = std::time::Instant::now();
 
+        // Lire les versions firmware pour les BMS non encore mis en cache
         for device in &manager.devices {
-            match poll_device(&manager.port, device, &config).await {
+            if !fw_cache.contains_key(&device.address) {
+                let sw = commands::get_firmware_sw(&manager.port, device.address)
+                    .await.unwrap_or_default();
+                let hw = commands::get_firmware_hw(&manager.port, device.address)
+                    .await.unwrap_or_default();
+                if !sw.is_empty() || !hw.is_empty() {
+                    info!(
+                        bms = format!("{:#04x}", device.address),
+                        fw_sw = %sw, fw_hw = %hw,
+                        "Firmware version lu"
+                    );
+                }
+                fw_cache.insert(device.address, (sw, hw));
+            }
+        }
+
+        for device in &manager.devices {
+            let (fw_sw, fw_hw) = fw_cache
+                .get(&device.address)
+                .cloned()
+                .unwrap_or_default();
+            match poll_device(&manager.port, device, &config, fw_sw, fw_hw).await {
                 Ok(snapshot) => {
                     backoff_ms = config.backoff_initial_ms; // reset backoff
                     on_snapshot(snapshot);
@@ -101,6 +125,8 @@ async fn poll_device(
     port: &Arc<DalyPort>,
     device: &BmsConfig,
     config: &PollConfig,
+    firmware_sw: String,
+    firmware_hw: String,
 ) -> crate::error::Result<BmsSnapshot> {
     let addr = device.address;
 
@@ -226,6 +252,8 @@ async fn poll_device(
         io,
         heating:            0,
         time_to_soc,
+        firmware_sw,
+        firmware_hw,
     };
 
     info!(

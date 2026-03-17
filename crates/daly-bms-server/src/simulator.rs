@@ -250,6 +250,8 @@ impl SimBmsState {
             },
             heating: 0,
             time_to_soc,
+            firmware_sw: "SIM-v1.0".into(),
+            firmware_hw: "SIM-HW-1".into(),
         }
     }
 }

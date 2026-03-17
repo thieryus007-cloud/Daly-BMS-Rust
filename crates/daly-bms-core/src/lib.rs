@@ -23,7 +23,7 @@ pub mod poll;
 pub use error::DalyError;
 pub use types::{
     BmsSnapshot, DcData, Alarms, InfoData, HistoryData, SystemData,
-    IoData, CellVoltages, CellTemperatures, BmsAddress,
+    IoData, CellVoltages, CellTemperatures, BmsAddress, BmsSettings,
 };
 pub use protocol::{DataId, RequestFrame, ResponseFrame, FRAME_LEN};
 pub use bus::{DalyPort, DalyBusManager};

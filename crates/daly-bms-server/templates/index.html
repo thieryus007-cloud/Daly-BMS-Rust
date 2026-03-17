@@ -43,6 +43,9 @@
       <div class="bms-hdr-right">
         <span class="bms-live-dot" id="live-dot-{{ bms.address }}"></span>
         <span>LIVE</span>
+        {% if !bms.firmware_sw.is_empty() %}
+          <span style="color:rgba(255,255,255,0.55);font-size:0.62rem;font-family:monospace">v{{ bms.firmware_sw }}</span>
+        {% endif %}
         <span class="bms-can-badge">{{ bms.can_id }}</span>
         <span class="bms-hdr-ts" id="ts-{{ bms.address }}">{{ bms.last_update }}</span>
       </div>

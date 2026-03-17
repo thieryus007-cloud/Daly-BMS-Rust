@@ -8,7 +8,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use axum::extract::ws::{Message, WebSocket};
-use daly_bms_core::types::BmsSnapshot;
+use daly_bms_core::types::{BmsSettings, BmsSnapshot};
 use futures::{SinkExt, StreamExt};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -292,6 +292,217 @@ pub async fn set_soc(
                 "warning": "Pas d'ACK BMS (commande probablement reçue — vérifier le SOC dans 5s)",
             }))).into_response()
         }
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": format!("{:?}", e)}))).into_response(),
+    }
+}
+
+// =============================================================================
+// GET — Paramètres de configuration (lecture à la demande)
+// =============================================================================
+
+/// GET /api/v1/bms/:id/settings
+///
+/// Lit tous les paramètres de configuration du BMS (0x50, 0x5F, 0x59, 0x5A, 0x5B, 0x5E).
+/// Cette commande interroge directement le BMS sur le bus RS485.
+pub async fn get_settings(
+    Path(id): Path<String>,
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    let addr = match parse_addr(&id) {
+        Some(a) => a,
+        None => return (StatusCode::BAD_REQUEST, Json(json!({"error": "Adresse BMS invalide"}))).into_response(),
+    };
+    let port = match require_port(&state).await {
+        Ok(p)  => p,
+        Err(e) => return e,
+    };
+    match daly_bms_core::commands::get_bms_settings(&port, addr).await {
+        Ok(s) => (StatusCode::OK, Json(json!({
+            "bms": format!("{:#04x}", addr),
+            "settings": s,
+        }))).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": format!("{:?}", e)}))).into_response(),
+    }
+}
+
+// =============================================================================
+// POST — Écriture des paramètres de configuration
+// =============================================================================
+
+#[derive(Deserialize)]
+pub struct CellVoltAlarmsCmd {
+    pub high_l1_mv: u16,
+    pub high_l2_mv: u16,
+    pub low_l1_mv:  u16,
+    pub low_l2_mv:  u16,
+    pub password:   String,
+}
+
+/// POST /api/v1/bms/:id/settings/cell-voltage-alarms
+pub async fn set_cell_volt_alarms(
+    Path(id): Path<String>,
+    State(state): State<AppState>,
+    Json(body): Json<CellVoltAlarmsCmd>,
+) -> impl IntoResponse {
+    if body.password != DALY_WRITE_PASSWORD {
+        return (StatusCode::FORBIDDEN, Json(json!({"error": "Mot de passe incorrect"}))).into_response();
+    }
+    if state.config.read_only.enabled {
+        return (StatusCode::FORBIDDEN, Json(json!({"error": "Mode lecture seule actif"}))).into_response();
+    }
+    let addr = match parse_addr(&id) {
+        Some(a) => a,
+        None => return (StatusCode::BAD_REQUEST, Json(json!({"error": "Adresse invalide"}))).into_response(),
+    };
+    let port = match require_port(&state).await { Ok(p) => p, Err(e) => return e };
+    match daly_bms_core::write::set_cell_volt_alarms(
+        &port, addr, body.high_l1_mv, body.high_l2_mv, body.low_l1_mv, body.low_l2_mv, false,
+    ).await {
+        Ok(()) => (StatusCode::OK, Json(json!({"ok": true, "bms": format!("{:#04x}", addr)}))).into_response(),
+        Err(daly_bms_core::error::DalyError::Timeout { .. }) =>
+            (StatusCode::OK, Json(json!({"ok": true, "warning": "Pas d'ACK BMS"}))).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": format!("{:?}", e)}))).into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+pub struct PackVoltAlarmsCmd {
+    pub high_l1_dv: u16,
+    pub high_l2_dv: u16,
+    pub low_l1_dv:  u16,
+    pub low_l2_dv:  u16,
+    pub password:   String,
+}
+
+/// POST /api/v1/bms/:id/settings/pack-voltage-alarms
+pub async fn set_pack_volt_alarms(
+    Path(id): Path<String>,
+    State(state): State<AppState>,
+    Json(body): Json<PackVoltAlarmsCmd>,
+) -> impl IntoResponse {
+    if body.password != DALY_WRITE_PASSWORD {
+        return (StatusCode::FORBIDDEN, Json(json!({"error": "Mot de passe incorrect"}))).into_response();
+    }
+    if state.config.read_only.enabled {
+        return (StatusCode::FORBIDDEN, Json(json!({"error": "Mode lecture seule actif"}))).into_response();
+    }
+    let addr = match parse_addr(&id) {
+        Some(a) => a,
+        None => return (StatusCode::BAD_REQUEST, Json(json!({"error": "Adresse invalide"}))).into_response(),
+    };
+    let port = match require_port(&state).await { Ok(p) => p, Err(e) => return e };
+    match daly_bms_core::write::set_pack_volt_alarms(
+        &port, addr, body.high_l1_dv, body.high_l2_dv, body.low_l1_dv, body.low_l2_dv, false,
+    ).await {
+        Ok(()) => (StatusCode::OK, Json(json!({"ok": true, "bms": format!("{:#04x}", addr)}))).into_response(),
+        Err(daly_bms_core::error::DalyError::Timeout { .. }) =>
+            (StatusCode::OK, Json(json!({"ok": true, "warning": "Pas d'ACK BMS"}))).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": format!("{:?}", e)}))).into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+pub struct CurrentAlarmsCmd {
+    pub chg_l1_a: f32,
+    pub chg_l2_a: f32,
+    pub dch_l1_a: f32,
+    pub dch_l2_a: f32,
+    pub password: String,
+}
+
+/// POST /api/v1/bms/:id/settings/current-alarms
+pub async fn set_current_alarms(
+    Path(id): Path<String>,
+    State(state): State<AppState>,
+    Json(body): Json<CurrentAlarmsCmd>,
+) -> impl IntoResponse {
+    if body.password != DALY_WRITE_PASSWORD {
+        return (StatusCode::FORBIDDEN, Json(json!({"error": "Mot de passe incorrect"}))).into_response();
+    }
+    if state.config.read_only.enabled {
+        return (StatusCode::FORBIDDEN, Json(json!({"error": "Mode lecture seule actif"}))).into_response();
+    }
+    let addr = match parse_addr(&id) {
+        Some(a) => a,
+        None => return (StatusCode::BAD_REQUEST, Json(json!({"error": "Adresse invalide"}))).into_response(),
+    };
+    let port = match require_port(&state).await { Ok(p) => p, Err(e) => return e };
+    match daly_bms_core::write::set_current_alarms(
+        &port, addr, body.chg_l1_a, body.chg_l2_a, body.dch_l1_a, body.dch_l2_a, false,
+    ).await {
+        Ok(()) => (StatusCode::OK, Json(json!({"ok": true, "bms": format!("{:#04x}", addr)}))).into_response(),
+        Err(daly_bms_core::error::DalyError::Timeout { .. }) =>
+            (StatusCode::OK, Json(json!({"ok": true, "warning": "Pas d'ACK BMS"}))).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": format!("{:?}", e)}))).into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+pub struct DeltaAlarmsCmd {
+    pub cell_delta_l1_mv: u16,
+    pub cell_delta_l2_mv: u16,
+    pub temp_delta_l1:    u8,
+    pub temp_delta_l2:    u8,
+    pub password:         String,
+}
+
+/// POST /api/v1/bms/:id/settings/delta-alarms
+pub async fn set_delta_alarms(
+    Path(id): Path<String>,
+    State(state): State<AppState>,
+    Json(body): Json<DeltaAlarmsCmd>,
+) -> impl IntoResponse {
+    if body.password != DALY_WRITE_PASSWORD {
+        return (StatusCode::FORBIDDEN, Json(json!({"error": "Mot de passe incorrect"}))).into_response();
+    }
+    if state.config.read_only.enabled {
+        return (StatusCode::FORBIDDEN, Json(json!({"error": "Mode lecture seule actif"}))).into_response();
+    }
+    let addr = match parse_addr(&id) {
+        Some(a) => a,
+        None => return (StatusCode::BAD_REQUEST, Json(json!({"error": "Adresse invalide"}))).into_response(),
+    };
+    let port = match require_port(&state).await { Ok(p) => p, Err(e) => return e };
+    match daly_bms_core::write::set_delta_alarms(
+        &port, addr, body.cell_delta_l1_mv, body.cell_delta_l2_mv, body.temp_delta_l1, body.temp_delta_l2, false,
+    ).await {
+        Ok(()) => (StatusCode::OK, Json(json!({"ok": true, "bms": format!("{:#04x}", addr)}))).into_response(),
+        Err(daly_bms_core::error::DalyError::Timeout { .. }) =>
+            (StatusCode::OK, Json(json!({"ok": true, "warning": "Pas d'ACK BMS"}))).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": format!("{:?}", e)}))).into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+pub struct BalancingCmd {
+    pub activation_mv: u16,
+    pub delta_mv:      u16,
+    pub password:      String,
+}
+
+/// POST /api/v1/bms/:id/settings/balancing
+pub async fn set_balancing(
+    Path(id): Path<String>,
+    State(state): State<AppState>,
+    Json(body): Json<BalancingCmd>,
+) -> impl IntoResponse {
+    if body.password != DALY_WRITE_PASSWORD {
+        return (StatusCode::FORBIDDEN, Json(json!({"error": "Mot de passe incorrect"}))).into_response();
+    }
+    if state.config.read_only.enabled {
+        return (StatusCode::FORBIDDEN, Json(json!({"error": "Mode lecture seule actif"}))).into_response();
+    }
+    let addr = match parse_addr(&id) {
+        Some(a) => a,
+        None => return (StatusCode::BAD_REQUEST, Json(json!({"error": "Adresse invalide"}))).into_response(),
+    };
+    let port = match require_port(&state).await { Ok(p) => p, Err(e) => return e };
+    match daly_bms_core::write::set_balancing_thresh(
+        &port, addr, body.activation_mv, body.delta_mv, false,
+    ).await {
+        Ok(()) => (StatusCode::OK, Json(json!({"ok": true, "bms": format!("{:#04x}", addr)}))).into_response(),
+        Err(daly_bms_core::error::DalyError::Timeout { .. }) =>
+            (StatusCode::OK, Json(json!({"ok": true, "warning": "Pas d'ACK BMS"}))).into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": format!("{:?}", e)}))).into_response(),
     }
 }

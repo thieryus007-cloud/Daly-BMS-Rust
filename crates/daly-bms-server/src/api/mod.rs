@@ -42,12 +42,20 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/v1/bms/:id/export/csv",  get(bms::export_csv))
         .route("/api/v1/bms/compare",         get(bms::compare_all))
 
+        // ── BMS — Paramètres (lecture à la demande) ───────────────────────────
+        .route("/api/v1/bms/:id/settings",                         get(bms::get_settings))
+
         // ── BMS — Écriture ────────────────────────────────────────────────────
-        .route("/api/v1/bms/:id/mos",         post(bms::set_mos))
-        .route("/api/v1/bms/:id/soc",         post(bms::set_soc))
-        .route("/api/v1/bms/:id/soc/full",    post(bms::set_soc_full))
-        .route("/api/v1/bms/:id/soc/empty",   post(bms::set_soc_empty))
-        .route("/api/v1/bms/:id/reset",       post(bms::reset_bms))
+        .route("/api/v1/bms/:id/mos",                              post(bms::set_mos))
+        .route("/api/v1/bms/:id/soc",                              post(bms::set_soc))
+        .route("/api/v1/bms/:id/soc/full",                         post(bms::set_soc_full))
+        .route("/api/v1/bms/:id/soc/empty",                        post(bms::set_soc_empty))
+        .route("/api/v1/bms/:id/reset",                            post(bms::reset_bms))
+        .route("/api/v1/bms/:id/settings/cell-voltage-alarms",     post(bms::set_cell_volt_alarms))
+        .route("/api/v1/bms/:id/settings/pack-voltage-alarms",     post(bms::set_pack_volt_alarms))
+        .route("/api/v1/bms/:id/settings/current-alarms",          post(bms::set_current_alarms))
+        .route("/api/v1/bms/:id/settings/delta-alarms",            post(bms::set_delta_alarms))
+        .route("/api/v1/bms/:id/settings/balancing",               post(bms::set_balancing))
 
         // ── WebSocket ─────────────────────────────────────────────────────────
         .route("/ws/bms/stream",         get(bms::ws_all))
