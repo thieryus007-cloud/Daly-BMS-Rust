@@ -104,11 +104,14 @@ impl BatteryManager {
     }
 
     /// Retourne le `DeviceInstance` D-Bus pour un index MQTT.
+    ///
+    /// Cherche le BmsRef dont le `mqtt_index` correspond à `idx`.
+    /// Utilise `device_instance` si explicitement configuré, sinon `mqtt_index`.
     fn device_instance_for_index(&self, idx: u8) -> u32 {
         for (pos, bms) in self.bms_refs.iter().enumerate() {
             let bms_idx = bms.mqtt_index.unwrap_or((pos + 1) as u8);
             if bms_idx == idx {
-                return bms_idx as u32;
+                return bms.device_instance.unwrap_or(bms_idx as u32);
             }
         }
         idx as u32
