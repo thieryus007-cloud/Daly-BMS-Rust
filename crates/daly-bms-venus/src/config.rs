@@ -93,17 +93,14 @@ pub struct BmsRef {
     pub address:    String,
     /// Nom affiché dans Venus OS
     pub name:       Option<String>,
-    /// Index MQTT → DeviceInstance D-Bus
+    /// Index dans le topic MQTT (ex: 1 → `santuario/bms/1/venus`).
+    /// Doit correspondre à l'adresse RS485 décimale publiée par le serveur.
     pub mqtt_index: Option<u8>,
+    /// DeviceInstance Venus OS D-Bus (affiché dans VRM, ex: 141, 142).
+    /// Si absent, utilise `mqtt_index` comme fallback.
+    pub device_instance: Option<u32>,
     /// Capacité nominale (Ah) — utilisée comme InstalledCapacity si absente du payload
     pub capacity_ah: Option<f32>,
-}
-
-impl BmsRef {
-    /// Retourne le `mqtt_index` ou un index par défaut (position 1-based dans le tableau).
-    pub fn device_instance(&self, fallback_position: u8) -> u8 {
-        self.mqtt_index.unwrap_or(fallback_position)
-    }
 }
 
 // =============================================================================
