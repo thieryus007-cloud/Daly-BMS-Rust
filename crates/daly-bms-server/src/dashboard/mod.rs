@@ -128,6 +128,8 @@ pub struct BmsSummary {
     pub cycles:                u32,
     pub max_charge_current:    f32,
     pub max_discharge_current: f32,
+    /// Version firmware (ex: "20210222-1.01T")
+    pub firmware_sw:           String,
     // Alarmes individuelles
     pub alarm_high_voltage:    bool,
     pub alarm_low_voltage:     bool,
@@ -192,6 +194,7 @@ impl BmsSummary {
             cycles:                snap.history.charge_cycles,
             max_charge_current:    snap.info.max_charge_current,
             max_discharge_current: snap.info.max_discharge_current,
+            firmware_sw:           snap.firmware_sw.clone(),
             alarm_high_voltage:    snap.alarms.high_voltage    != 0,
             alarm_low_voltage:     snap.alarms.low_voltage     != 0,
             alarm_high_temp:       snap.alarms.high_temperature != 0,
@@ -267,6 +270,22 @@ struct DetailTemplate {
 #[derive(Template)]
 #[template(path = "logs.html")]
 struct LogsTemplate {}
+
+/// Entrée BMS minimale pour la page Paramètres.
+#[derive(Debug, Clone)]
+pub struct SettingsBmsEntry {
+    pub address:     u8,
+    pub address_hex: String,
+    pub name:        String,
+    pub firmware_sw: String,
+    pub firmware_hw: String,
+}
+
+#[derive(Template)]
+#[template(path = "settings.html")]
+struct SettingsTemplate {
+    bms_list: Vec<SettingsBmsEntry>,
+}
 
 // =============================================================================
 // Handlers Axum
@@ -344,11 +363,25 @@ pub async fn dashboard_logs() -> Response {
     render(LogsTemplate {})
 }
 
+/// Page des paramètres BMS (globale, tous BMS).
+pub async fn dashboard_settings(State(state): State<AppState>) -> Response {
+    let snaps = state.latest_snapshots().await;
+    let bms_list = snaps.iter().map(|s| SettingsBmsEntry {
+        address:     s.address,
+        address_hex: format!("{:#04x}", s.address),
+        name:        s.name.clone(),
+        firmware_sw: s.firmware_sw.clone(),
+        firmware_hw: s.firmware_hw.clone(),
+    }).collect();
+    render(SettingsTemplate { bms_list })
+}
+
 /// Construit le routeur du dashboard (à fusionner dans le routeur principal).
 pub fn build_dashboard_router() -> Router<AppState> {
     Router::new()
-        .route("/",                  get(redirect_root))
-        .route("/dashboard",         get(dashboard_index))
-        .route("/dashboard/bms/:id", get(dashboard_bms))
-        .route("/dashboard/logs",    get(dashboard_logs))
+        .route("/",                      get(redirect_root))
+        .route("/dashboard",             get(dashboard_index))
+        .route("/dashboard/bms/:id",     get(dashboard_bms))
+        .route("/dashboard/logs",        get(dashboard_logs))
+        .route("/dashboard/settings",    get(dashboard_settings))
 }

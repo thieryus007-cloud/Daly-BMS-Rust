@@ -10,7 +10,7 @@ use crate::protocol::{
     decode_voltage, read_u16_be,
 };
 use crate::types::{
-    BalanceFlags, CellTemperatures, CellVoltages, MosStatus, SocData, StatusInfo,
+    BalanceFlags, BmsSettings, CellTemperatures, CellVoltages, MosStatus, SocData, StatusInfo,
 };
 use std::sync::Arc;
 use tracing::trace;
@@ -207,6 +207,143 @@ pub async fn get_alarm_flags(
     let mut alarm_bytes = [0u8; 7];
     alarm_bytes.copy_from_slice(&d[1..8]);
     Ok((charge_en, discharge_en, alarm_bytes))
+}
+
+// =============================================================================
+// Commandes de lecture — paramètres/configuration
+// =============================================================================
+
+/// Lit la capacité nominale et la tension nominale de cellule (0x50).
+///
+/// Layout data :
+/// - D0-D3 : Capacité nominale (mAh, uint32 BE)
+/// - D4-D5 : Réservé
+/// - D6-D7 : Tension nominale cellule (mV, uint16 BE)
+pub async fn get_rated_capacity(port: &Arc<DalyPort>, addr: u8) -> Result<(u32, u16)> {
+    let frame = port.send_command(addr, DataId::RatedCapacity, [0u8; 8]).await?;
+    let d = frame.data();
+    let capacity_mah = u32::from_be_bytes([d[0], d[1], d[2], d[3]]);
+    let nominal_mv   = read_u16_be(d, 6);
+    Ok((capacity_mah, nominal_mv))
+}
+
+/// Lit les seuils d'alarme tension cellule L1/L2 (0x59).
+///
+/// Retourne (high_l1_mv, high_l2_mv, low_l1_mv, low_l2_mv).
+pub async fn get_cell_volt_alarms(port: &Arc<DalyPort>, addr: u8) -> Result<(u16, u16, u16, u16)> {
+    let frame = port.send_command(addr, DataId::CellVoltAlarms, [0u8; 8]).await?;
+    let d = frame.data();
+    Ok((read_u16_be(d, 0), read_u16_be(d, 2), read_u16_be(d, 4), read_u16_be(d, 6)))
+}
+
+/// Lit les seuils d'alarme tension pack L1/L2 (0x5A).
+///
+/// Retourne (high_l1_dv, high_l2_dv, low_l1_dv, low_l2_dv) en 0.1 V.
+pub async fn get_pack_volt_alarms(port: &Arc<DalyPort>, addr: u8) -> Result<(u16, u16, u16, u16)> {
+    let frame = port.send_command(addr, DataId::PackVoltAlarms, [0u8; 8]).await?;
+    let d = frame.data();
+    Ok((read_u16_be(d, 0), read_u16_be(d, 2), read_u16_be(d, 4), read_u16_be(d, 6)))
+}
+
+/// Lit les seuils d'alarme courant charge/décharge L1/L2 (0x5B).
+///
+/// Encodage offset 30000 (même que courant 0x90).
+/// Charge : raw < 30000  → A = (30000 - raw) / 10
+/// Décharge : raw > 30000 → A = (raw - 30000) / 10
+pub async fn get_current_alarms(port: &Arc<DalyPort>, addr: u8) -> Result<(f32, f32, f32, f32)> {
+    let frame = port.send_command(addr, DataId::CurrentAlarms, [0u8; 8]).await?;
+    let d = frame.data();
+    let chg_l1 = (30000i32 - read_u16_be(d, 0) as i32).unsigned_abs() as f32 / 10.0;
+    let chg_l2 = (30000i32 - read_u16_be(d, 2) as i32).unsigned_abs() as f32 / 10.0;
+    let dch_l1 = (read_u16_be(d, 4) as i32 - 30000i32).unsigned_abs() as f32 / 10.0;
+    let dch_l2 = (read_u16_be(d, 6) as i32 - 30000i32).unsigned_abs() as f32 / 10.0;
+    Ok((chg_l1, chg_l2, dch_l1, dch_l2))
+}
+
+/// Lit les seuils d'alarme delta tension + delta température L1/L2 (0x5E).
+///
+/// Retourne (cell_delta_mv_l1, cell_delta_mv_l2, temp_delta_l1, temp_delta_l2).
+pub async fn get_delta_alarms(port: &Arc<DalyPort>, addr: u8) -> Result<(u16, u16, u8, u8)> {
+    let frame = port.send_command(addr, DataId::DeltaAlarms, [0u8; 8]).await?;
+    let d = frame.data();
+    Ok((read_u16_be(d, 0), read_u16_be(d, 2), d[4], d[5]))
+}
+
+/// Lit les seuils de balancing (0x5F).
+///
+/// Retourne (activation_mv, delta_mv).
+pub async fn get_balancing_thresh(port: &Arc<DalyPort>, addr: u8) -> Result<(u16, u16)> {
+    let frame = port.send_command(addr, DataId::BalancingThresh, [0u8; 8]).await?;
+    let d = frame.data();
+    Ok((read_u16_be(d, 0), read_u16_be(d, 2)))
+}
+
+/// Lit la version logicielle firmware (0x62, multi-trames, 7 chars/trame).
+///
+/// Exemple : "20210222-1.01T"
+pub async fn get_firmware_sw(port: &Arc<DalyPort>, addr: u8) -> Result<String> {
+    let frames = port.send_command_multi(addr, DataId::FirmwareSW, 2).await?;
+    let mut s = String::with_capacity(14);
+    for frame in &frames {
+        let d = frame.data();
+        // d[0] = numéro de trame, d[1..8] = 7 chars
+        for &b in &d[1..8] {
+            if b != 0x00 && b != 0x20 {
+                s.push(b as char);
+            }
+        }
+    }
+    Ok(s.trim().to_string())
+}
+
+/// Lit la version matérielle (0x63, multi-trames, 7 chars/trame).
+///
+/// Exemple : "DL-BMS-R32-01E"
+pub async fn get_firmware_hw(port: &Arc<DalyPort>, addr: u8) -> Result<String> {
+    let frames = port.send_command_multi(addr, DataId::FirmwareHW, 2).await?;
+    let mut s = String::with_capacity(14);
+    for frame in &frames {
+        let d = frame.data();
+        for &b in &d[1..8] {
+            if b != 0x00 && b != 0x20 {
+                s.push(b as char);
+            }
+        }
+    }
+    Ok(s.trim().to_string())
+}
+
+/// Lit tous les paramètres de configuration en une seule opération (0x50, 0x5F, 0x59, 0x5A, 0x5B, 0x5E).
+pub async fn get_bms_settings(port: &Arc<DalyPort>, addr: u8) -> Result<BmsSettings> {
+    let (rated_mah, nominal_mv)            = get_rated_capacity(port, addr).await?;
+    let (bal_act_mv, bal_delta_mv)         = get_balancing_thresh(port, addr).await?;
+    let (cv_hi1, cv_hi2, cv_lo1, cv_lo2)  = get_cell_volt_alarms(port, addr).await?;
+    let (pv_hi1, pv_hi2, pv_lo1, pv_lo2)  = get_pack_volt_alarms(port, addr).await?;
+    let (ci_c1, ci_c2, ci_d1, ci_d2)      = get_current_alarms(port, addr).await?;
+    let (dv_l1, dv_l2, dt_l1, dt_l2)      = get_delta_alarms(port, addr).await?;
+
+    Ok(BmsSettings {
+        rated_capacity_mah:    rated_mah,
+        nominal_cell_mv:       nominal_mv,
+        balancing_activation_mv: bal_act_mv,
+        balancing_delta_mv:    bal_delta_mv,
+        cell_high_v_l1_mv:     cv_hi1,
+        cell_high_v_l2_mv:     cv_hi2,
+        cell_low_v_l1_mv:      cv_lo1,
+        cell_low_v_l2_mv:      cv_lo2,
+        pack_high_v_l1_dv:     pv_hi1,
+        pack_high_v_l2_dv:     pv_hi2,
+        pack_low_v_l1_dv:      pv_lo1,
+        pack_low_v_l2_dv:      pv_lo2,
+        chg_high_a_l1:         ci_c1,
+        chg_high_a_l2:         ci_c2,
+        dch_high_a_l1:         ci_d1,
+        dch_high_a_l2:         ci_d2,
+        cell_delta_v_l1_mv:    dv_l1,
+        cell_delta_v_l2_mv:    dv_l2,
+        temp_delta_l1:         dt_l1,
+        temp_delta_l2:         dt_l2,
+    })
 }
 
 // =============================================================================

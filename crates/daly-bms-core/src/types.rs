@@ -106,6 +106,14 @@ pub struct BmsSnapshot {
     /// Temps estimé pour atteindre chaque palier de SOC (% → secondes)
     #[serde(rename = "TimeToSoC")]
     pub time_to_soc: BTreeMap<u8, u32>,
+
+    /// Version logicielle firmware (ex: "20210222-1.01T") — lue une fois au démarrage
+    #[serde(rename = "FirmwareSW")]
+    pub firmware_sw: String,
+
+    /// Version matérielle (ex: "DL-BMS-R32-01E") — lue une fois au démarrage
+    #[serde(rename = "FirmwareHW")]
+    pub firmware_hw: String,
 }
 
 // =============================================================================
@@ -397,6 +405,68 @@ impl BalanceFlags {
             .map(|(i, &f)| (format!("Cell{}", i + 1), u8::from(f)))
             .collect()
     }
+}
+
+// =============================================================================
+// Paramètres de configuration du BMS (commandes 0x50, 0x59-0x5F)
+// =============================================================================
+
+/// Paramètres de configuration lus depuis le BMS (lecture à la demande).
+///
+/// Retourné par la commande GET /api/v1/bms/:id/settings.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct BmsSettings {
+    // ── 0x50 : Capacité nominale + tension nominale ────────────────────────
+    /// Capacité nominale du pack (mAh)
+    pub rated_capacity_mah: u32,
+    /// Tension nominale des cellules (mV, ex: 3700 pour LFP)
+    pub nominal_cell_mv: u16,
+
+    // ── 0x5F : Seuils de balancing ─────────────────────────────────────────
+    /// Tension de cellule à partir de laquelle le balancing démarre (mV)
+    pub balancing_activation_mv: u16,
+    /// Delta de tension acceptable entre cellules (mV)
+    pub balancing_delta_mv: u16,
+
+    // ── 0x59 : Alarmes tension cellule ────────────────────────────────────
+    /// Alarme sur-tension cellule niveau 1 (mV)
+    pub cell_high_v_l1_mv: u16,
+    /// Alarme sur-tension cellule niveau 2 (mV)
+    pub cell_high_v_l2_mv: u16,
+    /// Alarme sous-tension cellule niveau 1 (mV)
+    pub cell_low_v_l1_mv: u16,
+    /// Alarme sous-tension cellule niveau 2 (mV)
+    pub cell_low_v_l2_mv: u16,
+
+    // ── 0x5A : Alarmes tension pack ───────────────────────────────────────
+    /// Alarme sur-tension pack niveau 1 (0.1 V)
+    pub pack_high_v_l1_dv: u16,
+    /// Alarme sur-tension pack niveau 2 (0.1 V)
+    pub pack_high_v_l2_dv: u16,
+    /// Alarme sous-tension pack niveau 1 (0.1 V)
+    pub pack_low_v_l1_dv: u16,
+    /// Alarme sous-tension pack niveau 2 (0.1 V)
+    pub pack_low_v_l2_dv: u16,
+
+    // ── 0x5B : Alarmes courant ────────────────────────────────────────────
+    /// Alarme sur-courant de charge niveau 1 (A, positif)
+    pub chg_high_a_l1: f32,
+    /// Alarme sur-courant de charge niveau 2 (A)
+    pub chg_high_a_l2: f32,
+    /// Alarme sur-courant de décharge niveau 1 (A, positif)
+    pub dch_high_a_l1: f32,
+    /// Alarme sur-courant de décharge niveau 2 (A)
+    pub dch_high_a_l2: f32,
+
+    // ── 0x5E : Alarmes delta tension / température ────────────────────────
+    /// Alarme déséquilibre tension cellule niveau 1 (mV)
+    pub cell_delta_v_l1_mv: u16,
+    /// Alarme déséquilibre tension cellule niveau 2 (mV)
+    pub cell_delta_v_l2_mv: u16,
+    /// Alarme delta température niveau 1 (°C)
+    pub temp_delta_l1: u8,
+    /// Alarme delta température niveau 2 (°C)
+    pub temp_delta_l2: u8,
 }
 
 /// Résultat de la commande 0x90 : SOC, tension, courant.
