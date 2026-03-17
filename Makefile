@@ -21,7 +21,7 @@ ARM_RELEASE_DIR := target/$(TARGET_ARM)/release
 # Infrastructure Docker
 # =============================================================================
 
-.PHONY: up down restart logs reset ps
+.PHONY: up down restart logs reset reset-influx ps
 
 up:
 	docker compose -f docker-compose.infra.yml up -d
@@ -38,7 +38,15 @@ logs:
 
 reset:
 	docker compose -f docker-compose.infra.yml down -v
-	@echo "⚠ Volumes supprimés — données InfluxDB/Grafana effacées"
+	@echo "⚠ Volumes supprimés — données InfluxDB/Grafana/Node-RED effacées"
+
+# Reset uniquement InfluxDB (conserve Grafana config + Node-RED)
+# Utile pour repartir avec une base vierge sans perdre les dashboards Grafana
+reset-influx:
+	docker compose -f docker-compose.infra.yml stop influxdb
+	docker volume rm $$(docker volume ls -q | grep influxdb) 2>/dev/null || true
+	docker compose -f docker-compose.infra.yml up -d influxdb
+	@echo "✓ InfluxDB réinitialisé — token conservé depuis .env"
 
 ps:
 	docker compose -f docker-compose.infra.yml ps
