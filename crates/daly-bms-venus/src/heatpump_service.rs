@@ -174,14 +174,11 @@ impl HeatpumpValues {
         m.insert("/Ac/Power".into(),          DbusItem::f64(self.ac_power, "W"));
         m.insert("/Ac/Energy/Forward".into(), DbusItem::f64(self.ac_energy_forward, "kWh"));
 
-        // Températures — toujours publiées (0.0 si absentes) pour que
-        // Venus OS les connaisse dès GetItems()
-        if let Some(t) = self.temperature {
-            m.insert("/Temperature".into(), DbusItem::f64(t, "°C"));
-        }
-        if let Some(tt) = self.target_temperature {
-            m.insert("/TargetTemperature".into(), DbusItem::f64(tt, "°C"));
-        }
+        // Températures — toujours présentes (0.0 si absentes) pour que
+        // Venus OS enregistre les chemins D-Bus dès le démarrage
+        // (GetItems et GetValue fonctionnent même avant le 1er message MQTT)
+        m.insert("/Temperature".into(),       DbusItem::f64(self.temperature.unwrap_or(0.0),        "°C"));
+        m.insert("/TargetTemperature".into(), DbusItem::f64(self.target_temperature.unwrap_or(0.0), "°C"));
 
         m
     }

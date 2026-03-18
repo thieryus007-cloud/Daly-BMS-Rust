@@ -347,6 +347,170 @@ ps | grep readproctitle
 
 ---
 
+---
+
+## Exemple complet : Chauffe-eau Victron HeatPump (LG ThinQ)
+
+### 1. Type D-Bus Victron utilisé
+
+`com.victronenergy.heatpump` — wiki Victron :
+<https://github.com/victronenergy/venus/wiki/dbus#heatpump>
+
+Chemins exposés (tous obligatoirement enregistrés au démarrage) :
+- `/State` — état de la pompe (enum, voir table ci-dessous)
+- `/Temperature` — température eau courante °C (0.0 si inconnu)
+- `/TargetTemperature` — température cible °C (0.0 si inconnue)
+- `/Ac/Power` — puissance consommée W
+- `/Ac/Energy/Forward` — énergie totale kWh
+- `/Position` — 0=AC Output, 1=AC Input
+
+### 2. Table State (mapping LG ThinQ → Victron)
+
+| Valeur | Signification | Mode LG ThinQ | Opération |
+|---|---|---|---|
+| 0 | Off / Vacation | VACATION ou POWER_OFF | — |
+| 1 | Heat Pump (normal) | HEAT_PUMP | POWER_ON |
+| 2 | Turbo / Boost | TURBO | POWER_ON |
+
+### 3. Configuration Config.toml
+
+```toml
+[heatpump]
+topic_prefix = "santuario/heatpump"
+
+[[heatpumps]]
+mqtt_index      = 1       # Topic : santuario/heatpump/1/venus
+name            = "Chauffe-eau"
+device_instance = 30      # DeviceInstance unique sur D-Bus
+```
+
+### 4. Topic MQTT
+
+```
+santuario/heatpump/1/venus
+```
+
+Payload JSON (publié par Node-RED) :
+```json
+{
+  "State": 1,
+  "Temperature": 60.0,
+  "TargetTemperature": 52.0,
+  "Position": 0
+}
+```
+
+Payload étendu (si puissance disponible via compteur externe) :
+```json
+{
+  "State": 1,
+  "Temperature": 60.0,
+  "TargetTemperature": 52.0,
+  "Ac": { "Power": 1200.0, "Energy": { "Forward": 125.5 } },
+  "Position": 0
+}
+```
+
+### 5. Nom du service D-Bus résultant
+
+```
+com.victronenergy.heatpump.mqtt_1
+```
+
+### 6. Source de données : LG ThinQ API
+
+L'état est récupéré toutes les 10 minutes via l'API REST LG ThinQ :
+
+```
+GET https://api-eic.lgthinq.com/devices/{device_id}/state
+Authorization: Bearer {thinqpat_token}
+```
+
+Réponse utilisée :
+```json
+{
+  "response": {
+    "waterHeaterJobMode": { "currentJobMode": "HEAT_PUMP" },
+    "operation":          { "waterHeaterOperationMode": "POWER_ON" },
+    "temperature":        { "currentTemperature": 60, "targetTemperature": 52 }
+  }
+}
+```
+
+### 7. Commandes SET disponibles dans Node-RED
+
+```
+POST https://api-eic.lgthinq.com/devices/{device_id}/control
+```
+
+| Commande | Payload |
+|---|---|
+| Activer mode HEAT_PUMP | `{"waterHeaterJobMode": {"currentJobMode": "HEAT_PUMP"}}` |
+| Activer mode TURBO | `{"waterHeaterJobMode": {"currentJobMode": "TURBO"}}` |
+| Régler température 40°C | `{"temperature": {"targetTemperature": 40}}` |
+| Régler température 55°C | `{"temperature": {"targetTemperature": 55}}` |
+
+### 8. Flux Node-RED (setwaterheater.json)
+
+**Structure :**
+```
+Inject (poll 600s + oneshot 5s)
+Inject (test manuel)
+    └─► Préparer GET état → GET /state LG ThinQ → Parser état → HeatpumpPayload
+            ├─► mqtt out : santuario/heatpump/1/venus    ◄─ keepalive 25s
+            └─► debug complet
+
+Inject keepalive 25s → Republier depuis global context → mqtt out (même nœud)
+
+Inject SET TURBO      → POST /control → debug
+Inject SET HEAT_PUMP  → POST /control → debug
+Inject SET 40°C Nuit  → POST /control → debug
+Inject SET 55°C Jour  → POST /control → debug
+```
+
+Fonction de parsing (extrait) :
+```javascript
+const stateMapping = { 'HEAT_PUMP': 1, 'TURBO': 2, 'VACATION': 0 };
+const isPoweredOn = operation === 'POWER_ON';
+const state = isPoweredOn ? (stateMapping[mode] ?? 1) : 0;
+
+const payload = {
+    State:             state,
+    Temperature:       currentTemp,
+    TargetTemperature: targetTemp,
+    Position:          0
+};
+global.set('heatpump_payload', payload);  // pour keepalive
+```
+
+### 9. Commandes de vérification D-Bus
+
+```bash
+# Lister tous les chemins du service
+dbus -y com.victronenergy.heatpump.mqtt_1 / GetItems
+
+# Valeurs individuelles
+dbus -y com.victronenergy.heatpump.mqtt_1 /State              GetValue
+dbus -y com.victronenergy.heatpump.mqtt_1 /Temperature        GetValue
+dbus -y com.victronenergy.heatpump.mqtt_1 /TargetTemperature  GetValue
+dbus -y com.victronenergy.heatpump.mqtt_1 /Ac/Power           GetValue
+dbus -y com.victronenergy.heatpump.mqtt_1 /Position           GetValue
+dbus -y com.victronenergy.heatpump.mqtt_1 /Connected          GetValue
+```
+
+### 10. Test MQTT direct (sans Node-RED)
+
+```bash
+# Depuis Pi5 ou NanoPi
+mosquitto_pub -h localhost -t "santuario/heatpump/1/venus" \
+  -m '{"State":1,"Temperature":60.0,"TargetTemperature":52.0,"Position":0}'
+
+# Vérifier la réception sur NanoPi
+mosquitto_sub -h localhost -t "santuario/heatpump/1/venus" -v
+```
+
+---
+
 ## Devices implémentés
 
 | Device | Service D-Bus | Topic MQTT | Index config |
