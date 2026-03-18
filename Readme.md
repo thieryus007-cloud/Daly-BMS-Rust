@@ -741,12 +741,12 @@ docker compose -f docker-compose.infra.yml restart dalybms-influxdb
 > **Après un `make reset`** : utiliser l'URL de base sans chemin (ex. `http://192.168.1.141:8086`).
 > L'ancien org ID dans l'URL bookmarkée devient invalide — se reconnecter depuis la page d'accueil.
 
-### Datasource Grafana (provisionné automatiquement)
+### Datasource Grafana (provisionné automatiquement) ✅
 
 Le fichier `grafana/provisioning/datasources/influxdb.yaml` configure automatiquement
 la connexion InfluxDB au démarrage de Grafana. Aucune configuration manuelle requise.
 
-### Dashboard Grafana
+### Dashboard Grafana ✅
 
 Le dashboard `DalyBMS — Vue d'ensemble` est provisionné depuis :
 `grafana/provisioning/dashboards/bms-overview.json`
@@ -806,7 +806,7 @@ Il affiche pour chaque BMS :
 ### Phase 4 — Migration & Consolidation 🚧
 
 - [ ] Renommer le crate `daly-bms-venus` → `santuario-venus-bridge` dans le workspace Rust
-- [ ] Migration flows Node-RED du NanoPi vers le Pi5 (docker-compose.infra.yml)
+- [ ] Migration flows Node-RED du NanoPi vers le Pi5 (docker-compose.infra.yml) ✅
 - [ ] Nettoyage NanoPi : services Python retirés, seul `santuario-venus-bridge` reste
 - [ ] Validation stabilité 24h post-migration Node-RED
 
