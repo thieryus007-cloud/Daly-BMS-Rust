@@ -1,16 +1,17 @@
-//! `daly-bms-venus` — Service D-Bus Venus OS pour Daly BMS
+//! `daly-bms-venus` — Bridge MQTT → D-Bus Venus OS (batteries + capteurs)
 //!
-//! Ce binaire crée des services `com.victronenergy.battery.{n}` sur le D-Bus
-//! du Victron GX (Venus OS) en lisant les données depuis le broker MQTT local.
+//! Ce binaire enregistre sur le D-Bus du Victron GX (Venus OS) :
+//! - `com.victronenergy.battery.{n}` pour chaque BMS Daly (topic `bms/{n}/venus`)
+//! - `com.victronenergy.temperature.{n}` pour chaque capteur température
+//!   (topic `heat/{n}/venus` — outdoor temp, water heater…)
 //!
 //! ## Flux
 //!
 //! ```text
-//! [MQTT broker] → [mqtt_source] → [BatteryManager] → [D-Bus: com.victronenergy.battery.*]
-//!                                                           ↓
-//!                                                    [Venus systemcalc]
-//!                                                           ↓
-//!                                                    [VRM Portal]
+//! [MQTT: bms/{n}/venus]  → [BatteryManager] → [D-Bus: com.victronenergy.battery.{n}]
+//! [MQTT: heat/{n}/venus] → [SensorManager]  → [D-Bus: com.victronenergy.temperature.{n}]
+//!                                                    ↓
+//!                                             [Venus systemcalc → VRM Portal]
 //! ```
 //!
 //! ## Utilisation
@@ -27,13 +28,16 @@ mod battery_service;
 mod config;
 mod manager;
 mod mqtt_source;
+mod sensor_manager;
+mod temperature_service;
 mod types;
 
 use anyhow::Result;
 use clap::Parser;
 use config::VenusServiceConfig;
 use manager::BatteryManager;
-use mqtt_source::start_mqtt_source;
+use mqtt_source::{start_mqtt_source, start_sensor_mqtt_source};
+use sensor_manager::SensorManager;
 use std::path::PathBuf;
 use tokio::sync::mpsc;
 use tracing::{error, info};
@@ -88,11 +92,13 @@ async fn main() -> Result<()> {
     }
 
     info!(
-        version = env!("CARGO_PKG_VERSION"),
-        dbus_bus = %cfg.venus.dbus_bus,
-        mqtt_host = %cfg.mqtt.host,
-        mqtt_prefix = %cfg.mqtt.topic_prefix,
-        bms_count = cfg.bms.len(),
+        version     = env!("CARGO_PKG_VERSION"),
+        dbus_bus    = %cfg.venus.dbus_bus,
+        mqtt_host   = %cfg.mqtt.host,
+        bms_prefix  = %cfg.mqtt.topic_prefix,
+        heat_prefix = %cfg.heat.topic_prefix,
+        bms_count   = cfg.bms.len(),
+        sensor_count = cfg.sensors.len(),
         "daly-bms-venus démarrage"
     );
 
@@ -101,20 +107,35 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
-    // Canal MQTT → Manager (buffer 64 messages)
-    let (tx, rx) = mpsc::channel(64);
-
-    // Démarrer la source MQTT en arrière-plan
+    // -------------------------------------------------------------------------
+    // Bridge BMS batteries : MQTT bms/{n}/venus → D-Bus battery.{n}
+    // -------------------------------------------------------------------------
+    let (bms_tx, bms_rx) = mpsc::channel(64);
     let mqtt_cfg = cfg.mqtt.clone();
     tokio::spawn(async move {
-        start_mqtt_source(mqtt_cfg, tx).await;
+        start_mqtt_source(mqtt_cfg, bms_tx).await;
     });
 
-    // Démarrer le manager D-Bus (bloquant)
-    let manager = BatteryManager::new(cfg.venus, cfg.bms, rx);
+    let battery_manager = BatteryManager::new(cfg.venus.clone(), cfg.bms, bms_rx);
+    tokio::spawn(async move {
+        if let Err(e) = battery_manager.run().await {
+            error!("BatteryManager terminé avec erreur : {:#}", e);
+        }
+    });
 
-    if let Err(e) = manager.run().await {
-        error!("BatteryManager terminé avec erreur : {:#}", e);
+    // -------------------------------------------------------------------------
+    // Bridge capteurs température : MQTT heat/{n}/venus → D-Bus temperature.{n}
+    // -------------------------------------------------------------------------
+    let (sensor_tx, sensor_rx) = mpsc::channel(64);
+    let mqtt_cfg2    = cfg.mqtt.clone();
+    let heat_prefix  = cfg.heat.topic_prefix.clone();
+    tokio::spawn(async move {
+        start_sensor_mqtt_source(mqtt_cfg2, heat_prefix, sensor_tx).await;
+    });
+
+    let sensor_manager = SensorManager::new(cfg.venus, cfg.sensors, sensor_rx);
+    if let Err(e) = sensor_manager.run().await {
+        error!("SensorManager terminé avec erreur : {:#}", e);
         std::process::exit(1);
     }
 

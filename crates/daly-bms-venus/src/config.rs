@@ -24,6 +24,14 @@ pub struct VenusServiceConfig {
     /// Configurations par BMS (pour mqtt_index et DeviceInstance)
     #[serde(default)]
     pub bms: Vec<BmsRef>,
+
+    /// Configuration du préfixe MQTT heat (capteurs température)
+    #[serde(default)]
+    pub heat: HeatConfig,
+
+    /// Configurations par capteur de température
+    #[serde(default)]
+    pub sensors: Vec<SensorRef>,
 }
 
 /// Référence à la config MQTT du serveur principal.
@@ -85,6 +93,51 @@ fn default_dbus_bus()       -> String { "system".to_string() }
 fn default_service_prefix() -> String { "mqtt".to_string() }
 fn default_watchdog_sec()   -> u64    { 30 }
 fn default_republish_sec()  -> u64    { 25 }
+
+// =============================================================================
+// Configuration capteurs de température (heat)
+// =============================================================================
+
+/// Préfixe MQTT pour les capteurs de température.
+///
+/// Topic abonné : `{topic_prefix}/+/venus`
+/// Exemple : `santuario/heat/1/venus`
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct HeatConfig {
+    /// Préfixe des topics heat (ex: "santuario/heat")
+    pub topic_prefix: String,
+}
+
+impl Default for HeatConfig {
+    fn default() -> Self {
+        Self { topic_prefix: "santuario/heat".to_string() }
+    }
+}
+
+/// Configuration d'un capteur de température individuel.
+///
+/// Une section `[[sensors]]` par capteur dans le TOML.
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+pub struct SensorRef {
+    /// Index dans le topic MQTT (ex: 1 → `santuario/heat/1/venus`).
+    pub mqtt_index: Option<u8>,
+
+    /// Nom affiché dans Venus OS (`/ProductName` et `/CustomName` par défaut).
+    pub name: Option<String>,
+
+    /// Type de température par défaut si absent du payload :
+    /// 0=battery, 1=fridge, 2=generic, 3=Room, 4=Outdoor, 5=WaterHeater, 6=Freezer.
+    /// Prioritaire sur la valeur du payload.
+    pub temperature_type: Option<i32>,
+
+    /// DeviceInstance Venus OS D-Bus (affiché dans VRM).
+    /// Si absent, utilise `mqtt_index` comme fallback.
+    pub device_instance: Option<u32>,
+}
+
+// =============================================================================
+// Configuration BMS (existante)
+// =============================================================================
 
 /// Référence légère à une configuration BMS individuelle.
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
