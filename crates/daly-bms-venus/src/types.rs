@@ -5,6 +5,50 @@
 
 use serde::{Deserialize, Serialize};
 
+// =============================================================================
+// Payload capteurs de température (santuario/heat/{n}/venus)
+// =============================================================================
+
+/// Payload pour capteurs de température/chaleur.
+///
+/// Publié par Node-RED (Open-Meteo, capteurs physiques…) sur
+/// `santuario/heat/{n}/venus` et consommé par `SensorManager`.
+///
+/// Chemins D-Bus Venus OS cibles : `com.victronenergy.temperature.{n}`
+///   /Temperature      °C
+///   /TemperatureType  0=battery 1=fridge 2=generic 3=Room 4=Outdoor 5=WaterHeater 6=Freezer
+///   /Humidity         %
+///   /Pressure         kPa
+///   /CustomName       string
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HeatPayload {
+    /// Température en degrés Celsius.
+    #[serde(rename = "Temperature")]
+    pub temperature: f64,
+
+    /// Type de capteur : 0=battery, 1=fridge, 2=generic, 3=Room,
+    /// 4=Outdoor, 5=WaterHeater, 6=Freezer.
+    /// Peut être surchargé par la config `[[sensors]]`.
+    #[serde(rename = "TemperatureType", default)]
+    pub temperature_type: i32,
+
+    /// Humidité relative en % (optionnelle — ex: sonde extérieure).
+    #[serde(rename = "Humidity", default)]
+    pub humidity: Option<f64>,
+
+    /// Pression atmosphérique en kPa (optionnelle).
+    #[serde(rename = "Pressure", default)]
+    pub pressure: Option<f64>,
+
+    /// Nom personnalisé affiché dans Venus OS (optionnel).
+    #[serde(rename = "CustomName", default)]
+    pub custom_name: Option<String>,
+}
+
+// =============================================================================
+// Payload batteries (santuario/bms/{n}/venus)
+// =============================================================================
+
 /// Payload complet au format Venus OS / dbus-mqtt-battery.
 ///
 /// Publié par `daly-bms-server` sur le topic `{prefix}/{n}/venus`.

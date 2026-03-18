@@ -1,26 +1,37 @@
 //! Source MQTT : abonnement au broker et parsing des payloads Venus OS.
 //!
-//! S'abonne sur `{prefix}/+/venus` et émet des événements `MqttEvent`
-//! portant l'`mqtt_index` (déduit du topic) et le `VenusPayload` parsé.
+//! ## Topics surveillés
+//!
+//! - `{bms_prefix}/+/venus`  → batteries BMS Daly → `MqttEvent`
+//! - `{heat_prefix}/+/venus` → capteurs température → `SensorMqttEvent`
 
 use crate::config::MqttRef;
-use crate::types::VenusPayload;
+use crate::types::{HeatPayload, VenusPayload};
 use rumqttc::{AsyncClient, Event, MqttOptions, Packet, QoS};
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
 
 // =============================================================================
-// Événement émis vers le manager
+// Événements émis vers les managers
 // =============================================================================
 
-/// Événement reçu depuis MQTT.
+/// Événement batterie reçu depuis MQTT (topic BMS).
 #[derive(Debug)]
 pub struct MqttEvent {
     /// Index du BMS (déduit du topic : `prefix/1/venus` → `1`)
     pub mqtt_index: u8,
     /// Payload Venus OS parsé
     pub payload: VenusPayload,
+}
+
+/// Événement capteur température reçu depuis MQTT (topic heat).
+#[derive(Debug)]
+pub struct SensorMqttEvent {
+    /// Index du capteur (déduit du topic : `prefix/1/venus` → `1`)
+    pub mqtt_index: u8,
+    /// Payload température parsé
+    pub payload: HeatPayload,
 }
 
 // =============================================================================
@@ -134,6 +145,94 @@ fn uuid_short() -> String {
     format!("{:08x}", t)
 }
 
+// =============================================================================
+// Source MQTT pour capteurs de température (santuario/heat/{n}/venus)
+// =============================================================================
+
+/// Démarre la source MQTT pour les capteurs de température.
+///
+/// S'abonne sur `{heat_prefix}/+/venus`, parse le `HeatPayload` et émet
+/// des `SensorMqttEvent` vers le `SensorManager`.
+pub async fn start_sensor_mqtt_source(
+    cfg:        MqttRef,
+    heat_prefix: String,
+    tx:         mpsc::Sender<SensorMqttEvent>,
+) {
+    let subscribe_topic = format!("{}/+/venus", heat_prefix);
+
+    info!(
+        broker = %format!("{}:{}", cfg.host, cfg.port),
+        topic  = %subscribe_topic,
+        "Démarrage source MQTT capteurs température"
+    );
+
+    loop {
+        match sensor_connect_and_run(&cfg, &subscribe_topic, &heat_prefix, &tx).await {
+            Ok(()) => {
+                warn!("MQTT source capteurs terminée de façon inattendue, reconnexion dans 5s");
+            }
+            Err(e) => {
+                error!("MQTT source capteurs erreur : {:#}, reconnexion dans 5s", e);
+            }
+        }
+        tokio::time::sleep(Duration::from_secs(5)).await;
+    }
+}
+
+async fn sensor_connect_and_run(
+    cfg:         &MqttRef,
+    subscribe_topic: &str,
+    heat_prefix: &str,
+    tx:          &mpsc::Sender<SensorMqttEvent>,
+) -> anyhow::Result<()> {
+    let client_id = format!("daly-bms-venus-sensors-{}", uuid_short());
+    let mut opts = MqttOptions::new(client_id, &cfg.host, cfg.port);
+    opts.set_keep_alive(Duration::from_secs(30));
+    opts.set_clean_session(true);
+
+    if let (Some(user), Some(pass)) = (&cfg.username, &cfg.password) {
+        opts.set_credentials(user, pass);
+    }
+
+    let (client, mut eventloop) = AsyncClient::new(opts, 64);
+
+    client
+        .subscribe(subscribe_topic, QoS::AtLeastOnce)
+        .await?;
+
+    info!("MQTT capteurs connecté, abonnement sur '{}'", subscribe_topic);
+
+    loop {
+        match eventloop.poll().await {
+            Ok(Event::Incoming(Packet::Publish(pub_msg))) => {
+                let topic = &pub_msg.topic;
+                debug!(topic = %topic, "MQTT capteur message reçu");
+
+                if let Some(idx) = extract_mqtt_index(topic, heat_prefix) {
+                    match serde_json::from_slice::<HeatPayload>(&pub_msg.payload) {
+                        Ok(payload) => {
+                            let evt = SensorMqttEvent { mqtt_index: idx, payload };
+                            if tx.send(evt).await.is_err() {
+                                return Ok(());
+                            }
+                        }
+                        Err(e) => {
+                            warn!(topic = %topic, "Échec parsing payload capteur: {}", e);
+                        }
+                    }
+                }
+            }
+            Ok(Event::Incoming(Packet::ConnAck(_))) => {
+                info!("MQTT capteurs ConnAck reçu — broker connecté");
+            }
+            Ok(_) => {}
+            Err(e) => {
+                return Err(e.into());
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -145,5 +244,7 @@ mod tests {
         assert_eq!(extract_mqtt_index("santuario/bms/2/status", "santuario/bms"), None);
         assert_eq!(extract_mqtt_index("other/1/venus", "santuario/bms"), None);
         assert_eq!(extract_mqtt_index("santuario/bms/255/venus", "santuario/bms"), Some(255));
+        assert_eq!(extract_mqtt_index("santuario/heat/1/venus", "santuario/heat"), Some(1));
+        assert_eq!(extract_mqtt_index("santuario/heat/2/venus", "santuario/heat"), Some(2));
     }
 }
