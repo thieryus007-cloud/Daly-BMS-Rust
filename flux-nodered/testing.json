@@ -8,6 +8,37 @@
         "env": []
     },
     {
+        "id": "pi5_mqtt_broker_testing",
+        "type": "mqtt-broker",
+        "name": "Pi5 MQTT",
+        "broker": "dalybms-mosquitto",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
         "id": "ed4c2a5b6513adae",
         "type": "debug",
         "z": "a6cee929caef49e9",
@@ -25,29 +56,17 @@
     },
     {
         "id": "f4aeeef9c6de1545",
-        "type": "victron-input-system",
+        "type": "mqtt in",
         "z": "a6cee929caef49e9",
-        "service": "com.victronenergy.system/0",
-        "path": "/Ac/ActiveIn/Source",
-        "serviceObj": {
-            "service": "com.victronenergy.system/0",
-            "name": "Venus system"
-        },
-        "pathObj": {
-            "path": "/Ac/ActiveIn/Source",
-            "type": "enum",
-            "name": "AC-Input",
-            "enum": {
-                "0": "Not available",
-                "1": "Grid",
-                "2": "Generator",
-                "3": "Shore",
-                "240": "Inverting"
-            }
-        },
-        "name": "",
-        "onlyChanges": false,
-        "outputs": 1,
+        "name": "AC-Input Source",
+        "topic": "N/c0619ab9929a/system/0/Ac/ActiveIn/Source",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_testing",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
         "x": 190,
         "y": 80,
         "wires": [
@@ -58,24 +77,18 @@
     },
     {
         "id": "1d32abd6c0baec8b",
-        "type": "victron-input-system",
+        "type": "mqtt in",
         "z": "a6cee929caef49e9",
-        "service": "com.victronenergy.system/0",
-        "path": "/Dc/Vebus/Current",
-        "serviceObj": {
-            "service": "com.victronenergy.system/0",
-            "name": "Venus system"
-        },
-        "pathObj": {
-            "path": "/Dc/Vebus/Current",
-            "type": "float",
-            "name": "VE.Bus charge current (A)"
-        },
-        "name": "",
-        "onlyChanges": false,
-        "roundValues": "2",
-        "outputs": 1,
-        "x": 240,
+        "name": "VE.Bus Charge Current",
+        "topic": "N/c0619ab9929a/system/0/Dc/Vebus/Current",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_testing",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 210,
         "y": 200,
         "wires": [
             [
@@ -117,24 +130,18 @@
     },
     {
         "id": "a5988317ad1f7b7e",
-        "type": "victron-input-system",
+        "type": "mqtt in",
         "z": "a6cee929caef49e9",
-        "service": "com.victronenergy.system/0",
-        "path": "/Dc/Battery/Voltage",
-        "serviceObj": {
-            "service": "com.victronenergy.system/0",
-            "name": "Venus system"
-        },
-        "pathObj": {
-            "path": "/Dc/Battery/Voltage",
-            "type": "float",
-            "name": "Battery voltage (V)"
-        },
-        "name": "",
-        "onlyChanges": false,
-        "roundValues": "3",
-        "outputs": 1,
-        "x": 220,
+        "name": "Battery Voltage (system)",
+        "topic": "N/c0619ab9929a/system/0/Dc/Battery/Voltage",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_testing",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 200,
         "y": 260,
         "wires": [
             [
@@ -144,24 +151,18 @@
     },
     {
         "id": "d1b7e76e5da85b9e",
-        "type": "victron-input-custom",
+        "type": "mqtt in",
         "z": "a6cee929caef49e9",
-        "service": "com.victronenergy.vebus/275",
-        "path": "/Ac/State/IgnoreAcIn1",
-        "serviceObj": {
-            "service": "com.victronenergy.vebus/275",
-            "name": "MultiPlus-II 48/5000/70-50 (275)"
-        },
-        "pathObj": {
-            "path": "/Ac/State/IgnoreAcIn1",
-            "name": "/Ac/State/IgnoreAcIn1",
-            "type": "number",
-            "value": 0
-        },
-        "name": "",
-        "onlyChanges": false,
-        "outputs": 1,
-        "x": 240,
+        "name": "IgnoreAcIn1 (custom)",
+        "topic": "N/c0619ab9929a/vebus/275/Ac/State/IgnoreAcIn1",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_testing",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 210,
         "y": 480,
         "wires": [
             [
@@ -207,24 +208,18 @@
     },
     {
         "id": "41554f2771ecb73f",
-        "type": "victron-input-battery",
+        "type": "mqtt in",
         "z": "a6cee929caef49e9",
-        "service": "com.victronenergy.battery/274",
-        "path": "/Dc/0/Voltage",
-        "serviceObj": {
-            "service": "com.victronenergy.battery/274",
-            "name": "SmartShunt 300A"
-        },
-        "pathObj": {
-            "path": "/Dc/0/Voltage",
-            "type": "float",
-            "name": "Battery voltage (V)"
-        },
-        "name": "",
-        "onlyChanges": false,
-        "roundValues": "3",
-        "outputs": 1,
-        "x": 230,
+        "name": "SmartShunt Voltage",
+        "topic": "N/c0619ab9929a/battery/274/Dc/0/Voltage",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_testing",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 200,
         "y": 320,
         "wires": [
             [
@@ -250,24 +245,18 @@
     },
     {
         "id": "ab80795ff702d565",
-        "type": "victron-input-battery",
+        "type": "mqtt in",
         "z": "a6cee929caef49e9",
-        "service": "com.victronenergy.battery/274",
-        "path": "/Dc/0/Voltage",
-        "serviceObj": {
-            "service": "com.victronenergy.battery/274",
-            "name": "SmartShunt 300A"
-        },
-        "pathObj": {
-            "path": "/Dc/0/Voltage",
-            "type": "float",
-            "name": "Battery voltage (V)"
-        },
-        "name": "",
-        "onlyChanges": false,
-        "roundValues": "3",
-        "outputs": 1,
-        "x": 190,
+        "name": "SmartShunt Voltage (store)",
+        "topic": "N/c0619ab9929a/battery/274/Dc/0/Voltage",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_testing",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 180,
         "y": 640,
         "wires": [
             [
@@ -295,27 +284,18 @@
     },
     {
         "id": "5491e5ea8a8248ae",
-        "type": "victron-input-vebus",
+        "type": "mqtt in",
         "z": "a6cee929caef49e9",
-        "service": "com.victronenergy.vebus/275",
-        "path": "/Ac/State/IgnoreAcIn1",
-        "serviceObj": {
-            "service": "com.victronenergy.vebus/275",
-            "name": "MultiPlus-II 48/5000/70-50"
-        },
-        "pathObj": {
-            "path": "/Ac/State/IgnoreAcIn1",
-            "type": "enum",
-            "name": "AC input 1 ignored",
-            "enum": {
-                "0": "AC input not ignored",
-                "1": "AC input ignored"
-            }
-        },
-        "name": "",
-        "onlyChanges": false,
-        "outputs": 1,
-        "x": 210,
+        "name": "IgnoreAcIn1 (vebus)",
+        "topic": "N/c0619ab9929a/vebus/275/Ac/State/IgnoreAcIn1",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_testing",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 200,
         "y": 540,
         "wires": [
             [
@@ -362,25 +342,18 @@
     },
     {
         "id": "f58b2010d030cbaf",
-        "type": "victron-input-settings",
+        "type": "mqtt in",
         "z": "a6cee929caef49e9",
-        "service": "com.victronenergy.settings",
-        "path": "/Settings/CGwacs/MaxFeedInPower",
-        "serviceObj": {
-            "service": "com.victronenergy.settings",
-            "name": "Venus settings"
-        },
-        "pathObj": {
-            "path": "/Settings/CGwacs/MaxFeedInPower",
-            "type": "integer",
-            "name": "Maximum System Grid Feed In (W)",
-            "remarks": "<ul><li>-1: No limit</li><li> &gt;=0: limited system feed-in</li></ul><p>Applies to DC-coupled and AC-coupled feed-in.</p>",
-            "mode": "both"
-        },
-        "name": "",
-        "onlyChanges": false,
-        "outputs": 1,
-        "x": 270,
+        "name": "MaxFeedInPower",
+        "topic": "N/c0619ab9929a/settings/0/Settings/CGwacs/MaxFeedInPower",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_testing",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 230,
         "y": 140,
         "wires": [
             [
@@ -422,30 +395,18 @@
     },
     {
         "id": "ef5cb526fecadd87",
-        "type": "victron-input-vebus",
+        "type": "mqtt in",
         "z": "a6cee929caef49e9",
-        "service": "com.victronenergy.vebus/275",
-        "path": "/Mode",
-        "serviceObj": {
-            "service": "com.victronenergy.vebus/275",
-            "name": "MultiPlus-II 48/5000/70-50"
-        },
-        "pathObj": {
-            "path": "/Mode",
-            "type": "enum",
-            "name": "Switch Position",
-            "enum": {
-                "1": "Charger Only",
-                "2": "Inverter Only",
-                "3": "On",
-                "4": "Off"
-            },
-            "mode": "both"
-        },
-        "name": "",
-        "onlyChanges": false,
-        "outputs": 1,
-        "x": 240,
+        "name": "VE.Bus Mode",
+        "topic": "N/c0619ab9929a/vebus/275/Mode",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_testing",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 210,
         "y": 380,
         "wires": [
             [
@@ -471,38 +432,23 @@
     },
     {
         "id": "005435979c6e171f",
-        "type": "victron-input-custom",
+        "type": "mqtt in",
         "z": "a6cee929caef49e9",
-        "service": "com.victronenergy.pvinverter/32",
-        "path": "/Ac/Current",
-        "serviceObj": {
-            "service": "com.victronenergy.pvinverter/32",
-            "name": "Micro-Onduleurs (32)"
-        },
-        "pathObj": {
-            "path": "/Ac/Current",
-            "name": "/Ac/Current",
-            "type": "number",
-            "value": 7.314
-        },
-        "name": "",
-        "onlyChanges": false,
-        "roundValues": "2",
-        "outputs": 1,
-        "x": 200,
+        "name": "Micro-Onduleurs AC Current",
+        "topic": "N/c0619ab9929a/pvinverter/32/Ac/Current",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_testing",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 190,
         "y": 720,
         "wires": [
             [
                 "d6933f1a3d46769b"
             ]
         ]
-    },
-    {
-        "id": "49cacf5000799dfa",
-        "type": "global-config",
-        "env": [],
-        "modules": {
-            "@victronenergy/node-red-contrib-victron": "1.6.60"
-        }
     }
 ]
