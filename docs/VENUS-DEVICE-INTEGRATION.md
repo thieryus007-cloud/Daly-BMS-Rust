@@ -18,6 +18,7 @@ https://github.com/sebdehne/dbus-mqtt-services
 - com.victronenergy.temperatures        temperature & humidité     
 - com.victronenergy.heatpump            Chauffeau & PAC
 - com.victronenergy.switch              ATS & autres
+- com.victronenergy.platform            Backup to & Restore from Pi5
 
 ---
 
