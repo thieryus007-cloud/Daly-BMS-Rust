@@ -209,8 +209,3 @@ Contrôle à distance → double ouverture
 
 ---
 
-Bonne publication sur GitHub !
-
-Vous pouvez copier-coller ce contenu dans un fichier `.md`.  
-Si vous voulez une version encore plus détaillée (tous les registres, tous les bits des états, etc.), dites-le-moi et je complète les tableaux manquants.
-Bon courage pour votre dépôt !
