@@ -5,20 +5,19 @@ de device sur le bus D-Bus de Venus OS, en utilisant le bridge MQTT → Rust →
 Il sert de référence pour toute future intégration.
 
 ---
-référence:
+# référence:
 
 https://github.com/victronenergy/venus/wiki/dbus
 
 https://github.com/sebdehne/dbus-mqtt-services
 
-A implementer:
+## A implementer:
 
-com.victronenergy.battery
-com.victronenergy.meteo
-com.victronenergy.temperatures
-com.victronenergy.heatpump
-com.victronenergy.switch
-
+- com.victronenergy.battery             360Ah & 320Ah & 628Ah
+- com.victronenergy.meteo               irradiance
+- com.victronenergy.temperatures        temperature & humidité     
+- com.victronenergy.heatpump            Chauffeau & PAC
+- com.victronenergy.switch              ATS & autres
 
 ---
 
