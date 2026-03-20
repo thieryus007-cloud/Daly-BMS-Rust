@@ -20,6 +20,15 @@ https://github.com/sebdehne/dbus-mqtt-services
 - com.victronenergy.switch              ATS & autres
 - com.victronenergy.platform            Backup to & Restore from Pi5
 
+-- Grid (and acload and genset) meter
+com.victronenergy.grid
+com.victronenergy.acload (when used as consumer to measure an acload)
+/Ac/L1/Current         <- A AC
+/Ac/L1/Energy/Forward  <- kWh
+/Ac/L1/Power           <- W, real power
+/Ac/L1/Voltage         <- V AC
+/DeviceType
+/IsGenericEnergyMeter  <- When an energy meter masquarades as a genset or acload, this is set to 1.
 ---
 
 ## Architecture générale
