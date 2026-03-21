@@ -1,4 +1,4 @@
-//! Configuration du service `daly-bms-venus`.
+//! Configuration du service `dbus-mqtt-venus`.
 //!
 //! Chargée depuis le même `config.toml` que le serveur principal.
 //! Section `[venus]` optionnelle + sections `[mqtt]` et `[[bms]]` réutilisées.

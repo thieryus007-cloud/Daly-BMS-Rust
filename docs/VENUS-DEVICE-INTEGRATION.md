@@ -53,7 +53,7 @@ com.victronenergy.acload (when used as consumer to measure an acload)
         │
         │ MQTT subscribe
         ▼
-[daly-bms-venus (Rust) sur NanoPi]
+[dbus-mqtt-venus (Rust) sur NanoPi]
         │
         │ zbus / D-Bus system bus
         ▼
@@ -74,7 +74,7 @@ com.victronenergy.acload (when used as consumer to measure an acload)
 | Machine | IP | Rôle |
 |---|---|---|
 | Pi5 (Raspberry Pi 5) | 192.168.1.141 | Docker : Mosquitto, Node-RED, InfluxDB, Grafana |
-| NanoPi Neo3 | 192.168.1.120 | Venus OS, service Rust daly-bms-venus, D-Bus |
+| NanoPi Neo3 | 192.168.1.120 | Venus OS, service Rust dbus-mqtt-venus, D-Bus |
 
 ---
 
@@ -208,12 +208,12 @@ Pour les sources lentes (Open-Meteo = 15 min), un nœud keepalive est obligatoir
 
 | Fichier | Rôle |
 |---|---|
-| `crates/daly-bms-venus/src/types.rs` | Struct payload MQTT (serde Deserialize) |
-| `crates/daly-bms-venus/src/config.rs` | Config TOML : `[heat]`, `[[sensors]]`, etc. |
-| `crates/daly-bms-venus/src/{type}_service.rs` | Enregistrement D-Bus zbus |
-| `crates/daly-bms-venus/src/{type}_manager.rs` | Boucle MQTT → D-Bus, watchdog |
-| `crates/daly-bms-venus/src/mqtt_source.rs` | Abonnement MQTT, événements |
-| `crates/daly-bms-venus/src/main.rs` | Lancement du manager en tâche Tokio |
+| `crates/dbus-mqtt-venus/src/types.rs` | Struct payload MQTT (serde Deserialize) |
+| `crates/dbus-mqtt-venus/src/config.rs` | Config TOML : `[heat]`, `[[sensors]]`, etc. |
+| `crates/dbus-mqtt-venus/src/{type}_service.rs` | Enregistrement D-Bus zbus |
+| `crates/dbus-mqtt-venus/src/{type}_manager.rs` | Boucle MQTT → D-Bus, watchdog |
+| `crates/dbus-mqtt-venus/src/mqtt_source.rs` | Abonnement MQTT, événements |
+| `crates/dbus-mqtt-venus/src/main.rs` | Lancement du manager en tâche Tokio |
 
 ### Point important sur l'enregistrement des chemins D-Bus
 
@@ -267,10 +267,10 @@ git pull origin claude/migrate-nodered-pi5-91idx
 CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER=arm-linux-gnueabihf-gcc \
   cargo build --release \
   --target armv7-unknown-linux-gnueabihf \
-  -p daly-bms-venus
+  -p dbus-mqtt-venus
 ```
 
-Binaire produit : `target/armv7-unknown-linux-gnueabihf/release/daly-bms-venus`
+Binaire produit : `target/armv7-unknown-linux-gnueabihf/release/dbus-mqtt-venus`
 
 ### Étape 3 — Déployer le binaire sur NanoPi
 
@@ -278,28 +278,28 @@ Binaire produit : `target/armv7-unknown-linux-gnueabihf/release/daly-bms-venus`
 
 ```bash
 # 3a. Arrêter le service sur NanoPi
-ssh root@192.168.1.120 "svc -d /data/etc/sv/daly-bms-venus"
+ssh root@192.168.1.120 "svc -d /data/etc/sv/dbus-mqtt-venus"
 
 # 3b. Copier le binaire depuis Pi5
-scp target/armv7-unknown-linux-gnueabihf/release/daly-bms-venus \
-    root@192.168.1.120:/data/daly-bms/daly-bms-venus
+scp target/armv7-unknown-linux-gnueabihf/release/dbus-mqtt-venus \
+    root@192.168.1.120:/data/daly-bms/dbus-mqtt-venus
 
 # 3c. Redémarrer le service sur NanoPi
-ssh root@192.168.1.120 "svc -u /data/etc/sv/daly-bms-venus"
+ssh root@192.168.1.120 "svc -u /data/etc/sv/dbus-mqtt-venus"
 ```
 
 ### Étape 4 — Déployer la configuration si modifiée (Pi5 → NanoPi)
 
-Le fichier `Config.toml` est partagé par `daly-bms-server` et `daly-bms-venus`.
+Le fichier `Config.toml` est partagé par `daly-bms-server` et `dbus-mqtt-venus`.
 
 ```bash
 scp Config.toml root@192.168.1.120:/data/daly-bms/config.toml
 
 # Redémarrer les deux services
-ssh root@192.168.1.120 "svc -d /data/etc/sv/daly-bms-venus && \
+ssh root@192.168.1.120 "svc -d /data/etc/sv/dbus-mqtt-venus && \
                         svc -d /data/etc/sv/daly-bms-server && \
                         svc -u /data/etc/sv/daly-bms-server && \
-                        svc -u /data/etc/sv/daly-bms-venus"
+                        svc -u /data/etc/sv/dbus-mqtt-venus"
 ```
 
 ### Étape 5 — Déployer mosquitto.conf si modifié (Pi5 Docker)
@@ -337,7 +337,7 @@ git pull origin claude/migrate-nodered-pi5-91idx
 
 ```bash
 ps | grep daly
-# Doit afficher : /data/daly-bms/daly-bms-venus --config /data/daly-bms/config.toml
+# Doit afficher : /data/daly-bms/dbus-mqtt-venus --config /data/daly-bms/config.toml
 ```
 
 ### Lister tous les services D-Bus Victron actifs
@@ -562,7 +562,7 @@ mosquitto_sub -h localhost -t "santuario/heatpump/1/venus" -v
 
 ### Service D-Bus non visible
 
-1. Vérifier que le service Rust tourne : `ps | grep daly-bms-venus`
+1. Vérifier que le service Rust tourne : `ps | grep dbus-mqtt-venus`
 2. Vérifier qu'un message MQTT a été reçu (le service D-Bus est créé au 1er message)
 3. Vérifier le bridge Mosquitto : règle `out` présente pour le topic concerné
 4. Vérifier que Node-RED est déployé et le nœud connecté (vert "Connecté")

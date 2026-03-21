@@ -2,7 +2,7 @@
 
 > **Contexte** : Victron EasySolar II GX — Venus OS v3.7 — NanoPi intégré
 > **Objectif** : Présenter les BMS Daly dans le VRM Portal via D-Bus natif
-> **Approche retenue** : MQTT → Service Rust D-Bus natif (`daly-bms-venus`)
+> **Approche retenue** : MQTT → Service Rust D-Bus natif (`dbus-mqtt-venus`)
 
 ---
 
@@ -33,7 +33,7 @@ MQTT → D-Bus qui permettrait à Venus OS de voir les batteries dans systemcalc
 ┌─────────────────────────────────────────────────────────────────────┐
 │                    NanoPi (Venus OS v3.7)                           │
 │                                                                     │
-│  [RS485]──►[daly-bms-server]──►[Mosquitto]──►[daly-bms-venus]     │
+│  [RS485]──►[daly-bms-server]──►[Mosquitto]──►[dbus-mqtt-venus]     │
 │                                  :1883          │                   │
 │                                             D-Bus system bus        │
 │                                                 │                   │
@@ -132,10 +132,10 @@ Venus OS surveille la présence du service via le signal `ItemsChanged`.
 
 ---
 
-## 5. Structure du nouveau crate `daly-bms-venus`
+## 5. Structure du nouveau crate `dbus-mqtt-venus`
 
 ```
-crates/daly-bms-venus/
+crates/dbus-mqtt-venus/
 ├── Cargo.toml
 └── src/
     ├── main.rs           # Point d'entrée, config, orchestration
@@ -161,9 +161,9 @@ MQTT subscriber
 
 ## 6. Plan d'implémentation — 4 étapes
 
-### Étape 1 — Crate `daly-bms-venus` (structure + MQTT)
+### Étape 1 — Crate `dbus-mqtt-venus` (structure + MQTT)
 **Durée estimée** : Phase de développement
-**Fichiers** : nouveau crate dans `crates/daly-bms-venus/`
+**Fichiers** : nouveau crate dans `crates/dbus-mqtt-venus/`
 
 - [ ] `Cargo.toml` avec dépendances `zbus`, `rumqttc`, `serde_json`, `tokio`
 - [ ] `config.rs` : `VenusConfig` chargée depuis TOML existant
@@ -181,7 +181,7 @@ MQTT subscriber
 ### Étape 3 — Intégration workspace + config
 **Fichiers** : `Cargo.toml` workspace, `Config.toml`
 
-- [ ] Ajouter `daly-bms-venus` au workspace
+- [ ] Ajouter `dbus-mqtt-venus` au workspace
 - [ ] Ajouter section `[venus]` dans `Config.toml` :
   ```toml
   [venus]
@@ -196,18 +196,18 @@ MQTT subscriber
 
 - [ ] Target ARM64 : `aarch64-unknown-linux-gnu` (NanoPi Neo3/R2S)
   ```makefile
-  cross build --target aarch64-unknown-linux-gnu --release -p daly-bms-venus
+  cross build --target aarch64-unknown-linux-gnu --release -p dbus-mqtt-venus
   ```
 - [ ] Script de déploiement `nanoPi/install-venus.sh` :
   ```sh
   # Copie le binaire dans /data/daly-bms/ (persistent post-firmware-update)
-  # Crée le service runit dans /data/etc/sv/daly-bms-venus/
+  # Crée le service runit dans /data/etc/sv/dbus-mqtt-venus/
   # Symlink dans /service/ pour activation automatique
   ```
-- [ ] Service runit `nanoPi/sv/daly-bms-venus/run` :
+- [ ] Service runit `nanoPi/sv/dbus-mqtt-venus/run` :
   ```sh
   #!/bin/sh
-  exec /data/daly-bms/daly-bms-venus --config /data/daly-bms/config.toml 2>&1
+  exec /data/daly-bms/dbus-mqtt-venus --config /data/daly-bms/config.toml 2>&1
   ```
 
 ---
@@ -252,7 +252,7 @@ dbus-daemon --session --print-address
 
 # Lancer le service en mode session
 DBUS_SESSION_BUS_ADDRESS=... DALY_CONFIG=Config.toml \
-  cargo run -p daly-bms-venus
+  cargo run -p dbus-mqtt-venus
 
 # Vérifier les services enregistrés
 dbus-send --session --dest=com.victronenergy.battery.mqtt_1 \
@@ -277,16 +277,16 @@ dbus -y com.victronenergy.battery.mqtt_1 /Dc/0/Voltage GetValue
 
 | Fichier | Action |
 |---------|--------|
-| `crates/daly-bms-venus/Cargo.toml` | Créer |
-| `crates/daly-bms-venus/src/main.rs` | Créer |
-| `crates/daly-bms-venus/src/config.rs` | Créer |
-| `crates/daly-bms-venus/src/mqtt_source.rs` | Créer |
-| `crates/daly-bms-venus/src/battery_service.rs` | Créer |
-| `crates/daly-bms-venus/src/manager.rs` | Créer |
+| `crates/dbus-mqtt-venus/Cargo.toml` | Créer |
+| `crates/dbus-mqtt-venus/src/main.rs` | Créer |
+| `crates/dbus-mqtt-venus/src/config.rs` | Créer |
+| `crates/dbus-mqtt-venus/src/mqtt_source.rs` | Créer |
+| `crates/dbus-mqtt-venus/src/battery_service.rs` | Créer |
+| `crates/dbus-mqtt-venus/src/manager.rs` | Créer |
 | `Cargo.toml` (workspace) | Modifier — ajouter membre |
 | `Config.toml` | Modifier — ajouter section `[venus]` |
 | `nanoPi/install-venus.sh` | Créer |
-| `nanoPi/sv/daly-bms-venus/run` | Créer |
+| `nanoPi/sv/dbus-mqtt-venus/run` | Créer |
 | `Makefile` | Modifier — ajouter cible `build-venus` |
 
 ---

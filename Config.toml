@@ -97,7 +97,7 @@ format = "json"
 
 
 # =============================================================================
-# Venus OS D-Bus bridge (daly-bms-venus)
+# Venus OS D-Bus bridge (dbus-mqtt-venus)
 # =============================================================================
 # Ce service publie chaque BMS comme com.victronenergy.battery.{prefix}_{index}
 # sur le bus D-Bus de Venus OS, alimenté par les payloads MQTT /venus.
@@ -105,7 +105,7 @@ format = "json"
 # Prérequis :
 #   - daly-bms-server actif avec mqtt.enabled = true
 #   - Broker Mosquitto accessible (mqtt.host + mqtt.port ci-dessus)
-#   - daly-bms-venus déployé sur le NanoPi/GX (voir nanoPi/install-venus.sh)
+#   - dbus-mqtt-venus déployé sur le NanoPi/GX (voir nanoPi/install-venus.sh)
 
 [venus]
 enabled = true
@@ -275,7 +275,7 @@ capacity_ah     = 360.0
 max_charge_a    = 200.0
 max_discharge_a = 120.0
 mqtt_index      = 1    # index topic MQTT (santuario/bms/1/venus), même que dbus-mqtt-battery-41
-device_instance = 151  # DeviceInstance Venus OS / VRM (141/142 = dbus-mqtt-battery, 151/152 = daly-bms-venus)
+device_instance = 151  # DeviceInstance Venus OS / VRM (141/142 = dbus-mqtt-battery, 151/152 = dbus-mqtt-venus)
 
 [[bms]]
 address         = "0x02"

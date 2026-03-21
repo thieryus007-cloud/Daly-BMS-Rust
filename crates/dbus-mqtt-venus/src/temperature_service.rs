@@ -165,7 +165,7 @@ impl SensorValues {
         let mut m = HashMap::new();
 
         // Identification (commun à tous les services Victron)
-        m.insert("/Mgmt/ProcessName".into(),    DbusItem::str("daly-bms-venus"));
+        m.insert("/Mgmt/ProcessName".into(),    DbusItem::str("dbus-mqtt-venus"));
         m.insert("/Mgmt/ProcessVersion".into(), DbusItem::str(env!("CARGO_PKG_VERSION")));
         m.insert("/Mgmt/Connection".into(),     DbusItem::str("MQTT"));
         m.insert("/ProductId".into(),           DbusItem::u32(0));

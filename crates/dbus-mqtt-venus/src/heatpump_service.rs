@@ -1,14 +1,19 @@
-//! Service D-Bus `com.victronenergy.meteo` pour capteur d'irradiance.
+//! Service D-Bus `com.victronenergy.heatpump.{name}` pour pompes à chaleur
+//! et chauffe-eau.
 //!
-//! Conforme au wiki Victron Venus OS — section Meteo :
-//! <https://github.com/victronenergy/venus/wiki/dbus#meteo>
+//! Conforme au wiki Victron Venus OS — section Heatpump :
+//! <https://github.com/victronenergy/venus/wiki/dbus#heatpump>
 //!
 //! ## Chemins D-Bus exposés
 //!
 //! ```text
-//! /Irradiance     — irradiance courante en W/m²
-//! /TodaysYield    — production du jour en kWh (depuis le lever du soleil)
-//! /Connected      — 0 ou 1
+//! /State              — état de la pompe à chaleur (enum Victron TBD)
+//! /Temperature        — température eau courante °C (optionnel)
+//! /TargetTemperature  — température eau cible °C (optionnel)
+//! /Ac/Power           — puissance consommée W
+//! /Ac/Energy/Forward  — énergie totale consommée kWh
+//! /Position           — 0=AC Output, 1=AC Input
+//! /Connected          — 0 ou 1
 //! /ProductName
 //! /ProductId
 //! /DeviceInstance
@@ -18,10 +23,10 @@
 //! ```
 //!
 //! Utilisé pour :
-//! - Capteur d'irradiance RS485 connecté au Pi5
-//! - Topic MQTT source : `santuario/meteo/venus` (topic fixe, sans index)
+//! - Chauffe-eau (avec sonde de température et contrôle cible)
+//! - Pompe à chaleur LG (future intégration)
 
-use crate::types::MeteoPayload;
+use crate::types::HeatpumpPayload;
 use anyhow::Result;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -34,7 +39,7 @@ use zvariant::{OwnedValue, Str};
 // Constante
 // =============================================================================
 
-const VICTRON_METEO_SERVICE: &str = "com.victronenergy.meteo";
+const VICTRON_HEATPUMP_PREFIX: &str = "com.victronenergy.heatpump";
 
 // =============================================================================
 // Item D-Bus
@@ -95,40 +100,59 @@ type ItemsDict = HashMap<String, HashMap<String, OwnedValue>>;
 // Valeurs courantes
 // =============================================================================
 
+/// État courant d'une pompe à chaleur / chauffe-eau exposé sur D-Bus.
 #[derive(Debug, Clone)]
-pub struct MeteoValues {
-    pub connected:       i32,
-    pub irradiance:      f64,
-    pub todays_yield:    f64,
-    pub product_name:    String,
-    pub device_instance: u32,
-    pub last_update:     Instant,
+pub struct HeatpumpValues {
+    pub connected:          i32,
+    pub state:              i32,
+    pub temperature:        Option<f64>,
+    pub target_temperature: Option<f64>,
+    pub ac_power:           f64,
+    pub ac_energy_forward:  f64,
+    pub position:           i32,
+    pub product_name:       String,
+    pub device_instance:    u32,
+    pub last_update:        Instant,
 }
 
-impl MeteoValues {
+impl HeatpumpValues {
     pub fn disconnected(device_instance: u32, product_name: String) -> Self {
         Self {
-            connected:       0,
-            irradiance:      0.0,
-            todays_yield:    0.0,
+            connected:          0,
+            state:              0,
+            temperature:        None,
+            target_temperature: None,
+            ac_power:           0.0,
+            ac_energy_forward:  0.0,
+            position:           0,
             product_name,
             device_instance,
-            last_update:     Instant::now(),
+            last_update:        Instant::now(),
         }
     }
 
     pub fn from_payload(
-        payload:         &MeteoPayload,
+        payload:         &HeatpumpPayload,
         device_instance: u32,
         product_name:    String,
     ) -> Self {
+        let ac_power         = payload.ac.as_ref().map(|a| a.power).unwrap_or(0.0);
+        let ac_energy_forward = payload.ac.as_ref()
+            .and_then(|a| a.energy.as_ref())
+            .map(|e| e.forward)
+            .unwrap_or(0.0);
+
         Self {
-            connected:    1,
-            irradiance:   payload.irradiance,
-            todays_yield: payload.todays_yield,
+            connected: 1,
+            state: payload.state,
+            temperature: payload.temperature,
+            target_temperature: payload.target_temperature,
+            ac_power,
+            ac_energy_forward,
+            position: payload.position,
             product_name,
             device_instance,
-            last_update:  Instant::now(),
+            last_update: Instant::now(),
         }
     }
 
@@ -136,7 +160,7 @@ impl MeteoValues {
         let mut m = HashMap::new();
 
         // Identification
-        m.insert("/Mgmt/ProcessName".into(),    DbusItem::str("daly-bms-venus"));
+        m.insert("/Mgmt/ProcessName".into(),    DbusItem::str("dbus-mqtt-venus"));
         m.insert("/Mgmt/ProcessVersion".into(), DbusItem::str(env!("CARGO_PKG_VERSION")));
         m.insert("/Mgmt/Connection".into(),     DbusItem::str("MQTT"));
         m.insert("/ProductId".into(),           DbusItem::u32(0));
@@ -144,9 +168,17 @@ impl MeteoValues {
         m.insert("/DeviceInstance".into(),      DbusItem::u32(self.device_instance));
         m.insert("/Connected".into(),           DbusItem::i32(self.connected));
 
-        // Données météo (chemins officiels wiki Victron)
-        m.insert("/Irradiance".into(),   DbusItem::f64(self.irradiance, "W/m²"));
-        m.insert("/TodaysYield".into(),  DbusItem::f64(self.todays_yield, "kWh"));
+        // Heatpump (chemins officiels wiki Victron)
+        m.insert("/State".into(),    DbusItem::i32(self.state));
+        m.insert("/Position".into(), DbusItem::i32(self.position));
+        m.insert("/Ac/Power".into(),          DbusItem::f64(self.ac_power, "W"));
+        m.insert("/Ac/Energy/Forward".into(), DbusItem::f64(self.ac_energy_forward, "kWh"));
+
+        // Températures — toujours présentes (0.0 si absentes) pour que
+        // Venus OS enregistre les chemins D-Bus dès le démarrage
+        // (GetItems et GetValue fonctionnent même avant le 1er message MQTT)
+        m.insert("/Temperature".into(),       DbusItem::f64(self.temperature.unwrap_or(0.0),        "°C"));
+        m.insert("/TargetTemperature".into(), DbusItem::f64(self.target_temperature.unwrap_or(0.0), "°C"));
 
         m
     }
@@ -156,15 +188,19 @@ impl MeteoValues {
 // Interface D-Bus — objet racine `/`
 // =============================================================================
 
-struct MeteoRootIface {
-    values: Arc<Mutex<MeteoValues>>,
+struct HeatpumpRootIface {
+    values: Arc<Mutex<HeatpumpValues>>,
 }
 
 #[zbus::interface(name = "com.victronenergy.BusItem")]
-impl MeteoRootIface {
+impl HeatpumpRootIface {
     fn get_items(&self) -> ItemsDict {
         let guard = self.values.lock().unwrap();
-        guard.to_items().iter().map(|(p, i)| (p.clone(), item_to_inner(i))).collect()
+        guard
+            .to_items()
+            .iter()
+            .map(|(path, item)| (path.clone(), item_to_inner(item)))
+            .collect()
     }
 
     fn get_value(&self) -> OwnedValue { OwnedValue::from(0i32) }
@@ -172,7 +208,10 @@ impl MeteoRootIface {
     fn set_value(&self, _val: zvariant::Value<'_>) -> i32 { 1 }
 
     #[zbus(signal)]
-    async fn items_changed(ctx: &SignalContext<'_>, items: ItemsDict) -> zbus::Result<()>;
+    async fn items_changed(
+        ctx:   &SignalContext<'_>,
+        items: ItemsDict,
+    ) -> zbus::Result<()>;
 }
 
 // =============================================================================
@@ -181,14 +220,17 @@ impl MeteoRootIface {
 
 struct BusItemLeaf {
     path:   String,
-    values: Arc<Mutex<MeteoValues>>,
+    values: Arc<Mutex<HeatpumpValues>>,
 }
 
 #[zbus::interface(name = "com.victronenergy.BusItem")]
 impl BusItemLeaf {
     fn get_value(&self) -> OwnedValue {
         let guard = self.values.lock().unwrap();
-        guard.to_items().get(&self.path).map(|i| json_to_owned(&i.value)).unwrap_or(OwnedValue::from(0i32))
+        match guard.to_items().get(&self.path) {
+            Some(item) => json_to_owned(&item.value),
+            None       => OwnedValue::from(0i32),
+        }
     }
 
     fn get_text(&self) -> String {
@@ -203,21 +245,25 @@ impl BusItemLeaf {
 // Handle
 // =============================================================================
 
-pub struct MeteoServiceHandle {
+pub struct HeatpumpServiceHandle {
     pub service_name:    String,
     pub device_instance: u32,
-    pub values:          Arc<Mutex<MeteoValues>>,
+    pub values:          Arc<Mutex<HeatpumpValues>>,
     connection:          Connection,
     pub product_name:    String,
 }
 
-impl MeteoServiceHandle {
-    pub async fn update(&self, payload: &MeteoPayload) -> Result<()> {
-        let new_values = MeteoValues::from_payload(payload, self.device_instance, self.product_name.clone());
+impl HeatpumpServiceHandle {
+    pub async fn update(&self, payload: &HeatpumpPayload) -> Result<()> {
+        let new_values = HeatpumpValues::from_payload(
+            payload,
+            self.device_instance,
+            self.product_name.clone(),
+        );
         let items = new_values.to_items();
         { *self.values.lock().unwrap() = new_values; }
         self.emit_items_changed(&items).await?;
-        debug!(service = %self.service_name, irradiance = payload.irradiance, "D-Bus ItemsChanged météo émis");
+        debug!(service = %self.service_name, state = payload.state, "D-Bus ItemsChanged heatpump émis");
         Ok(())
     }
 
@@ -227,7 +273,7 @@ impl MeteoServiceHandle {
             g.connected = 0;
             g.to_items()
         };
-        warn!(service = %self.service_name, "Capteur météo déconnecté — watchdog timeout");
+        warn!(service = %self.service_name, "Heatpump déconnectée — watchdog timeout");
         self.emit_items_changed(&items).await
     }
 
@@ -237,10 +283,13 @@ impl MeteoServiceHandle {
     }
 
     async fn emit_items_changed(&self, items: &HashMap<String, DbusItem>) -> Result<()> {
-        let dict: ItemsDict = items.iter().map(|(p, i)| (p.clone(), item_to_inner(i))).collect();
+        let dict: ItemsDict = items
+            .iter()
+            .map(|(p, i)| (p.clone(), item_to_inner(i)))
+            .collect();
         let ctx = SignalContext::new(&self.connection, "/")?;
-        match MeteoRootIface::items_changed(&ctx, dict).await {
-            Ok(_)  => { debug!(service = %self.service_name, "ItemsChanged météo émis"); Ok(()) }
+        match HeatpumpRootIface::items_changed(&ctx, dict).await {
+            Ok(_)  => { debug!(service = %self.service_name, "ItemsChanged heatpump émis"); Ok(()) }
             Err(e) => { warn!(service = %self.service_name, "ItemsChanged warning : {}", e); Ok(()) }
         }
     }
@@ -250,28 +299,25 @@ impl MeteoServiceHandle {
 // Création du service
 // =============================================================================
 
-/// Crée et enregistre le service D-Bus `com.victronenergy.meteo`.
-///
-/// Contrairement aux batteries et heatpumps, le service meteo est UNIQUE
-/// (pas d'index) — la connexion porte directement le nom de service fixe.
-pub async fn create_meteo_service(
+pub async fn create_heatpump_service(
     dbus_bus:        &str,
+    service_suffix:  &str,
     device_instance: u32,
     product_name:    String,
-) -> Result<MeteoServiceHandle> {
-    let service_name = VICTRON_METEO_SERVICE.to_string();
+) -> Result<HeatpumpServiceHandle> {
+    let service_name = format!("{}.{}", VICTRON_HEATPUMP_PREFIX, service_suffix);
 
     info!(
         service = %service_name,
         device_instance = device_instance,
-        "Enregistrement service D-Bus météo Venus OS"
+        "Enregistrement service D-Bus heatpump Venus OS"
     );
 
     let initial_values = Arc::new(Mutex::new(
-        MeteoValues::disconnected(device_instance, product_name.clone())
+        HeatpumpValues::disconnected(device_instance, product_name.clone())
     ));
 
-    let root = MeteoRootIface { values: initial_values.clone() };
+    let root = HeatpumpRootIface { values: initial_values.clone() };
 
     let builder = match dbus_bus {
         "session" => connection::Builder::session()?,
@@ -297,11 +343,11 @@ pub async fn create_meteo_service(
     info!(
         service = %service_name,
         paths   = leaf_paths.len(),
-        "Service D-Bus météo enregistré ({} chemins + racine /)",
+        "Service D-Bus heatpump enregistré ({} chemins + racine /)",
         leaf_paths.len()
     );
 
-    Ok(MeteoServiceHandle {
+    Ok(HeatpumpServiceHandle {
         service_name,
         device_instance,
         values: initial_values,

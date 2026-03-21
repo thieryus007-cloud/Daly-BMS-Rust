@@ -1,6 +1,6 @@
 [package]
-name        = "daly-bms-venus"
-description = "Venus OS D-Bus battery service bridge for Daly BMS (MQTT → D-Bus)"
+name        = "dbus-mqtt-venus"
+description = "Venus OS D-Bus bridge service — MQTT → D-Bus for any device type (batteries, sensors, heatpump, meteo)"
 version.workspace    = true
 edition.workspace    = true
 authors.workspace    = true
@@ -8,7 +8,7 @@ license.workspace    = true
 rust-version.workspace = true
 
 [[bin]]
-name = "daly-bms-venus"
+name = "dbus-mqtt-venus"
 path = "src/main.rs"
 
 [dependencies]

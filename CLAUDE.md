@@ -39,7 +39,7 @@
 │  NanoPi (Venus OS / Victron GX)  192.168.1.120  user: root       │
 │  /data/daly-bms/                                                 │
 │                                                                  │
-│  daly-bms-venus (runit service /service/daly-bms-venus)          │
+│  dbus-mqtt-venus (runit service /service/dbus-mqtt-venus)          │
 │    ├── Subscribe MQTT → bridge D-Bus                             │
 │    ├── com.victronenergy.battery.mqtt_bms1 (instance 141)        │
 │    ├── com.victronenergy.battery.mqtt_bms2 (instance 142)        │
@@ -139,7 +139,7 @@ Daly-BMS-Rust/
 ├── crates/
 │   ├── daly-bms-core/           ← Bibliothèque protocole RS485
 │   ├── daly-bms-server/         ← Serveur principal (API, MQTT, InfluxDB)
-│   ├── daly-bms-venus/          ← Bridge MQTT→D-Bus (Venus OS)
+│   ├── dbus-mqtt-venus/          ← Bridge MQTT→D-Bus (Venus OS)
 │   ├── daly-bms-cli/            ← Outil diagnostic CLI
 │   └── daly-bms-probe/          ← Sonde protocole bas niveau
 │
@@ -148,7 +148,7 @@ Daly-BMS-Rust/
 │   ├── cleanup-dbus-serialbattery.sh
 │   ├── config-bms1.ini          ← Config dbus-mqtt-battery instance 41
 │   ├── config-bms2.ini          ← Config dbus-mqtt-battery instance 42
-│   ├── sv/daly-bms-venus/run    ← Script runit (daemontools)
+│   ├── sv/dbus-mqtt-venus/run    ← Script runit (daemontools)
 │   └── README.md
 │
 ├── contrib/
@@ -181,8 +181,8 @@ make logs            # Logs Docker
 make build           # x86_64 release
 make build-arm       # aarch64 (Pi5)
 make build-arm-v7    # armv7 (NanoPi)
-make build-venus     # daly-bms-venus aarch64
-make build-venus-v7  # daly-bms-venus armv7 ← pour NanoPi
+make build-venus     # dbus-mqtt-venus aarch64
+make build-venus-v7  # dbus-mqtt-venus armv7 ← pour NanoPi
 make build-all       # Tous les binaires
 
 # Développement
@@ -195,8 +195,8 @@ make check           # fmt + lint
 # Déploiement
 make install         # Installer service systemd sur Pi5
 make deploy          # SSH vers Pi5 (PI_HOST=pi5compute@192.168.1.141)
-make install-venus-v7  # Déployer daly-bms-venus sur NanoPi (armv7)
-make install-venus     # Déployer daly-bms-venus sur NanoPi (aarch64)
+make install-venus-v7  # Déployer dbus-mqtt-venus sur NanoPi (armv7)
+make install-venus     # Déployer dbus-mqtt-venus sur NanoPi (aarch64)
 ```
 
 ---
@@ -244,14 +244,14 @@ capacity_ah = 320.0
 
 ```
 /data/daly-bms/
-├── daly-bms-venus          ← binaire (armv7)
+├── dbus-mqtt-venus          ← binaire (armv7)
 ├── config.toml             ← config Venus OS
 └── (logs via runit)
 
-/data/etc/sv/daly-bms-venus/
+/data/etc/sv/dbus-mqtt-venus/
 └── run                     ← script runit
 
-/service/daly-bms-venus     ← symlink → /data/etc/sv/daly-bms-venus
+/service/dbus-mqtt-venus     ← symlink → /data/etc/sv/dbus-mqtt-venus
                                (création = activation automatique)
 
 /data/etc/dbus-mqtt-battery-41/config.ini   ← legacy BMS-1
@@ -278,13 +278,13 @@ make install-venus-v7
 ### Ce que fait install-venus.sh
 
 1. Établit un ControlMaster SSH (une seule auth pour toutes les commandes)
-2. Crée `/data/daly-bms/` et `/data/etc/sv/daly-bms-venus/`
+2. Crée `/data/daly-bms/` et `/data/etc/sv/dbus-mqtt-venus/`
 3. Arrête le service avant de copier le binaire (évite "dest open Failure")
 4. Supprime daly-bms-server s'il existe (ne doit PAS tourner sur NanoPi)
-5. Copie le binaire `daly-bms-venus`
+5. Copie le binaire `dbus-mqtt-venus`
 6. Copie `config.toml` si absent
 7. Copie le script runit `run`
-8. Crée le symlink `/service/daly-bms-venus` (activation automatique)
+8. Crée le symlink `/service/dbus-mqtt-venus` (activation automatique)
 9. Vérifie le démarrage
 
 ### Commandes de diagnostic sur NanoPi
@@ -293,19 +293,19 @@ make install-venus-v7
 ssh root@192.168.1.120
 
 # État du service
-svstat /service/daly-bms-venus
+svstat /service/dbus-mqtt-venus
 
 # Logs en temps réel
-tail -f /var/log/daly-bms-venus/current
+tail -f /var/log/dbus-mqtt-venus/current
 
 # Redémarrer
-svc -t /service/daly-bms-venus
+svc -t /service/dbus-mqtt-venus
 
 # Arrêter
-svc -d /service/daly-bms-venus
+svc -d /service/dbus-mqtt-venus
 
 # Démarrer
-svc -u /service/daly-bms-venus
+svc -u /service/dbus-mqtt-venus
 
 # Vérifier D-Bus
 dbus-send --system --print-reply --dest=com.victronenergy.battery.mqtt_bms1 \
@@ -358,9 +358,9 @@ INFLUX_TOKEN=TGEh4wl5TE7SEeJd7GDdyjDebo48xEJaD63MKbgdNhLz54-...
 
 ### Problème : `scp: dest open Failure` lors du déploiement Venus
 
-**Cause** : Le binaire `daly-bms-venus` est en cours d'exécution, on ne peut pas l'écraser.
+**Cause** : Le binaire `dbus-mqtt-venus` est en cours d'exécution, on ne peut pas l'écraser.
 **Solution** : Le script arrête le service AVANT la copie (étape 2 dans install-venus.sh).
-Si ça se reproduit : `ssh root@192.168.1.120 "svc -d /service/daly-bms-venus"` puis redéployer.
+Si ça se reproduit : `ssh root@192.168.1.120 "svc -d /service/dbus-mqtt-venus"` puis redéployer.
 
 ### Problème : Multiples demandes de mot de passe SSH
 
@@ -400,8 +400,8 @@ dbus-monitor --system "type=signal,sender=com.victronenergy.battery.mqtt_bms1"
 | Binaire | Cible | Usage |
 |---------|-------|-------|
 | `daly-bms-server` | x86_64 / aarch64 | Pi5 (serveur principal) |
-| `daly-bms-venus` | armv7-unknown-linux-gnueabihf | NanoPi Venus OS |
-| `daly-bms-venus` | aarch64-unknown-linux-gnu | NanoPi si aarch64 |
+| `dbus-mqtt-venus` | armv7-unknown-linux-gnueabihf | NanoPi Venus OS |
+| `dbus-mqtt-venus` | aarch64-unknown-linux-gnu | NanoPi si aarch64 |
 | `daly-bms-cli` | x86_64 | Diagnostic local |
 | `daly-bms-probe` | x86_64 | Test protocole RS485 |
 
@@ -409,8 +409,8 @@ dbus-monitor --system "type=signal,sender=com.victronenergy.battery.mqtt_bms1"
 
 ```
 target/release/daly-bms-server
-target/armv7-unknown-linux-gnueabihf/release/daly-bms-venus
-target/aarch64-unknown-linux-gnu/release/daly-bms-venus
+target/armv7-unknown-linux-gnueabihf/release/dbus-mqtt-venus
+target/aarch64-unknown-linux-gnu/release/dbus-mqtt-venus
 ```
 
 ---
@@ -487,11 +487,11 @@ santuario/bms/2/raw      ← données brutes BMS-2
 
 1. **Toujours lire ce fichier en début de session** avant toute action.
 2. **Git pull sur Pi5 avant déploiement** — ne jamais assumer que le Pi5 est à jour.
-3. **Ne jamais déployer daly-bms-server sur NanoPi** — uniquement `daly-bms-venus`.
+3. **Ne jamais déployer daly-bms-server sur NanoPi** — uniquement `dbus-mqtt-venus`.
 4. **Tester la compilation avant de déployer** : `make build-venus-v7` d'abord.
 5. **Commit + push systématique** après chaque changement validé.
 6. **Branche courante** : vérifier `git branch` avant tout push.
 7. **Secrets** : ne jamais committer `.env`, `Config.toml` contient des valeurs mais pas les tokens (dans `.env`).
 8. **Architecture armv7** : NanoPi = armv7, Pi5 = aarch64. Ne pas confondre les binaires.
 9. **SSH** : utiliser `ssh root@192.168.1.120` (pas `nanopi`) pour éviter les problèmes de config.
-10. **Service Venus** : arrêter avant toute copie de binaire (`svc -d /service/daly-bms-venus`).
+10. **Service Venus** : arrêter avant toute copie de binaire (`svc -d /service/dbus-mqtt-venus`).

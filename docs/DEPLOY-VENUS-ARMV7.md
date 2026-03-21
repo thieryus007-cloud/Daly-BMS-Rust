@@ -1,4 +1,4 @@
-# Déploiement daly-bms-venus sur Venus OS (NanoPi ARMv7)
+# Déploiement dbus-mqtt-venus sur Venus OS (NanoPi ARMv7)
 
 > **Date** : 2026-03-17
 > **Système cible** : NanoPi intégré dans EasySolar II GX — Venus OS
@@ -18,7 +18,7 @@ PC Windows (x86_64)
 FlashMQ (NanoPi 192.168.1.120:1883)
   ├─ santuario/bms/1/venus  ──▶  dbus-mqtt-battery-41  →  com.victronenergy.battery.mqtt_battery_141  (MQTT Battery 360Ah [141])
   ├─ santuario/bms/2/venus  ──▶  dbus-mqtt-battery-42  →  com.victronenergy.battery.mqtt_battery_142  (MQTT Battery 320Ah [142])
-  └─ santuario/bms/+/venus  ──▶  daly-bms-venus (Rust natif)
+  └─ santuario/bms/+/venus  ──▶  dbus-mqtt-venus (Rust natif)
                                   ├─ com.victronenergy.battery.mqtt_1  →  BMS-360Ah [151]
                                   └─ com.victronenergy.battery.mqtt_2  →  BMS-320Ah [152]
 
@@ -52,10 +52,10 @@ D-Bus Venus OS → GUI / VRM Portal / systemcalc / hub4control
 **Solution** : Utiliser `svc` et `svstat` à la place de `sv`.
 
 ```bash
-svstat /service/daly-bms-venus    # état
-svc -t /service/daly-bms-venus    # restart (SIGTERM)
-svc -d /service/daly-bms-venus    # stop
-svc -u /service/daly-bms-venus    # start
+svstat /service/dbus-mqtt-venus    # état
+svc -t /service/dbus-mqtt-venus    # restart (SIGTERM)
+svc -d /service/dbus-mqtt-venus    # stop
+svc -u /service/dbus-mqtt-venus    # start
 ```
 
 ---
@@ -64,7 +64,7 @@ svc -u /service/daly-bms-venus    # start
 
 **Symptôme** :
 ```
-/data/daly-bms/daly-bms-venus: cannot execute binary file: Exec format error
+/data/daly-bms/dbus-mqtt-venus: cannot execute binary file: Exec format error
 ```
 
 **Cause** : Binaires compilés pour `aarch64` (64-bit), NanoPi est **ARMv7l (32-bit)**.
@@ -85,20 +85,20 @@ make install-venus-v7 GX_IP=192.168.1.120
 
 **Symptôme** : Crash loop — services redémarrent toutes les secondes.
 
-**Cause** : `/service/daly-bms-venus/run` contenait `exec /data/daly-bms-venus`
+**Cause** : `/service/dbus-mqtt-venus/run` contenait `exec /data/dbus-mqtt-venus`
 (mauvais chemin, 36 bytes, script hérité).
 
 **Solution** : Corriger le script directement sur le NanoPi.
 
 ```bash
-cat > /service/daly-bms-venus/run << 'EOF'
+cat > /service/dbus-mqtt-venus/run << 'EOF'
 #!/bin/sh
-exec /data/daly-bms/daly-bms-venus \
+exec /data/daly-bms/dbus-mqtt-venus \
     --config /data/daly-bms/config.toml \
     2>&1
 EOF
-chmod +x /service/daly-bms-venus/run
-svc -t /service/daly-bms-venus
+chmod +x /service/dbus-mqtt-venus/run
+svc -t /service/dbus-mqtt-venus
 ```
 
 ---
@@ -107,7 +107,7 @@ svc -t /service/daly-bms-venus
 
 **Symptôme** :
 ```
-ERROR daly_bms_venus::manager: Erreur traitement événement MQTT : name already taken on the bus
+ERROR dbus_mqtt_venus::manager: Erreur traitement événement MQTT : name already taken on the bus
 ```
 
 **Cause** : Le binaire a été lancé **manuellement** alors que le **daemon** tournait
@@ -124,7 +124,7 @@ Vérifier avec `svstat` avant tout test manuel.
 
 **Solution** : Lancer le binaire manuellement pour voir les logs :
 ```bash
-/data/daly-bms/daly-bms-venus --config /data/daly-bms/config.toml 2>&1 | head -30
+/data/daly-bms/dbus-mqtt-venus --config /data/daly-bms/config.toml 2>&1 | head -30
 ```
 
 ---
@@ -155,7 +155,7 @@ rustup target add armv7-unknown-linux-gnueabihf
 make build-venus-armv7
 # Produit :
 #   target/armv7-unknown-linux-gnueabihf/release/daly-bms-server
-#   target/armv7-unknown-linux-gnueabihf/release/daly-bms-venus
+#   target/armv7-unknown-linux-gnueabihf/release/dbus-mqtt-venus
 ```
 
 ### Étape 3 — Déployer sur le NanoPi
@@ -169,23 +169,23 @@ make install-venus-v7 GX_IP=192.168.1.120
 
 ```bash
 ssh root@192.168.1.120
-cat > /service/daly-bms-venus/run << 'EOF'
+cat > /service/dbus-mqtt-venus/run << 'EOF'
 #!/bin/sh
-exec /data/daly-bms/daly-bms-venus \
+exec /data/daly-bms/dbus-mqtt-venus \
     --config /data/daly-bms/config.toml \
     2>&1
 EOF
-chmod +x /service/daly-bms-venus/run
+chmod +x /service/dbus-mqtt-venus/run
 ```
 
 ### Étape 5 — Redémarrer les services
 
 ```bash
 svc -t /service/daly-bms-server
-svc -t /service/daly-bms-venus
+svc -t /service/dbus-mqtt-venus
 sleep 5
 svstat /service/daly-bms-server
-svstat /service/daly-bms-venus
+svstat /service/dbus-mqtt-venus
 # Résultat attendu : "up (pid XXXXX) N seconds"
 ```
 
@@ -202,7 +202,7 @@ dbus -y com.victronenergy.battery.mqtt_2 /Soc GetValue
 ```bash
 cat >> /data/rc.local << 'EOF'
 ln -sf /data/etc/sv/daly-bms-server /service/daly-bms-server 2>/dev/null || true
-ln -sf /data/etc/sv/daly-bms-venus  /service/daly-bms-venus  2>/dev/null || true
+ln -sf /data/etc/sv/dbus-mqtt-venus  /service/dbus-mqtt-venus  2>/dev/null || true
 EOF
 ```
 
@@ -214,21 +214,21 @@ EOF
 /data/
   daly-bms/
     daly-bms-server      ← binaire ARMv7 (polling RS485 + MQTT)
-    daly-bms-venus       ← binaire ARMv7 (bridge MQTT → D-Bus)
+    dbus-mqtt-venus       ← binaire ARMv7 (bridge MQTT → D-Bus)
     config.toml          ← configuration (conservée entre déploiements)
 
   etc/
     sv/
       daly-bms-server/
         run              ← exec /data/daly-bms/daly-bms-server --config ...
-      daly-bms-venus/
-        run              ← exec /data/daly-bms/daly-bms-venus --config ...
+      dbus-mqtt-venus/
+        run              ← exec /data/daly-bms/dbus-mqtt-venus --config ...
 
   rc.local               ← symlinks recréés au boot
 
 /service/
   daly-bms-server  →  /data/etc/sv/daly-bms-server   (symlink)
-  daly-bms-venus/                                      (répertoire + run script)
+  dbus-mqtt-venus/                                      (répertoire + run script)
     run
     supervise/
 ```
@@ -240,7 +240,7 @@ EOF
 ```bash
 # État des services
 svstat /service/daly-bms-server
-svstat /service/daly-bms-venus
+svstat /service/dbus-mqtt-venus
 
 # Processus actifs (BusyBox)
 ps | grep daly
@@ -255,8 +255,8 @@ dbus -y com.victronenergy.battery.mqtt_2 /Soc GetValue
 dbus -y com.victronenergy.battery.mqtt_2 /Dc/0/Voltage GetValue
 
 # Tester le binaire manuellement (service STOPPÉ au préalable)
-svc -d /service/daly-bms-venus
-/data/daly-bms/daly-bms-venus --config /data/daly-bms/config.toml
+svc -d /service/dbus-mqtt-venus
+/data/daly-bms/dbus-mqtt-venus --config /data/daly-bms/config.toml
 ```
 
 ---
