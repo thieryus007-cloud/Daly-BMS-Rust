@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# install-venus.sh — Déploiement de daly-bms-venus sur Venus OS (NanoPi/GX)
+# install-venus.sh — Déploiement de dbus-mqtt-venus sur Venus OS (NanoPi/GX)
 # =============================================================================
 #
 # Usage :
@@ -39,10 +39,10 @@ else
 fi
 RELEASE_DIR="target/${TARGET}/release"
 
-echo "=== Déploiement daly-bms-venus sur Venus OS ${GX_IP} (${TARGET}) ==="
+echo "=== Déploiement dbus-mqtt-venus sur Venus OS ${GX_IP} (${TARGET}) ==="
 
-if [ ! -f "${RELEASE_DIR}/daly-bms-venus" ]; then
-    echo "ERREUR: ${RELEASE_DIR}/daly-bms-venus introuvable."
+if [ ! -f "${RELEASE_DIR}/dbus-mqtt-venus" ]; then
+    echo "ERREUR: ${RELEASE_DIR}/dbus-mqtt-venus introuvable."
     echo "Lancer d'abord: make build-venus-armv7"
     exit 1
 fi
@@ -52,14 +52,14 @@ echo "Connexion SSH..."
 ssh ${SSH_OPTS} -fN "${GX_SSH}"
 
 echo "1. Création des répertoires sur le GX..."
-ssh ${SSH_OPTS} "${GX_SSH}" "mkdir -p ${INSTALL_DIR} ${SERVICE_DIR}/daly-bms-venus"
+ssh ${SSH_OPTS} "${GX_SSH}" "mkdir -p ${INSTALL_DIR} ${SERVICE_DIR}/dbus-mqtt-venus"
 
-echo "2. Arrêt du service daly-bms-venus avant mise à jour du binaire..."
+echo "2. Arrêt du service dbus-mqtt-venus avant mise à jour du binaire..."
 ssh ${SSH_OPTS} "${GX_SSH}" "
-    if [ -e ${ACTIVE_DIR}/daly-bms-venus ]; then
-        svc -d ${ACTIVE_DIR}/daly-bms-venus 2>/dev/null || true
+    if [ -e ${ACTIVE_DIR}/dbus-mqtt-venus ]; then
+        svc -d ${ACTIVE_DIR}/dbus-mqtt-venus 2>/dev/null || true
         sleep 1
-        echo '   service daly-bms-venus stoppé'
+        echo '   service dbus-mqtt-venus stoppé'
     fi
 "
 
@@ -75,9 +75,9 @@ ssh ${SSH_OPTS} "${GX_SSH}" "
     echo '   daly-bms-server retiré du NanoPi'
 "
 
-echo "4. Copie du binaire daly-bms-venus..."
-scp ${SCP_OPTS} "${RELEASE_DIR}/daly-bms-venus" "${GX_SSH}:${INSTALL_DIR}/"
-ssh ${SSH_OPTS} "${GX_SSH}" "chmod +x ${INSTALL_DIR}/daly-bms-venus"
+echo "4. Copie du binaire dbus-mqtt-venus..."
+scp ${SCP_OPTS} "${RELEASE_DIR}/dbus-mqtt-venus" "${GX_SSH}:${INSTALL_DIR}/"
+ssh ${SSH_OPTS} "${GX_SSH}" "chmod +x ${INSTALL_DIR}/dbus-mqtt-venus"
 
 echo "5. Copie de la configuration..."
 if ! ssh ${SSH_OPTS} "${GX_SSH}" "test -f ${INSTALL_DIR}/config.toml" 2>/dev/null; then
@@ -88,20 +88,20 @@ else
 fi
 
 echo "6. Installation du run script daemontools..."
-scp ${SCP_OPTS} "nanoPi/sv/daly-bms-venus/run" "${GX_SSH}:${SERVICE_DIR}/daly-bms-venus/run"
-ssh ${SSH_OPTS} "${GX_SSH}" "chmod +x ${SERVICE_DIR}/daly-bms-venus/run"
+scp ${SCP_OPTS} "nanoPi/sv/dbus-mqtt-venus/run" "${GX_SSH}:${SERVICE_DIR}/dbus-mqtt-venus/run"
+ssh ${SSH_OPTS} "${GX_SSH}" "chmod +x ${SERVICE_DIR}/dbus-mqtt-venus/run"
 
 echo "7. Activation / redémarrage du service..."
 ssh ${SSH_OPTS} "${GX_SSH}" "
-    if [ ! -L ${ACTIVE_DIR}/daly-bms-venus ] && [ ! -d ${ACTIVE_DIR}/daly-bms-venus ]; then
-        ln -s ${SERVICE_DIR}/daly-bms-venus ${ACTIVE_DIR}/daly-bms-venus
-        echo '   daly-bms-venus activé'
+    if [ ! -L ${ACTIVE_DIR}/dbus-mqtt-venus ] && [ ! -d ${ACTIVE_DIR}/dbus-mqtt-venus ]; then
+        ln -s ${SERVICE_DIR}/dbus-mqtt-venus ${ACTIVE_DIR}/dbus-mqtt-venus
+        echo '   dbus-mqtt-venus activé'
     else
-        svc -u ${ACTIVE_DIR}/daly-bms-venus
-        echo '   daly-bms-venus redémarré'
+        svc -u ${ACTIVE_DIR}/dbus-mqtt-venus
+        echo '   dbus-mqtt-venus redémarré'
     fi
     sleep 2
-    svstat ${ACTIVE_DIR}/daly-bms-venus
+    svstat ${ACTIVE_DIR}/dbus-mqtt-venus
 "
 
 echo ""

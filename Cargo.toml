@@ -8,7 +8,7 @@ members = [
     "crates/daly-bms-server",
     "crates/daly-bms-cli",
     "crates/daly-bms-probe",
-    "crates/daly-bms-venus",
+    "crates/dbus-mqtt-venus",
 ]
 
 [workspace.package]

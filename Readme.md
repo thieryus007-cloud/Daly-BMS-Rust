@@ -805,9 +805,9 @@ Il affiche pour chaque BMS :
 
 ### Phase 4 — Migration & Consolidation 🚧
 
-- [ ] Renommer le crate `daly-bms-venus` → `santuario-venus-bridge` dans le workspace Rust
+- [x] Renommer le crate `daly-bms-venus` → `dbus-mqtt-venus` dans le workspace Rust ✅
 - [ ] Migration flows Node-RED du NanoPi vers le Pi5 (docker-compose.infra.yml) ✅
-- [ ] Nettoyage NanoPi : services Python retirés, seul `santuario-venus-bridge` reste
+- [ ] Nettoyage NanoPi : services Python retirés, seul `dbus-mqtt-venus` reste
 - [ ] Validation stabilité 24h post-migration Node-RED
 
 ### Phase 5 — Capteur Irradiance & Météo RS485 🔜

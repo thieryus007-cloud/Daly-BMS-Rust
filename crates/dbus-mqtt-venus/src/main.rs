@@ -1,7 +1,7 @@
-//! `daly-bms-venus` — Bridge MQTT → D-Bus Venus OS (batteries + capteurs)
+//! `dbus-mqtt-venus` — Bridge MQTT → D-Bus Venus OS (batteries + capteurs)
 //!
 //! Ce binaire enregistre sur le D-Bus du Victron GX (Venus OS) :
-//! - `com.victronenergy.battery.{n}` pour chaque BMS Daly (topic `bms/{n}/venus`)
+//! - `com.victronenergy.battery.{n}` pour chaque BMS (topic `bms/{n}/venus`)
 //! - `com.victronenergy.temperature.{n}` pour chaque capteur température
 //!   (topic `heat/{n}/venus` — outdoor temp, water heater…)
 //!
@@ -18,10 +18,10 @@
 //!
 //! ```sh
 //! # Production (Venus OS)
-//! daly-bms-venus --config /etc/daly-bms/config.toml
+//! dbus-mqtt-venus --config /data/daly-bms/config.toml
 //!
 //! # Développement (D-Bus session bus)
-//! DALY_CONFIG=Config.toml daly-bms-venus
+//! DALY_CONFIG=Config.toml dbus-mqtt-venus
 //! ```
 
 mod battery_service;
@@ -58,8 +58,8 @@ use tracing_subscriber::{EnvFilter, fmt};
 
 #[derive(Parser, Debug)]
 #[command(
-    name    = "daly-bms-venus",
-    about   = "Venus OS D-Bus battery service bridge for Daly BMS",
+    name    = "dbus-mqtt-venus",
+    about   = "Venus OS D-Bus bridge service — MQTT → D-Bus for any device type",
     version = env!("CARGO_PKG_VERSION"),
 )]
 struct Cli {
@@ -111,7 +111,7 @@ async fn main() -> Result<()> {
         bms_count        = cfg.bms.len(),
         sensor_count     = cfg.sensors.len(),
         heatpump_count   = cfg.heatpumps.len(),
-        "daly-bms-venus démarrage"
+        "dbus-mqtt-venus démarrage"
     );
 
     if !cfg.venus.enabled {

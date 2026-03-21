@@ -44,7 +44,7 @@
         "type": "comment",
         "z": "eca20a68bef0de32",
         "name": "Architecture : LG ThinQ API → Node-RED → MQTT → Rust → D-Bus Venus OS",
-        "info": "API LG ThinQ (HTTPS) → parse état → publish santuario/heatpump/1/venus\nBridge Mosquitto Pi5 → NanoPi (out) → service daly-bms-venus\nD-Bus : com.victronenergy.heatpump.mqtt_1\n\nPayload publié :\n{\n  \"State\": 1,               // 0=Off 1=HeatPump 2=Turbo\n  \"Temperature\": 60.0,      // température eau courante °C\n  \"TargetTemperature\": 52.0, // température cible °C\n  \"Position\": 0             // 0=AC Output\n}\n\nKeepalive : 25s (< watchdog Rust 30s)\nFetch API  : toutes les 10 min (600s)",
+        "info": "API LG ThinQ (HTTPS) → parse état → publish santuario/heatpump/1/venus\nBridge Mosquitto Pi5 → NanoPi (out) → service dbus-mqtt-venus\nD-Bus : com.victronenergy.heatpump.mqtt_1\n\nPayload publié :\n{\n  \"State\": 1,               // 0=Off 1=HeatPump 2=Turbo\n  \"Temperature\": 60.0,      // température eau courante °C\n  \"TargetTemperature\": 52.0, // température cible °C\n  \"Position\": 0             // 0=AC Output\n}\n\nKeepalive : 25s (< watchdog Rust 30s)\nFetch API  : toutes les 10 min (600s)",
         "x": 300,
         "y": 20,
         "wires": []
@@ -184,7 +184,7 @@
         "type": "comment",
         "z": "eca20a68bef0de32",
         "name": "Keepalive 25s (obligatoire : watchdog Rust = 30s — sinon /Connected = 0)",
-        "info": "Le service daly-bms-venus surveille l'activité MQTT.\nSi aucun message n'arrive pendant 30s (watchdog_sec), /Connected passe à 0\net le device disparaît du VRM. Ce keepalive republie le dernier état connu\ndepuis le contexte global toutes les 25s.",
+        "info": "Le service dbus-mqtt-venus surveille l'activité MQTT.\nSi aucun message n'arrive pendant 30s (watchdog_sec), /Connected passe à 0\net le device disparaît du VRM. Ce keepalive republie le dernier état connu\ndepuis le contexte global toutes les 25s.",
         "x": 270,
         "y": 300,
         "wires": []

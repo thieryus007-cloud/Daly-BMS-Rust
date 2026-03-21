@@ -59,7 +59,7 @@ ps:
 
 .PHONY: build build-arm build-arm-v7 build-cli build-venus build-venus-arm build-venus-armv7 install-venus install-venus-v7
 
-VENUS_BIN  := daly-bms-venus
+VENUS_BIN  := dbus-mqtt-venus
 
 build:
 	$(CARGO) build --release --bin $(BINARY)

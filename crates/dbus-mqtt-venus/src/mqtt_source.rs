@@ -90,7 +90,7 @@ async fn connect_and_run(
     topic_prefix: &str,
     tx: &mpsc::Sender<MqttEvent>,
 ) -> anyhow::Result<()> {
-    let client_id = format!("daly-bms-venus-{}", uuid_short());
+    let client_id = format!("dbus-mqtt-venus-{}", uuid_short());
     let mut opts = MqttOptions::new(client_id, &cfg.host, cfg.port);
     opts.set_keep_alive(Duration::from_secs(30));
     opts.set_clean_session(true);
@@ -201,7 +201,7 @@ async fn sensor_connect_and_run(
     heat_prefix: &str,
     tx:          &mpsc::Sender<SensorMqttEvent>,
 ) -> anyhow::Result<()> {
-    let client_id = format!("daly-bms-venus-sensors-{}", uuid_short());
+    let client_id = format!("dbus-mqtt-venus-sensors-{}", uuid_short());
     let mut opts = MqttOptions::new(client_id, &cfg.host, cfg.port);
     opts.set_keep_alive(Duration::from_secs(30));
     opts.set_clean_session(true);
@@ -285,7 +285,7 @@ async fn heatpump_connect_and_run(
     heatpump_prefix:  &str,
     tx:               &mpsc::Sender<HeatpumpMqttEvent>,
 ) -> anyhow::Result<()> {
-    let client_id = format!("daly-bms-venus-heatpump-{}", uuid_short());
+    let client_id = format!("dbus-mqtt-venus-heatpump-{}", uuid_short());
     let mut opts = MqttOptions::new(client_id, &cfg.host, cfg.port);
     opts.set_keep_alive(Duration::from_secs(30));
     opts.set_clean_session(true);
@@ -350,7 +350,7 @@ async fn meteo_connect_and_run(
     meteo_topic: &str,
     tx:          &mpsc::Sender<MeteoMqttEvent>,
 ) -> anyhow::Result<()> {
-    let client_id = format!("daly-bms-venus-meteo-{}", uuid_short());
+    let client_id = format!("dbus-mqtt-venus-meteo-{}", uuid_short());
     let mut opts = MqttOptions::new(client_id, &cfg.host, cfg.port);
     opts.set_keep_alive(Duration::from_secs(30));
     opts.set_clean_session(true);

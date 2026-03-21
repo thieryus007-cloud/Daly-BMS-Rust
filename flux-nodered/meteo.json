@@ -55,7 +55,7 @@
         "type": "function",
         "z": "e6e3a16384301f83",
         "name": "Extraire température",
-        "func": "const temp = msg.payload.current.temperature_2m;\nconst humidity = msg.payload.current.relative_humidity_2m;\n\n// Stocker dans contexte global pour le keepalive\nglobal.set('outdoor_temp', temp);\nglobal.set('outdoor_humidity', humidity);\n\nnode.status({fill: 'green', shape: 'dot', text: `${temp}°C — ${humidity}%`});\n\n// Publier vers le service Rust daly-bms-venus\nreturn {\n    topic: 'santuario/heat/1/venus',\n    payload: JSON.stringify({\n        Temperature: temp,\n        Humidity: humidity\n    })\n};",
+        "func": "const temp = msg.payload.current.temperature_2m;\nconst humidity = msg.payload.current.relative_humidity_2m;\n\n// Stocker dans contexte global pour le keepalive\nglobal.set('outdoor_temp', temp);\nglobal.set('outdoor_humidity', humidity);\n\nnode.status({fill: 'green', shape: 'dot', text: `${temp}°C — ${humidity}%`});\n\n// Publier vers le service Rust dbus-mqtt-venus\nreturn {\n    topic: 'santuario/heat/1/venus',\n    payload: JSON.stringify({\n        Temperature: temp,\n        Humidity: humidity\n    })\n};",
         "outputs": 1,
         "timeout": "",
         "noerr": 0,
