@@ -749,7 +749,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "daly-bms-venus"
+name = "dbus-mqtt-venus"
 version = "0.1.0"
 dependencies = [
  "anyhow",
