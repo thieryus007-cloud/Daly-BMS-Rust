@@ -124,7 +124,7 @@ topic_prefix = "santuario/switch"
 [[switches]]
 mqtt_index      = 1
 name            = "ATS CHINT"
-device_instance = 301
+device_instance = 60
 
 # -----------------------------------------------------------------------------
 # Compteurs réseau / consommation AC
