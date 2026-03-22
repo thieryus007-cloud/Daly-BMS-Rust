@@ -405,6 +405,64 @@ dbus -y com.victronenergy.battery.mqtt_1 / GetItems
 dbus-monitor --system "type=signal,sender=com.victronenergy.battery.mqtt_1"
 ```
 
+### Problème : Victron widget météo — "Température: -" malgré valeur D-Bus correcte
+
+**Constat** (vérifié 2026-03-22) :
+```bash
+dbus -y com.victronenergy.meteo /ExternalTemperature GetValue
+# → 8.4   ← valeur D-Bus correcte
+```
+**Cause** : Limitation connue Venus OS — le widget "Capteur météo" n'affiche PAS
+`/ExternalTemperature` du service `com.victronenergy.meteo`, même si la valeur D-Bus
+est correcte. C'est un bug d'affichage Venus OS, PAS un bug du code Rust.
+
+**Statut** : Pas de solution côté code. La valeur existe bien sur D-Bus (utilisable
+par d'autres services). L'affichage restera "-" dans le widget météo Victron.
+
+### Problème : TodaysYield incorrect après reset manuel Node-RED en pleine journée
+
+**Cause** : Le "Reset minuit" pose `pvinv_baseline = cumul_actuel`. Si exécuté en journée,
+la production PVInverter antérieure au reset est perdue pour ce jour.
+
+**Procédure de récupération** (📍 NanoPi puis Node-RED) :
+
+```bash
+# 1. Sur NanoPi — lire le cumul actuel PVInverter
+dbus -y com.victronenergy.pvinverter.cgwacs_ttyUSB0_mb2 /Ac/Energy/Forward GetValue
+# ex: 587.2
+
+# 2. Sur Victron GUI — noter la valeur "Solaire" (MPPT + PVInverter total du jour)
+# ex: 3.9 kWh
+
+# 3. Sur NanoPi — lire la production MPPT seule du jour
+dbus -y | grep solarcharger   # trouver l'instance
+dbus -y com.victronenergy.solarcharger.XXX /History/Daily/0/Yield GetValue
+# ex: 2.18 kWh
+```
+
+```javascript
+// 4. Dans Node-RED — Function node à injecter UNE FOIS
+const currentCumul = 587.2;   // ← résultat étape 1
+const totalVictron  = 3.9;    // ← valeur "Solaire" Victron (étape 2)
+const mpptToday     = global.get('mppt_yield_today') || 2.18;
+
+const pvinvToday  = totalVictron - mpptToday;
+const newBaseline = currentCumul - pvinvToday;
+
+global.set('pvinv_baseline',    newBaseline);
+global.set('pvinv_yield_today', pvinvToday);
+global.set('total_yield_today', mpptToday + pvinvToday);
+
+node.status({fill:'green', text:`Total=${(mpptToday+pvinvToday).toFixed(2)} kWh`});
+return null;
+```
+
+**Vérification** (📍 NanoPi) :
+```bash
+mosquitto_sub -h 127.0.0.1 -p 1883 -t "santuario/meteo/venus" -C 1
+# → TodaysYield doit afficher ~3.9
+```
+
 ---
 
 ## 11. BINAIRES & CIBLES DE COMPILATION
@@ -707,15 +765,20 @@ ssh root@192.168.1.120 "svc -t /service/dbus-mqtt-venus"  # Venus bridge
 ### Services D-Bus présents en production (état nominal)
 
 ```
-com.victronenergy.battery.mqtt_1      ← BMS-360Ah (instance 141)
-com.victronenergy.battery.mqtt_2      ← BMS-320Ah (instance 142)
-com.victronenergy.temperature.mqtt_1  ← capteur température
-com.victronenergy.heatpump.mqtt_1     ← PAC / chauffe-eau
-com.victronenergy.switch.*            ← ATS / relais (si configuré)
-com.victronenergy.grid.*              ← compteur réseau (si configuré)
+com.victronenergy.battery.mqtt_1                    ← BMS-360Ah (instance 141)
+com.victronenergy.battery.mqtt_2                    ← BMS-320Ah (instance 142)
+com.victronenergy.temperature.mqtt_1                ← capteur température extérieure (type 4=Outdoor)
+com.victronenergy.heatpump.mqtt_1                   ← PAC / chauffe-eau
+com.victronenergy.switch.*                          ← ATS / relais (si configuré)
+com.victronenergy.grid.*                            ← compteur réseau (si configuré)
+com.victronenergy.meteo                             ← capteur irradiance + TodaysYield
+com.victronenergy.pvinverter.cgwacs_ttyUSB0_mb2     ← onduleur PV (cgwacs Modbus ttyUSB0 addr 2)
 ```
 
 Si un service manque : vérifier logs `dbus-mqtt-venus` ET que le topic MQTT est bien publié.
+
+> **IMPORTANT** : Le nom exact du PV inverter est `cgwacs_ttyUSB0_mb2` — NE PAS utiliser `rs485`.
+> Toujours vérifier avec `dbus -y | grep pvinverter` avant toute commande.
 
 ### Sauvegarde config NanoPi
 
@@ -742,3 +805,37 @@ git commit -m "chore(nanopi): backup config.toml"
 8. **Architecture armv7** : NanoPi = armv7, Pi5 = aarch64. Ne pas confondre les binaires.
 9. **SSH** : utiliser `ssh root@192.168.1.120` (pas `nanopi`) pour éviter les problèmes de config.
 10. **Service Venus** : arrêter avant toute copie de binaire (`svc -d /service/dbus-mqtt-venus`).
+11. **CLAUDE.md = mémoire projet** : toute information découverte (nom de service réel, limitation, procédure) doit être ajoutée ICI immédiatement, puis committée. Ne jamais redemander la même information à l'utilisateur.
+12. **Avant toute commande D-Bus** : toujours vérifier le nom exact du service avec `dbus -y | grep <type>` — les noms peuvent être inattendus (ex: `cgwacs_ttyUSB0_mb2` et non `rs485`).
+
+---
+
+## 19. INVENTAIRE MATÉRIEL D-BUS PRODUCTION (vérifié 2026-03-22)
+
+| Service D-Bus | Description | Commande vérification |
+|---|---|---|
+| `com.victronenergy.battery.mqtt_1` | BMS-360Ah | `dbus -y ... /Soc GetValue` |
+| `com.victronenergy.battery.mqtt_2` | BMS-320Ah | `dbus -y ... /Soc GetValue` |
+| `com.victronenergy.temperature.mqtt_1` | Capteur ext. (type 4) | `dbus -y ... /Temperature GetValue` |
+| `com.victronenergy.heatpump.mqtt_1` | PAC / chauffe-eau | `dbus -y ... /State GetValue` |
+| `com.victronenergy.meteo` | Irradiance + TodaysYield | `dbus -y ... /TodaysYield GetValue` |
+| `com.victronenergy.pvinverter.cgwacs_ttyUSB0_mb2` | Onduleur PV AC | `dbus -y ... /Ac/Energy/Forward GetValue` |
+
+### Commandes de diagnostic rapide (📍 NanoPi)
+
+```bash
+# Lister tout ce qui tourne
+dbus -y | grep victronenergy
+
+# Vérifier les valeurs clés
+dbus -y com.victronenergy.meteo /TodaysYield GetValue
+dbus -y com.victronenergy.meteo /ExternalTemperature GetValue
+dbus -y com.victronenergy.pvinverter.cgwacs_ttyUSB0_mb2 /Ac/Energy/Forward GetValue
+dbus -y com.victronenergy.battery.mqtt_1 /Soc GetValue
+dbus -y com.victronenergy.battery.mqtt_2 /Soc GetValue
+```
+
+### Limitations connues Venus OS (NE PAS chercher à corriger)
+
+- **ExternalTemperature dans widget météo** : toujours "-" même si D-Bus = 8.4°C. C'est un bug d'affichage Venus OS, la valeur D-Bus est correcte.
+- **MPPT SmartSolar VE.CAN** : race condition au boot (cf. §15c).
