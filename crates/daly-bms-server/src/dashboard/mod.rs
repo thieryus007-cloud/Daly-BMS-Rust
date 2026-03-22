@@ -10,7 +10,6 @@
 
 pub mod charts;
 
-use crate::et112::Et112Snapshot;
 use crate::state::AppState;
 use askama::Template;
 use axum::{

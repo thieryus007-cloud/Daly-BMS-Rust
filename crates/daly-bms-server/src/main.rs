@@ -152,6 +152,7 @@ async fn main() -> anyhow::Result<()> {
                 alerts:    config::AlertsConfig::default(),
                 read_only: config::ReadOnlyConfig::default(),
                 bms:       Vec::new(),
+                et112:     config::Et112Config::default(),
             }
         }
     };
