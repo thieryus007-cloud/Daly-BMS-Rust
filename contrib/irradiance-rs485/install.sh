@@ -10,9 +10,9 @@ SERVICE_NAME="irradiance-rs485"
 
 echo "=== Installation ${SERVICE_NAME} ==="
 
-# 1. Dépendances Python
+# 1. Dépendances Python (via apt — pas de pip3 sur Raspberry Pi OS)
 echo "1. Installation des dépendances Python..."
-pip3 install --user pyserial paho-mqtt
+sudo apt-get install -y python3-serial python3-paho-mqtt
 
 # 2. Ajouter pi5compute au groupe dialout (accès /dev/ttyUSB*)
 echo "2. Ajout au groupe dialout..."
