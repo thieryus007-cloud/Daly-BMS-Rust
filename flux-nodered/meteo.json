@@ -117,7 +117,7 @@
         "name": "Venus Météo",
         "topic": "",
         "qos": "1",
-        "retain": "",
+        "retain": "true",
         "respTopic": "",
         "contentType": "",
         "userProps": "",
