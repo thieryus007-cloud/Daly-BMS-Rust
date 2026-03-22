@@ -969,19 +969,42 @@ com.victronenergy.pvinverter.mqtt_3 (device instance 63)
 | `Config.toml` | Section `[et112]` + `[[et112.devices]]` |
 | `nanoPi/config-nanopi.toml` | Section `[pvinverter]` + `[[pvinverters]]` |
 
-### ET112 déjà sur Victron (instances 61/62 — à migrer ultérieurement)
+### Architecture cible : 3 ET112 sur Pi5 (migration depuis Victron)
 
-Les ET112 aux adresses RS485 0x01 et 0x02 sont connectés directement sur le Victron
-via USB-RS485 et apparaissent en production comme :
-- `com.victronenergy.pvinverter.cgwacs_ttyUSBx_mb1` → instance 61
-- `com.victronenergy.pvinverter.cgwacs_ttyUSBx_mb2` → instance 62
+**Rôle de chaque ET112 (décision 2026-03-22)** :
 
-Lors de la migration vers Pi5 :
-1. Débrancher les 2 câbles USB du Victron
-2. Brancher les 2 ET112 sur les ports USB du Pi5 (`/dev/ttyUSB2`, `/dev/ttyUSB3`)
-3. Ajouter `[[et112.devices]]` dans `Config.toml` pour addresses 0x01 et 0x02
-4. Décommenter `[[pvinverters]]` mqtt_index=1 et 2 dans `nanoPi/config-nanopi.toml`
-5. Déployer + redémarrer les services
+| ET112 | Usage | Type D-Bus | Topic MQTT | Device instance |
+|---|---|---|---|---|
+| addr 0x03 (actuel Pi5) | **Micro-inverseurs** | `pvinverter` | `santuario/pvinverter/3/venus` | 63 |
+| addr à définir | **PAC Climatisation** (AC Out 1) | `acload` | `santuario/grid/4/venus` | 501 |
+| addr à définir | **Chauffe-eau** (AC Out 1) | `acload` | `santuario/grid/5/venus` | 502 |
+
+**État actuel** :
+- `com.victronenergy.pvinverter.cgwacs_ttyUSB0_mb2` = ET112 micro-inverseurs connecté directement sur le Victron (Modbus addr 0x02)
+- Les 2 ET112 acload (PAC + chauffe-eau) ne sont **pas encore installés**
+- Le ET112 Pi5 (addr 0x03, mqtt_index=3) est **déjà actif** mais pvinverter config pas encore dans config.toml NanoPi
+
+**Procédure de migration (quand prêt)** :
+1. Brancher les 3 ET112 sur Pi5 (`/dev/ttyUSB1`, `/dev/ttyUSB2`, `/dev/ttyUSB3`)
+2. Configurer adresses RS485 sur les ET112 : 0x03=micro-inv, 0x04=PAC, 0x05=chauffe-eau (ou selon dispo)
+3. Dans `Config.toml` Pi5 : ajouter `[[et112.devices]]` pour chaque ET112, avec un champ `service_type` ("pvinverter" ou "acload")
+4. Adapter `et112/poll.rs` pour publier sur `santuario/pvinverter/{n}/venus` ou `santuario/grid/{n}/venus` selon `service_type`
+5. Dans `nanoPi/config-nanopi.toml` : décommenter les entrées `[[grids]]` mqtt_index=4 et 5
+6. Débrancher l'ancien câble USB Victron → `cgwacs_ttyUSB0_mb2` disparaît du D-Bus
+7. Déployer `daly-bms-server` (Pi5) + `dbus-mqtt-venus` (NanoPi) + redémarrer
+
+**Format JSON pour acload ET112** (compatible `GridPayload`) :
+```json
+{
+  "Ac": {
+    "L1": { "Voltage": 230.1, "Current": 8.2, "Power": 1886.0,
+            "Energy": { "Forward": 142.5, "Reverse": 0.0 } }
+  },
+  "DeviceType": 340,
+  "IsGenericEnergyMeter": 1
+}
+```
+Publié sur `santuario/grid/4/venus` (PAC) et `santuario/grid/5/venus` (chauffe-eau).
 
 ### Topics MQTT pvinverter
 
