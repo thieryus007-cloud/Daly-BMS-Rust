@@ -131,25 +131,52 @@ device_instance = 60
 # Topics : santuario/grid/{mqtt_index}/venus
 # D-Bus  : com.victronenergy.grid.mqtt_{mqtt_index}
 #          com.victronenergy.acload.mqtt_{mqtt_index} (si service_type="acload")
+#
+# PLAN MIGRATION 3 ET112 (quand tous sur Pi5) :
+#   mqtt_index=3 → pvinverter (ci-dessous, section [pvinverter])
+#   mqtt_index=4 → acload PAC climatisation (AC Out 1)
+#   mqtt_index=5 → acload chauffe-eau (AC Out 1)
+#
+# Le daly-bms-server publie les ET112 acload sur santuario/grid/{n}/venus
+# avec un payload GridPayload (même format que grid, service_type="acload").
 # -----------------------------------------------------------------------------
 [grid]
 topic_prefix = "santuario/grid"
 
-# Décommenter quand un compteur sera connecté :
+# Décommenter quand un compteur réseau sera connecté :
 # [[grids]]
 # mqtt_index      = 1
 # name            = "Compteur réseau"
 # device_instance = 401
 # service_type    = "grid"     # "grid" ou "acload"
 
+# Décommenter lors de la migration des ET112 acload depuis le Victron vers Pi5 :
+# [[grids]]
+# mqtt_index      = 4
+# name            = "PAC Climatisation"
+# device_instance = 501
+# service_type    = "acload"   # AC Out 1 — consommation PAC climatisation
+#
+# [[grids]]
+# mqtt_index      = 5
+# name            = "Chauffe-eau"
+# device_instance = 502
+# service_type    = "acload"   # AC Out 1 — consommation chauffe-eau
+
 # -----------------------------------------------------------------------------
 # Onduleurs PV / compteurs énergie ET112 (Carlo Gavazzi)
 # Topics : santuario/pvinverter/{mqtt_index}/venus
 # D-Bus  : com.victronenergy.pvinverter.mqtt_{mqtt_index}
 #
-# ET112 sur Pi5 (adresse RS485 0x03 → mqtt_index=3, device_instance=63)
-# Les ET112 0x01/0x02 restent connectés directement sur le Victron
-# (instances 61/62 déjà enregistrées côté Victron).
+# ARCHITECTURE 3 ET112 SUR PI5 (migration depuis Victron) :
+#
+#   ET112 #1 — Micro-inverseurs (mqtt_index=3, device_instance=63)
+#     → Remplace com.victronenergy.pvinverter.cgwacs_ttyUSB0_mb2 (Victron direct)
+#     → Adresse RS485 actuelle : 0x03 (Pi5 /dev/ttyUSB1)
+#     → Publié par daly-bms-server → santuario/pvinverter/3/venus
+#
+#   ET112 #2 — PAC Climatisation (acload) → section [[grids]] mqtt_index=4
+#   ET112 #3 — Chauffe-eau (acload)       → section [[grids]] mqtt_index=5
 #
 # /Ac/Power, /Ac/Energy/Forward, /Ac/L1/{Voltage,Current,Power,Energy/Forward}
 # /StatusCode=7 (Running), /ErrorCode=0, /Position=1 (AC Output)
@@ -161,18 +188,7 @@ topic_prefix = "santuario/pvinverter"
 [[pvinverters]]
 mqtt_index      = 3
 name            = "Micro-inverseurs"
-device_instance = 63          # 61/62 = ET112 Victron direct, 63 = ET112 Pi5
-
-# Décommenter lors de la migration des ET112 depuis le Victron vers le Pi5 :
-# [[pvinverters]]
-# mqtt_index      = 1
-# name            = "ET112-PV-1"
-# device_instance = 61
-#
-# [[pvinverters]]
-# mqtt_index      = 2
-# name            = "ET112-PV-2"
-# device_instance = 62
+device_instance = 63          # remplace cgwacs_ttyUSB0_mb2 après migration
 
 # -----------------------------------------------------------------------------
 # Platform Pi5 — état backup/restore (singleton)
