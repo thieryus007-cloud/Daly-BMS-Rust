@@ -31,7 +31,7 @@
 │    mosquitto   1883 (MQTT), 9001 (WebSocket)                     │
 │    influxdb    8086                                              │
 │    grafana     3001                                              │
-│    nodered     1880  ← migré depuis NanoPi (en cours)            │
+│    nodered     1880  ← MIGRÉ depuis NanoPi ✅ TERMINÉ            │
 └──────────┬───────────────────────────────────────────────────────┘
            │ MQTT 192.168.1.120:1883
            ▼
@@ -198,7 +198,6 @@ make check           # fmt + lint
 make install         # Installer service systemd sur Pi5
 make deploy          # SSH vers Pi5 (PI_HOST=pi5compute@192.168.1.141)
 make install-venus-v7  # Déployer dbus-mqtt-venus sur NanoPi (armv7)
-make install-venus     # Déployer dbus-mqtt-venus sur NanoPi (aarch64)
 ```
 
 ---
@@ -507,19 +506,47 @@ santuario/meteo/venus        ← irradiance RS485
 
 ---
 
-## 15. MIGRATION NODE-RED (EN COURS)
+## 15. MIGRATION NODE-RED ✅ TERMINÉE
 
 **Objectif** : Déplacer Node-RED du NanoPi vers le Pi5 dans Docker.
 
-**État** : Branch `claude/migrate-nodered-pi5-91idx`
+**État** : ✅ COMPLET — Branch `claude/migrate-nodered-pi5-91idx`
 
-**Flows** : `flux-nodered/` — flows exportés depuis NanoPi.
+**Réalisé** :
+1. ✅ Flows importés dans Node-RED Docker (Pi5:1880)
+2. ✅ Connectivité MQTT vérifiée (broker 192.168.1.120:1883)
+3. ✅ Node-RED arrêté sur NanoPi
+4. ✅ ~100 MB RAM libérée sur NanoPi
 
-**Étapes restantes** :
-1. Importer les flows dans Node-RED Docker (Pi5:1880)
-2. Vérifier connectivité MQTT (broker reste sur 192.168.1.120:1883 pour Venus)
-3. Arrêter Node-RED sur NanoPi
-4. Libérer ~100 MB RAM sur NanoPi
+---
+
+## 15b. PERSISTANCE SERVICE VENUS OS (RÉSOLU)
+
+**Problème** : Après reboot NanoPi, le symlink `/service/dbus-mqtt-venus` disparaissait.
+
+**Cause** : Venus OS recrée `/service/` depuis son registre au boot — symlinks manuels non préservés.
+
+**Solution** : `/data/rc.local` (mécanisme officiel Venus OS, survit aux firmware updates) :
+```bash
+#!/bin/sh
+ln -sf /data/etc/sv/dbus-mqtt-venus /service/dbus-mqtt-venus
+```
+
+**Script `install-venus.sh`** mis à jour pour créer automatiquement `/data/rc.local`.
+
+---
+
+## 15c. PROBLÈMES CONNUS VENUS OS POST-MIGRATION
+
+### MPPT Solar (SmartSolar MPPT VE.Can 250/100 rev2)
+- Connexion : VE.Direct interne sur `ttyS1` ou `ttyS2`
+- **Race condition au boot** : parfois absent au 1er reboot, présent au 2ème
+- Workaround : `svc -t /service/vedirect-interface.ttyS1`
+- Non lié à notre migration
+
+### Shelly (AC Meter [50] et [51])
+- Parfois absent après reboot — à investiguer
+- Non critique, à traiter ultérieurement
 
 ---
 
