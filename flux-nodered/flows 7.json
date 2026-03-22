@@ -4,7 +4,7 @@
         "type": "tab",
         "label": "OpenWeatherMap → Venus OS",
         "disabled": false,
-        "info": "Récupère température, humidité, pression, vent depuis OpenWeatherMap toutes les 5 min.\nPublie vers deux services D-Bus Venus OS :\n  - santuario/meteo/venus  → com.victronenergy.meteo (ExternalTemperature, WindDirection, WindSpeed)\n  - santuario/heat/1/venus → com.victronenergy.temperature.mqtt_1 (Temperature, Humidity, Pressure)\n\nPrérequis : variable d'env OWM_API_KEY dans Node-RED (Settings → Environment variables)\nLocalisation : Badalucco (43.8833°N, 7.8667°E)",
+        "info": "Récupère température, humidité, pression, vent depuis OpenWeatherMap toutes les 5 min.\nPublie vers deux services D-Bus Venus OS :\n  - santuario/meteo/venus  → com.victronenergy.meteo (instance 40) : ExternalTemperature, WindDirection, WindSpeed\n  - santuario/heat/1/venus → com.victronenergy.temperature.mqtt_1 (instance 20) : Temperature, Humidity, Pressure, TemperatureType=4 (Outdoor)\n\nLocalisation : Badalucco (43.9151°N, 7.8452°E)",
         "env": []
     },
 
@@ -22,25 +22,6 @@
         "x": 230,
         "y": 80,
         "wires": [
-            ["owm_fn_build_url"]
-        ]
-    },
-
-    {
-        "id": "owm_fn_build_url",
-        "type": "function",
-        "z": "owm_tab_01",
-        "name": "Construire URL OpenWeatherMap",
-        "func": "// Clé API : variable d'env OWM_API_KEY (Node-RED Settings → Environment variables)\n// Ou stocker dans contexte global via un nœud Change : global.owm_api_key\nconst apiKey = env.get('OWM_API_KEY') || global.get('owm_api_key') || '';\n\nif (!apiKey) {\n    node.error('OWM_API_KEY non définie. Configurer dans Node-RED Settings → Environment variables.');\n    node.status({fill: 'red', shape: 'ring', text: 'Clé API manquante'});\n    return null;\n}\n\n// Localisation : Badalucco (43.8833°N, 7.8667°E)\nmsg.url = `https://api.openweathermap.org/data/2.5/weather?lat=43.8833&lon=7.8667&appid=${apiKey}&units=metric&lang=fr`;\nreturn msg;",
-        "outputs": 1,
-        "timeout": "",
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 520,
-        "y": 80,
-        "wires": [
             ["owm_http_request"]
         ]
     },
@@ -53,7 +34,7 @@
         "method": "GET",
         "ret": "obj",
         "paytoqs": "ignore",
-        "url": "",
+        "url": "https://api.openweathermap.org/data/2.5/weather?lat=43.9151&lon=7.8452&appid=d759c8b8a2d56a671810e0eef605f8b6&units=metric&lang=fr",
         "tls": "",
         "persist": false,
         "proxy": "",
@@ -61,7 +42,7 @@
         "authType": "",
         "senderr": false,
         "headers": [],
-        "x": 800,
+        "x": 520,
         "y": 80,
         "wires": [
             ["owm_fn_extract"]
@@ -73,15 +54,15 @@
         "type": "function",
         "z": "owm_tab_01",
         "name": "Extraire données météo",
-        "func": "const data = msg.payload;\n\n// Vérifier la validité de la réponse\nif (!data || !data.main || !data.wind) {\n    node.error('OpenWeatherMap: réponse invalide — ' + JSON.stringify(data), msg);\n    node.status({fill: 'red', shape: 'ring', text: 'Réponse invalide'});\n    return null;\n}\n\nif (data.cod && data.cod !== 200) {\n    node.error('OpenWeatherMap erreur ' + data.cod + ': ' + (data.message || ''), msg);\n    node.status({fill: 'red', shape: 'dot', text: 'Erreur ' + data.cod});\n    return null;\n}\n\n// === Extraction des valeurs ===\nconst extTemp    = data.main.temp;              // °C\nconst humidity   = data.main.humidity;          // %\nconst pressHpa   = data.main.pressure;          // hPa → kPa : /10\nconst pressKpa   = pressHpa / 10.0;\nconst windSpeed  = data.wind.speed  || 0;       // m/s\nconst windDir    = data.wind.deg    || 0;       // degrés 0-360\n\n// Stocker dans contexte global pour le keepalive (25s)\nglobal.set('owm_ext_temp',   extTemp);\nglobal.set('owm_humidity',   humidity);\nglobal.set('owm_press_kpa',  pressKpa);\nglobal.set('owm_wind_speed', windSpeed);\nglobal.set('owm_wind_dir',   windDir);\n\nnode.status({\n    fill: 'green', shape: 'dot',\n    text: `${extTemp.toFixed(1)}°C · ${humidity}% · ${windSpeed}m/s · ${windDir}°`\n});\n\n// === Message 1 : com.victronenergy.meteo ===\n// Chemin D-Bus : /ExternalTemperature, /WindDirection, /WindSpeed\nconst meteoMsg = {\n    topic: 'santuario/meteo/venus',\n    payload: JSON.stringify({\n        ExternalTemperature: extTemp,\n        WindDirection:       windDir,\n        WindSpeed:           windSpeed\n    })\n};\n\n// === Message 2 : com.victronenergy.temperature.mqtt_1 (instance 20) ===\n// Chemin D-Bus : /Temperature, /Humidity (%), /Pressure (kPa)\nconst heatMsg = {\n    topic: 'santuario/heat/1/venus',\n    payload: JSON.stringify({\n        Temperature:     extTemp,\n        TemperatureType: 4,        // 4 = Outdoor\n        Humidity:        humidity,\n        Pressure:        pressKpa\n    })\n};\n\nreturn [meteoMsg, heatMsg];",
+        "func": "const data = msg.payload;\n\n// Vérifier la validité de la réponse\nif (!data || !data.main || !data.wind) {\n    node.error('OpenWeatherMap: réponse invalide — ' + JSON.stringify(data), msg);\n    node.status({fill: 'red', shape: 'ring', text: 'Réponse invalide'});\n    return null;\n}\n\nif (data.cod && data.cod !== 200) {\n    node.error('OpenWeatherMap erreur ' + data.cod + ': ' + (data.message || ''), msg);\n    node.status({fill: 'red', shape: 'dot', text: 'Erreur ' + data.cod});\n    return null;\n}\n\n// === Extraction des valeurs ===\nconst extTemp   = data.main.temp;         // °C\nconst humidity  = data.main.humidity;     // %\nconst pressKpa  = data.main.pressure / 10.0; // hPa → kPa\nconst windSpeed = data.wind.speed  || 0;  // m/s\nconst windDir   = data.wind.deg    || 0;  // degrés 0-360\n\n// Stocker dans contexte global pour le keepalive (25s)\nglobal.set('owm_ext_temp',   extTemp);\nglobal.set('owm_humidity',   humidity);\nglobal.set('owm_press_kpa',  pressKpa);\nglobal.set('owm_wind_speed', windSpeed);\nglobal.set('owm_wind_dir',   windDir);\n\nnode.status({\n    fill: 'green', shape: 'dot',\n    text: `${extTemp.toFixed(1)}°C · ${humidity}% · ${windSpeed}m/s · ${windDir}°`\n});\n\n// === Message 1 : com.victronenergy.meteo (instance 40) ===\nconst meteoMsg = {\n    topic: 'santuario/meteo/venus',\n    payload: JSON.stringify({\n        ExternalTemperature: extTemp,\n        WindDirection:       windDir,\n        WindSpeed:           windSpeed\n    })\n};\n\n// === Message 2 : com.victronenergy.temperature.mqtt_1 (instance 20) ===\nconst heatMsg = {\n    topic: 'santuario/heat/1/venus',\n    payload: JSON.stringify({\n        Temperature:     extTemp,\n        TemperatureType: 4,\n        Status:          0,\n        Humidity:        humidity,\n        Pressure:        pressKpa,\n        CustomName:      'Météo Extérieure',\n        ProductName:     'OpenWeatherMap'\n    })\n};\n\nreturn [meteoMsg, heatMsg];",
         "outputs": 2,
         "timeout": "",
         "noerr": 0,
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 260,
-        "y": 200,
+        "x": 800,
+        "y": 80,
         "wires": [
             ["owm_mqtt_out", "owm_debug"],
             ["owm_mqtt_out", "owm_debug"]
@@ -103,7 +84,7 @@
         "expiry": "",
         "broker": "pi5_mqtt_broker",
         "x": 600,
-        "y": 200,
+        "y": 240,
         "wires": []
     },
 
@@ -121,7 +102,7 @@
         "statusVal": "",
         "statusType": "auto",
         "x": 600,
-        "y": 260,
+        "y": 300,
         "wires": []
     },
 
@@ -137,7 +118,7 @@
         "onceDelay": 0,
         "topic": "",
         "x": 210,
-        "y": 360,
+        "y": 400,
         "wires": [
             ["owm_keepalive_fn"]
         ]
@@ -148,7 +129,7 @@
         "type": "function",
         "z": "owm_tab_01",
         "name": "Republier depuis contexte global",
-        "func": "const extTemp   = global.get('owm_ext_temp');\nconst humidity  = global.get('owm_humidity');\nconst pressKpa  = global.get('owm_press_kpa');\nconst windSpeed = global.get('owm_wind_speed');\nconst windDir   = global.get('owm_wind_dir');\n\n// Attendre la première récupération OpenWeatherMap\nif (extTemp === undefined || extTemp === null) {\n    return null;\n}\n\nconst meteoMsg = {\n    topic: 'santuario/meteo/venus',\n    payload: JSON.stringify({\n        ExternalTemperature: extTemp,\n        WindDirection:       windDir  || 0,\n        WindSpeed:           windSpeed || 0\n    })\n};\n\nconst heatMsg = {\n    topic: 'santuario/heat/1/venus',\n    payload: JSON.stringify({\n        Temperature:     extTemp,\n        TemperatureType: 4,\n        Humidity:        humidity  || 0,\n        Pressure:        pressKpa  || 0\n    })\n};\n\nreturn [meteoMsg, heatMsg];",
+        "func": "const extTemp   = global.get('owm_ext_temp');\nconst humidity  = global.get('owm_humidity');\nconst pressKpa  = global.get('owm_press_kpa');\nconst windSpeed = global.get('owm_wind_speed');\nconst windDir   = global.get('owm_wind_dir');\n\n// Attendre la première récupération OpenWeatherMap\nif (extTemp === undefined || extTemp === null) {\n    return null;\n}\n\nconst meteoMsg = {\n    topic: 'santuario/meteo/venus',\n    payload: JSON.stringify({\n        ExternalTemperature: extTemp,\n        WindDirection:       windDir  || 0,\n        WindSpeed:           windSpeed || 0\n    })\n};\n\nconst heatMsg = {\n    topic: 'santuario/heat/1/venus',\n    payload: JSON.stringify({\n        Temperature:     extTemp,\n        TemperatureType: 4,\n        Status:          0,\n        Humidity:        humidity  || 0,\n        Pressure:        pressKpa  || 0,\n        CustomName:      'Météo Extérieure',\n        ProductName:     'OpenWeatherMap'\n    })\n};\n\nreturn [meteoMsg, heatMsg];",
         "outputs": 2,
         "timeout": "",
         "noerr": 0,
@@ -156,7 +137,7 @@
         "finalize": "",
         "libs": [],
         "x": 560,
-        "y": 360,
+        "y": 400,
         "wires": [
             ["owm_mqtt_out"],
             ["owm_mqtt_out"]
@@ -167,10 +148,10 @@
         "id": "owm_comment_setup",
         "type": "comment",
         "z": "owm_tab_01",
-        "name": "Configuration requise",
-        "info": "## Prérequis\n\n### Clé API OpenWeatherMap\nDans Node-RED : Settings → Environment variables\n```\nOWM_API_KEY = votre_clé_api\n```\nOu via `global.owm_api_key` dans un nœud Change.\n\n### Services D-Bus cibles\n- `com.victronenergy.meteo` (instance 40)\n  - `/ExternalTemperature` °C\n  - `/WindDirection` degrés (0-360)\n  - `/WindSpeed` m/s\n\n- `com.victronenergy.temperature.mqtt_1` (instance 20)\n  - `/Temperature` °C\n  - `/Humidity` %\n  - `/Pressure` kPa\n  - `/TemperatureType` = 4 (Outdoor)\n\n### Fréquence\n- Appel API : toutes les 5 minutes\n- Keepalive Venus OS : toutes les 25 secondes\n\n### Localisation\nBadalucco (43.8833°N, 7.8667°E) — timezone Europe/Rome",
+        "name": "Services D-Bus cibles",
+        "info": "## Services D-Bus publiés\n\n### com.victronenergy.meteo (instance 40)\nTopic : `santuario/meteo/venus`\n- `/ExternalTemperature` °C\n- `/WindDirection` degrés (0-360)\n- `/WindSpeed` m/s\n\n### com.victronenergy.temperature.mqtt_1 (instance 20)\nTopic : `santuario/heat/1/venus`\n- `/Temperature` °C\n- `/TemperatureType` = 4 (Outdoor)\n- `/Status` = 0 (Ok)\n- `/Humidity` %\n- `/Pressure` kPa\n- `/CustomName` = Météo Extérieure\n\n## Fréquences\n- Appel API OWM : toutes les 5 minutes\n- Keepalive Venus OS : toutes les 25 secondes\n\n## Localisation\nBadalucco (43.9151°N, 7.8452°E)",
         "x": 850,
-        "y": 360,
+        "y": 400,
         "wires": []
     },
 
