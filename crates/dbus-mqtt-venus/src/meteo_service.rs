@@ -6,9 +6,12 @@
 //! ## Chemins D-Bus exposés
 //!
 //! ```text
-//! /Irradiance     — irradiance courante en W/m²
-//! /TodaysYield    — production du jour en kWh (depuis le lever du soleil)
-//! /Connected      — 0 ou 1
+//! /Irradiance           — irradiance courante en W/m²
+//! /TodaysYield          — production du jour en kWh (depuis le lever du soleil)
+//! /ExternalTemperature  — température extérieure en °C (OpenWeatherMap)
+//! /WindDirection        — direction du vent en degrés (0-360)
+//! /WindSpeed            — vitesse du vent en m/s
+//! /Connected            — 0 ou 1
 //! /ProductName
 //! /ProductId
 //! /DeviceInstance
@@ -19,6 +22,7 @@
 //!
 //! Utilisé pour :
 //! - Capteur d'irradiance RS485 connecté au Pi5
+//! - Données météo OpenWeatherMap via Node-RED
 //! - Topic MQTT source : `santuario/meteo/venus` (topic fixe, sans index)
 
 use crate::types::MeteoPayload;
@@ -97,23 +101,29 @@ type ItemsDict = HashMap<String, HashMap<String, OwnedValue>>;
 
 #[derive(Debug, Clone)]
 pub struct MeteoValues {
-    pub connected:       i32,
-    pub irradiance:      f64,
-    pub todays_yield:    f64,
-    pub product_name:    String,
-    pub device_instance: u32,
-    pub last_update:     Instant,
+    pub connected:            i32,
+    pub irradiance:           f64,
+    pub todays_yield:         f64,
+    pub external_temperature: Option<f64>,
+    pub wind_direction:       Option<f64>,
+    pub wind_speed:           Option<f64>,
+    pub product_name:         String,
+    pub device_instance:      u32,
+    pub last_update:          Instant,
 }
 
 impl MeteoValues {
     pub fn disconnected(device_instance: u32, product_name: String) -> Self {
         Self {
-            connected:       0,
-            irradiance:      0.0,
-            todays_yield:    0.0,
+            connected:            0,
+            irradiance:           0.0,
+            todays_yield:         0.0,
+            external_temperature: None,
+            wind_direction:       None,
+            wind_speed:           None,
             product_name,
             device_instance,
-            last_update:     Instant::now(),
+            last_update:          Instant::now(),
         }
     }
 
@@ -123,12 +133,15 @@ impl MeteoValues {
         product_name:    String,
     ) -> Self {
         Self {
-            connected:    1,
-            irradiance:   payload.irradiance,
-            todays_yield: payload.todays_yield,
+            connected:            1,
+            irradiance:           payload.irradiance,
+            todays_yield:         payload.todays_yield,
+            external_temperature: payload.external_temperature,
+            wind_direction:       payload.wind_direction,
+            wind_speed:           payload.wind_speed,
             product_name,
             device_instance,
-            last_update:  Instant::now(),
+            last_update:          Instant::now(),
         }
     }
 
@@ -145,8 +158,16 @@ impl MeteoValues {
         m.insert("/Connected".into(),           DbusItem::i32(self.connected));
 
         // Données météo (chemins officiels wiki Victron)
-        m.insert("/Irradiance".into(),   DbusItem::f64(self.irradiance, "W/m²"));
-        m.insert("/TodaysYield".into(),  DbusItem::f64(self.todays_yield, "kWh"));
+        m.insert("/Irradiance".into(),  DbusItem::f64(self.irradiance, "W/m²"));
+        m.insert("/TodaysYield".into(), DbusItem::f64(self.todays_yield, "kWh"));
+
+        // Données météo OpenWeatherMap (toujours présents pour que le chemin D-Bus existe)
+        m.insert("/ExternalTemperature".into(),
+            DbusItem::f64(self.external_temperature.unwrap_or(0.0), "°C"));
+        m.insert("/WindDirection".into(),
+            DbusItem::f64(self.wind_direction.unwrap_or(0.0), "°"));
+        m.insert("/WindSpeed".into(),
+            DbusItem::f64(self.wind_speed.unwrap_or(0.0), "m/s"));
 
         m
     }
@@ -217,7 +238,14 @@ impl MeteoServiceHandle {
         let items = new_values.to_items();
         { *self.values.lock().unwrap() = new_values; }
         self.emit_items_changed(&items).await?;
-        debug!(service = %self.service_name, irradiance = payload.irradiance, "D-Bus ItemsChanged météo émis");
+        debug!(
+            service     = %self.service_name,
+            irradiance  = payload.irradiance,
+            ext_temp    = ?payload.external_temperature,
+            wind_speed  = ?payload.wind_speed,
+            wind_dir    = ?payload.wind_direction,
+            "D-Bus ItemsChanged météo émis"
+        );
         Ok(())
     }
 

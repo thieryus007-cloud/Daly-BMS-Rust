@@ -110,12 +110,15 @@ pub struct HeatpumpEnergyPayload {
 
 /// Payload pour capteur d'irradiance et données météo.
 ///
-/// Publié par Node-RED (capteur RS485 sur Pi5) sur `santuario/meteo/venus`.
+/// Publié par Node-RED (capteur RS485 sur Pi5 ou OpenWeatherMap) sur `santuario/meteo/venus`.
 /// Cible D-Bus : `com.victronenergy.meteo`
 ///
 /// Chemins D-Bus exposés (wiki Victron — Meteo) :
-///   /Irradiance    irradiance courante en W/m²
-///   /TodaysYield   production du jour en kWh (depuis le lever du soleil)
+///   /Irradiance           irradiance courante en W/m²
+///   /TodaysYield          production du jour en kWh (depuis le lever du soleil)
+///   /ExternalTemperature  température extérieure en °C (OpenWeatherMap)
+///   /WindDirection        direction du vent en degrés (0-360)
+///   /WindSpeed            vitesse du vent en m/s
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MeteoPayload {
     /// Irradiance courante en W/m².
@@ -125,6 +128,18 @@ pub struct MeteoPayload {
     /// Production du jour en kWh (depuis le lever du soleil).
     #[serde(rename = "TodaysYield", default)]
     pub todays_yield: f64,
+
+    /// Température extérieure en °C (depuis OpenWeatherMap).
+    #[serde(rename = "ExternalTemperature", default)]
+    pub external_temperature: Option<f64>,
+
+    /// Direction du vent en degrés (0-360).
+    #[serde(rename = "WindDirection", default)]
+    pub wind_direction: Option<f64>,
+
+    /// Vitesse du vent en m/s.
+    #[serde(rename = "WindSpeed", default)]
+    pub wind_speed: Option<f64>,
 }
 
 // =============================================================================
