@@ -1107,7 +1107,7 @@ com.victronenergy.pvinverter.mqtt_3 (device instance 63)
 | 0x05 | PRALRAN irradiance | — | Capteur solaire | `meteo` | `santuario/irradiance/raw` | 40 |
 | 0x07 | ET112 Micro-Onduleurs | 119253X | PVInverter AC Out 1 | `pvinverter` | `santuario/pvinverter/7/venus` | 32 ✅ |
 | 0x08 | ET112 PAC Chauffe-eau | 119215X | Heatpump AC Out 1 | `heatpump` | `santuario/heatpump/8/venus` | 30 ✅ |
-| 0x09 | ET112 PAC Climatisation | 061077X | Heatpump AC Out 1 | `heatpump` | `santuario/heatpump/9/venus` | 31 ⏳ non connecté |
+| 0x09 | ET112 PAC Climatisation | 061077X | Heatpump AC Out 1 | `heatpump` | `santuario/heatpump/9/venus` | 31 ✅ |
 
 > **NOTE** : Tous les appareils RS485 sont câblés sur le même bus `/dev/ttyUSB0`.
 > `service_type="heatpump"` → topic `santuario/heatpump/{n}/venus` (ajouté commit 2026-03-23).
@@ -1196,17 +1196,29 @@ journalctl -u daly-bms --since "2 minutes ago" | grep -E "0x09|modbus|Modbus|tim
    - Pas d'erreur mais pas de données → vérifier que le service a bien redémarré avec la nouvelle config
 
 3. Trouver l'adresse réelle de l'ET112 avec `mbpoll` (installer si absent : `sudo apt install mbpoll`) :
+
+> **CRITIQUE** : Le service `daly-bms` doit être **arrêté** avant d'utiliser `mbpoll` —
+> il monopolise le port série et mbpoll ne recevra aucune réponse sinon.
+
 ```bash
-# Scanner les adresses 1 à 15 sur /dev/ttyUSB0 à 9600 baud
-# Lire le registre 0x0000 (tension, FLOAT32 = 2 registres)
-for addr in 1 2 3 4 5 6 7 8 9 10 11 12; do
-    echo -n "addr $addr: "
-    mbpoll -a $addr -b 9600 -P none -t 3:float -r 1 -c 2 /dev/ttyUSB0 2>&1 | tail -1
-done
+sudo systemctl stop daly-bms
+
+# Scanner les adresses 1 à 15 — ET112 utilise input registers FC=04 = type 3 dans mbpoll
+# Syntaxe correcte mbpoll : -m rtu (RTU), -t 3:float (input reg FLOAT32), -r 1 (reg 0x0000 = tension)
+mbpoll -m rtu -a 1:15 -b 9600 -t 3:float -r 1 -c 1 /dev/ttyUSB0
+# → Les adresses qui répondent affichent ~230.x V (tension réseau)
+
+sudo systemctl start daly-bms
 ```
 
-4. Une fois l'adresse réelle trouvée (ex: `0x01`), la reconfigurer sur l'ET112 via son bouton Setup,
-   ou modifier temporairement `Config.toml` pour utiliser l'adresse réelle.
+> **Note mbpoll** : dans mbpoll, `-t 3` = input registers (FC=04), `-t 4` = holding registers (FC=03).
+> La numérotation est inversée par rapport aux codes fonction Modbus. L'ET112 utilise FC=04 → `-t 3`.
+
+> **Vérification adresses via logiciel Carlo Gavazzi UCS** : connecter le convertisseur USB-RS485
+> sur un PC Windows avec le logiciel UCS → affiche directement les adresses configurées sur chaque ET112.
+
+4. Une fois l'adresse réelle trouvée, la reconfigurer sur l'ET112 via son bouton Setup,
+   ou modifier `Config.toml` et `/etc/daly-bms/config.toml` pour utiliser l'adresse réelle.
 
 **Vérification hardware** :
 - LED verte de l'ET112 allumée = alimenté
@@ -1248,11 +1260,34 @@ ssh root@192.168.1.120 "dbus -y | grep victronenergy"
 
 ### Mise à jour daly-bms-server (Pi5)
 
+> **ARCHITECTURE FICHIERS DE CONFIG** (découverte 2026-03-23) :
+>
+> Le service systemd lit **`/etc/daly-bms/config.toml`** (variable `DALY_CONFIG` dans le `.service`),
+> **PAS** `~/Daly-BMS-Rust/Config.toml`. Modifier le repo seul n'a aucun effet sur le service en production.
+>
+> Deux types de déploiement selon ce qui change :
+
+**Cas 1 — Changement de configuration uniquement** (Config.toml) :
 ```bash
+cd ~/Daly-BMS-Rust
 git pull origin <branche>
-make build-arm                     # aarch64 Pi5
+sudo cp Config.toml /etc/daly-bms/config.toml
+sudo systemctl restart daly-bms
+journalctl -u daly-bms -f
+```
+
+**Cas 2 — Changement de code Rust ou de template HTML** (recompilation nécessaire) :
+
+> **IMPORTANT** : Les templates Askama (`templates/*.html`) sont **compilés dans le binaire**.
+> Modifier un template dans le repo ne suffit pas — il faut recompiler et redéployer le binaire.
+
+```bash
+cd ~/Daly-BMS-Rust
+git pull origin <branche>
+make build-arm                     # compile aarch64 Pi5 (~5-10 min)
 sudo systemctl stop daly-bms
 sudo cp target/aarch64-unknown-linux-gnu/release/daly-bms-server /usr/local/bin/
+sudo cp Config.toml /etc/daly-bms/config.toml   # si config aussi modifiée
 sudo systemctl start daly-bms
 journalctl -u daly-bms -f
 ```
@@ -1279,9 +1314,8 @@ com.victronenergy.meteo                             ← capteur irradiance PRALR
 com.victronenergy.pvinverter.cgwacs_ttyUSB0_mb2     ← onduleur PV (cgwacs Modbus ttyUSB0 addr 2)
 ```
 
-Services futurs (quand 0x09 connecté) :
 ```
-com.victronenergy.heatpump.mqtt_9                   ← ET112 PAC Climatisation (addr 0x09, SN 061077X, instance 31)
+com.victronenergy.heatpump.mqtt_9                   ← ET112 PAC Climatisation (addr 0x09, SN 061077X, instance 31) ✅
 ```
 
 Si un service manque : vérifier logs `dbus-mqtt-venus` ET que le topic MQTT est bien publié.
@@ -1316,10 +1350,13 @@ git commit -m "chore(nanopi): backup config.toml"
 10. **Service Venus** : arrêter avant toute copie de binaire (`svc -d /service/dbus-mqtt-venus`).
 11. **CLAUDE.md = mémoire projet** : toute information découverte (nom de service réel, limitation, procédure) doit être ajoutée ICI immédiatement, puis committée. Ne jamais redemander la même information à l'utilisateur.
 12. **Avant toute commande D-Bus** : toujours vérifier le nom exact du service avec `dbus -y | grep <type>` — les noms peuvent être inattendus (ex: `cgwacs_ttyUSB0_mb2` et non `rs485`).
+13. **Config Pi5 production** : le service lit `/etc/daly-bms/config.toml`, PAS `~/Daly-BMS-Rust/Config.toml`. Après toute modification du repo, copier : `sudo cp Config.toml /etc/daly-bms/config.toml`.
+14. **Templates Askama** : compilés dans le binaire. Tout changement HTML nécessite `make build-arm` + redéploiement du binaire. Ne pas tenter de copier les templates dans `/etc/`.
+15. **mbpoll sur bus occupé** : arrêter `daly-bms` avant tout `mbpoll` — le service monopolise le port série. Syntaxe correcte ET112 : `mbpoll -m rtu -a <addr> -b 9600 -t 3:float -r 1 -c 1 /dev/ttyUSB0`.
 
 ---
 
-## 19. INVENTAIRE MATÉRIEL D-BUS PRODUCTION (vérifié 2026-03-22)
+## 19. INVENTAIRE MATÉRIEL D-BUS PRODUCTION (vérifié 2026-03-23)
 
 | Service D-Bus | Description | Commande vérification |
 |---|---|---|
@@ -1331,7 +1368,7 @@ git commit -m "chore(nanopi): backup config.toml"
 | `com.victronenergy.switch.mqtt_1` | ATS CHINT (instance 60) | `dbus -y ... /State GetValue` |
 | `com.victronenergy.meteo` | Irradiance PRALRAN + TodaysYield (instance 40) | `dbus -y ... /TodaysYield GetValue` |
 | `com.victronenergy.pvinverter.cgwacs_ttyUSB0_mb2` | Onduleur PV AC (Victron direct) | `dbus -y ... /Ac/Energy/Forward GetValue` |
-| `com.victronenergy.heatpump.mqtt_9` | ET112 PAC Climatisation (addr 0x09, SN: 061077X, instance 31) ⏳ futur | `dbus -y ... /Ac/Power GetValue` |
+| `com.victronenergy.heatpump.mqtt_9` | ET112 PAC Climatisation (addr 0x09, SN: 061077X, instance 31) ✅ | `dbus -y ... /Ac/Power GetValue` |
 
 ### Commandes de diagnostic rapide (📍 NanoPi)
 
