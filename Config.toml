@@ -245,13 +245,13 @@ service_type     = "heatpump"
 device_instance  = 30
 position         = 1
 
-# [[et112.devices]]              # SN: 061077X — non connecté pour le moment
-# address          = "0x09"
-# name             = "PAC Climatisation"
-# mqtt_index       = 9          # → santuario/heatpump/9/venus
-# service_type     = "heatpump"
-# device_instance  = 31
-# position         = 1
+[[et112.devices]]               # SN: 061077X — branché ✅
+address          = "0x09"
+name             = "PAC Climatisation"
+mqtt_index       = 9           # → santuario/heatpump/9/venus
+service_type     = "heatpump"
+device_instance  = 31
+position         = 1
 
 
 [influxdb]
