@@ -204,10 +204,10 @@ device_instance = 40      # DeviceInstance Venus OS / VRM
 # Publie sur MQTT : santuario/irradiance/raw (retain=true)
 # Même topic que l'ancien irradiance_reader.py → Node-RED inchangé
 
-# [irradiance]                       # Décommenter quand le capteur PRALRAN sera branché sur le bus
-# address          = "0x05"
-# name             = "Irradiance PRALRAN"
-# poll_interval_ms = 5000
+[irradiance]
+address          = "0x05"
+name             = "Irradiance PRALRAN"
+poll_interval_ms = 5000
 
 
 # =============================================================================
