@@ -180,7 +180,7 @@
     "type": "function",
     "z": "e6e3a16384301f83",
     "name": "Accumuler MPPT yields",
-    "func": "const val = msg.payload && msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nif (val === null || val === undefined || isNaN(val)) return null;\n\nlet mpptYields = global.get('mppt_yields') || {};\nmpptYields[msg.topic] = parseFloat(val) || 0;\nglobal.set('mppt_yields', mpptYields);\n\nconst mpptTotal = Object.values(mpptYields).reduce((a, b) => a + b, 0);\nglobal.set('mppt_yield_today', mpptTotal);\n\n// total_yield_today est désormais géré exclusivement par system/0/Yield/Solar\nnode.status({fill:'green', shape:'dot', text:'MPPT: ' + mpptTotal.toFixed(2) + ' kWh'});\nreturn [msg, {}];",
+    "func": "const val = msg.payload && msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nif (val === null || val === undefined || isNaN(val)) return null;\n\nlet mpptYields = global.get('mppt_yields') || {};\nmpptYields[msg.topic] = parseFloat(val) || 0;\nglobal.set('mppt_yields', mpptYields);\n\nconst mpptTotal = Object.values(mpptYields).reduce((a, b) => a + b, 0);\nglobal.set('mppt_yield_today', mpptTotal);\n\n// Fallback : si system/0/Yield/Solar n'a pas encore publié, utiliser au minimum le MPPT\nconst currentTotal = global.get('total_yield_today') || 0;\nif (currentTotal < mpptTotal) {\n    global.set('total_yield_today', mpptTotal);\n    node.status({fill:'yellow', shape:'dot', text:'MPPT (fallback): ' + mpptTotal.toFixed(2) + ' kWh'});\n} else {\n    node.status({fill:'green', shape:'dot', text:'MPPT: ' + mpptTotal.toFixed(2) + ' kWh'});\n}\nreturn [msg, {}];",
     "outputs": 2,
     "timeout": "",
     "noerr": 0,
