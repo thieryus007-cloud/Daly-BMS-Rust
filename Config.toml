@@ -168,16 +168,9 @@ device_instance  = 20      # DeviceInstance Venus OS / VRM
 # Préfixe des topics heatpump
 topic_prefix = "santuario/heatpump"
 
-[[heatpumps]]
-mqtt_index      = 1       # Topic : santuario/heatpump/1/venus
-name            = "Chauffe-eau"
-device_instance = 30      # DeviceInstance Venus OS / VRM
-
-# Pompe à chaleur LG (future intégration — même service D-Bus)
-# [[heatpumps]]
-# mqtt_index      = 2     # Topic : santuario/heatpump/2/venus
-# name            = "PAC LG Climatisation"
-# device_instance = 31
+# Les PAC/chauffe-eau sont déclarés via [[et112.devices]] (service_type="heatpump")
+# et configurés dans nanoPi/config-nanopi.toml côté dbus-mqtt-venus.
+# Aucun [[heatpumps]] ici — daly-bms-server ne lit pas cette section.
 
 # =============================================================================
 # Capteur météo / irradiance RS485 (com.victronenergy.meteo)
