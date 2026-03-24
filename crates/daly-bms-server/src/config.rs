@@ -50,6 +50,10 @@ pub struct AppConfig {
     /// Prises connectées Tasmota (MQTT natif Tasmota)
     #[serde(default)]
     pub tasmota: TasmotaConfig,
+
+    /// Compteurs d'énergie Shelly EM (MQTT natif Shelly)
+    #[serde(default)]
+    pub shelly: ShellyConfig,
 }
 
 // =============================================================================
