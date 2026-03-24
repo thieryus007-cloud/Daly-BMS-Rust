@@ -1292,6 +1292,93 @@ sudo systemctl start daly-bms
 journalctl -u daly-bms -f
 ```
 
+### Vérification et restauration après mise à jour firmware Venus OS (EasySolar II GX / Cerbo GX)
+
+Une mise à jour firmware Venus OS peut supprimer le symlink `/service/dbus-mqtt-venus`.
+Le binaire et la config dans `/data/` sont préservés (volume persistant), mais le service
+peut ne plus démarrer automatiquement.
+
+**Étape 1 — Vérification rapide** (📍 NanoPi) :
+
+```bash
+ssh root@192.168.1.120
+
+# Service actif ?
+svstat /service/dbus-mqtt-venus
+
+# Symlink présent ?
+ls -la /service/dbus-mqtt-venus
+
+# rc.local présent ? (persistance au reboot)
+cat /data/rc.local
+
+# Binaire présent ?
+ls -la /data/daly-bms/dbus-mqtt-venus
+
+# Services D-Bus Victron actifs ?
+dbus -y | grep victronenergy
+```
+
+**Interprétation** :
+
+| Symptôme | Cause | Action |
+|---|---|---|
+| `svstat` : `down` ou `unable to open` | Symlink disparu (update Venus OS) | → Étape 2A |
+| Symlink absent, binaire présent | `rc.local` non exécuté au boot | → Étape 2A |
+| Binaire absent | Mise à jour a effacé `/data/daly-bms/` (rare) | → Étape 2B |
+| `dbus -y` : services Victron présents | Tout va bien | ✅ Rien à faire |
+
+**Étape 2A — Restauration symlink uniquement** (binaire présent) :
+
+```bash
+ssh root@192.168.1.120
+
+# Recréer le symlink
+ln -sf /data/etc/sv/dbus-mqtt-venus /service/dbus-mqtt-venus
+
+# Vérifier rc.local (doit être présent pour survivre aux prochains updates)
+cat /data/rc.local
+# Doit contenir : ln -sf /data/etc/sv/dbus-mqtt-venus /service/dbus-mqtt-venus
+
+# Si rc.local manque ou vide :
+cat > /data/rc.local << 'EOF'
+#!/bin/sh
+ln -sf /data/etc/sv/dbus-mqtt-venus /service/dbus-mqtt-venus
+EOF
+chmod +x /data/rc.local
+
+# Attendre ~10s que runit démarre le service
+sleep 10
+svstat /service/dbus-mqtt-venus
+dbus -y | grep victronenergy
+```
+
+**Étape 2B — Redéploiement complet** (binaire disparu — depuis Pi5) :
+
+```bash
+cd ~/Daly-BMS-Rust
+git pull origin claude/review-venus-integration-35qN7
+make build-venus-v7
+make install-venus-v7
+# Le script recrée automatiquement : binaire, run, symlink, rc.local
+```
+
+**Étape 3 — Vérification finale** (📍 NanoPi) :
+
+```bash
+svstat /service/dbus-mqtt-venus          # → "up (pid XXXX) Xs"
+dbus -y | grep victronenergy             # → toutes les batteries/capteurs présents
+dbus -y com.victronenergy.battery.mqtt_1 /Soc GetValue
+dbus -y com.victronenergy.battery.mqtt_2 /Soc GetValue
+dbus -y com.victronenergy.meteo /TodaysYield GetValue
+dbus -y com.victronenergy.pvinverter.mqtt_7 /Ac/Power GetValue
+```
+
+> **Note** : Le volume `/data` survit aux mises à jour firmware — le scénario 2A (symlink disparu)
+> est le plus fréquent. Le binaire et la config sont rarement effacés.
+
+---
+
 ### Redémarrage propre de l'infrastructure
 
 ```bash
