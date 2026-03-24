@@ -119,13 +119,21 @@ ssh-copy-id -i ~/.ssh/id_nanopi.pub root@192.168.1.120
 ### Sur Pi5 — synchronisation (remplace git pull)
 
 ```bash
-# TOUJOURS utiliser make sync — jamais git pull ni git pull --rebase
+# CAS NORMAL — fonctionne toujours
 make sync
-
-# Équivalent exact :
-git fetch origin claude/review-venus-integration-35qN7
-git reset --hard origin/claude/review-venus-integration-35qN7
 ```
+
+### Si `make sync` échoue : "Permission denied" sur docker/mosquitto
+
+**Cause** : Docker a créé des fichiers avec owner `root` dans le repo.
+**Commandes exactes à exécuter, dans cet ordre, sans exception :**
+
+```bash
+sudo chown -R pi5compute:pi5compute ~/Daly-BMS-Rust/
+git reset --hard origin/claude/review-dashboard-plan-JEvFY
+```
+
+C'est tout. Pas d'autre étape. `make sync` marchera normalement ensuite.
 
 > **Pourquoi `make sync` et pas `git pull` ?**
 > `git pull --rebase` crée des conflits si le Pi5 a des fichiers modifiés localement.
