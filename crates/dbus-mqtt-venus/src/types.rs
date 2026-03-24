@@ -140,6 +140,10 @@ pub struct MeteoPayload {
     /// Vitesse du vent en m/s.
     #[serde(rename = "WindSpeed", default)]
     pub wind_speed: Option<f64>,
+
+    /// Production d'hier en kWh (mise à jour au minuit par Node-RED).
+    #[serde(rename = "YieldYesterday", default)]
+    pub yield_yesterday: Option<f64>,
 }
 
 // =============================================================================

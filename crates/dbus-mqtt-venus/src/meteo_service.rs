@@ -104,6 +104,7 @@ pub struct MeteoValues {
     pub connected:            i32,
     pub irradiance:           f64,
     pub todays_yield:         f64,
+    pub yield_yesterday:      f64,
     pub wind_direction:       Option<f64>,
     pub wind_speed:           Option<f64>,
     pub product_name:         String,
@@ -117,6 +118,7 @@ impl MeteoValues {
             connected:       0,
             irradiance:      0.0,
             todays_yield:    0.0,
+            yield_yesterday: 0.0,
             wind_direction:  None,
             wind_speed:      None,
             product_name,
@@ -131,14 +133,15 @@ impl MeteoValues {
         product_name:    String,
     ) -> Self {
         Self {
-            connected:      1,
-            irradiance:     payload.irradiance,
-            todays_yield:   payload.todays_yield,
-            wind_direction: payload.wind_direction,
-            wind_speed:     payload.wind_speed,
+            connected:       1,
+            irradiance:      payload.irradiance,
+            todays_yield:    payload.todays_yield,
+            yield_yesterday: payload.yield_yesterday.unwrap_or(0.0),
+            wind_direction:  payload.wind_direction,
+            wind_speed:      payload.wind_speed,
             product_name,
             device_instance,
-            last_update:    Instant::now(),
+            last_update:     Instant::now(),
         }
     }
 
@@ -155,8 +158,9 @@ impl MeteoValues {
         m.insert("/Connected".into(),           DbusItem::i32(self.connected));
 
         // Données météo (chemins officiels wiki Victron)
-        m.insert("/Irradiance".into(),  DbusItem::f64(self.irradiance, "W/m²"));
-        m.insert("/TodaysYield".into(), DbusItem::f64(self.todays_yield, "kWh"));
+        m.insert("/Irradiance".into(),    DbusItem::f64(self.irradiance, "W/m²"));
+        m.insert("/TodaysYield".into(),   DbusItem::f64(self.todays_yield, "kWh"));
+        m.insert("/YieldYesterday".into(), DbusItem::f64(self.yield_yesterday, "kWh"));
 
         // ExternalTemperature non exposé sur D-Bus : Venus OS l'affiche comme "-"
         // sans pouvoir le corriger (limitation firmware). La température extérieure
