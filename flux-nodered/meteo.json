@@ -55,7 +55,7 @@
     "type": "function",
     "z": "e6e3a16384301f83",
     "name": "Extraire et publier météo",
-    "func": "const cur = msg.payload.current;\nconst temp      = cur.temperature_2m;\nconst humidity  = cur.relative_humidity_2m;\nconst pressure  = cur.pressure_msl;\nconst windSpeed = cur.wind_speed_10m;\nconst windDir   = cur.wind_direction_10m;\n\nglobal.set('outdoor_temp',       temp);\nglobal.set('outdoor_humidity',   humidity);\nglobal.set('outdoor_pressure',   pressure);\nglobal.set('outdoor_wind_speed', windSpeed);\nglobal.set('outdoor_wind_dir',   windDir);\n\nconst todaysYield = global.get('total_yield_today') || 0;\nconst irradiance  = global.get('irradiance_wm2')    || 0;\n\nnode.status({fill:'green', shape:'dot', text:`${temp}°C — ${irradiance} W/m² — ${todaysYield.toFixed(2)} kWh`});\n\nconst heatMsg = {\n    topic:   'santuario/heat/1/venus',\n    payload: JSON.stringify({\n        Temperature:     temp,\n        TemperatureType: 4,\n        Humidity:        humidity,\n        Pressure:        pressure\n    })\n};\nconst meteoMsg = {\n    topic:   'santuario/meteo/venus',\n    payload: JSON.stringify({\n        Irradiance:    irradiance,\n        TodaysYield:   todaysYield,\n        WindSpeed:     windSpeed,\n        WindDirection: windDir\n    })\n};\nreturn [[heatMsg, meteoMsg]];",
+    "func": "const cur = msg.payload.current;\nconst temp      = cur.temperature_2m;\nconst humidity  = cur.relative_humidity_2m;\nconst pressure  = cur.pressure_msl;\nconst windSpeed = cur.wind_speed_10m;\nconst windDir   = cur.wind_direction_10m;\n\nglobal.set('outdoor_temp',       temp);\nglobal.set('outdoor_humidity',   humidity);\nglobal.set('outdoor_pressure',   pressure);\nglobal.set('outdoor_wind_speed', windSpeed);\nglobal.set('outdoor_wind_dir',   windDir);\n\nconst todaysYield    = global.get('total_yield_today')  || 0;\nconst yieldYesterday = global.get('yield_yesterday')     || 0;\nconst irradiance     = global.get('irradiance_wm2')      || 0;\n\nnode.status({fill:'green', shape:'dot', text:`${temp}°C — ${irradiance} W/m² — ${todaysYield.toFixed(2)} kWh`});\n\nconst heatMsg = {\n    topic:   'santuario/heat/1/venus',\n    payload: JSON.stringify({\n        Temperature:     temp,\n        TemperatureType: 4,\n        Humidity:        humidity,\n        Pressure:        pressure\n    })\n};\nconst meteoMsg = {\n    topic:   'santuario/meteo/venus',\n    payload: JSON.stringify({\n        Irradiance:     irradiance,\n        TodaysYield:    todaysYield,\n        YieldYesterday: yieldYesterday,\n        WindSpeed:      windSpeed,\n        WindDirection:  windDir\n    })\n};\nreturn [[heatMsg, meteoMsg]];",
     "outputs": 1,
     "timeout": "",
     "noerr": 0,
@@ -95,7 +95,7 @@
     "type": "function",
     "z": "e6e3a16384301f83",
     "name": "Republier depuis contexte",
-    "func": "const temp      = global.get('outdoor_temp');\nconst humidity  = global.get('outdoor_humidity');\nconst pressure  = global.get('outdoor_pressure');\nconst windSpeed = global.get('outdoor_wind_speed');\nconst windDir   = global.get('outdoor_wind_dir');\n\n// Attendre la première récupération Open-Meteo (once:true → ~0.1s)\nif (temp === undefined || temp === null) return null;\n\nconst todaysYield = global.get('total_yield_today') || 0;\nconst irradiance  = global.get('irradiance_wm2')    || 0;\n\nconst heatMsg = {\n    topic:   'santuario/heat/1/venus',\n    payload: JSON.stringify({\n        Temperature:     temp,\n        TemperatureType: 4,\n        Humidity:        humidity,\n        Pressure:        pressure\n    })\n};\nconst meteoMsg = {\n    topic:   'santuario/meteo/venus',\n    payload: JSON.stringify({\n        Irradiance:    irradiance,\n        TodaysYield:   todaysYield,\n        WindSpeed:     windSpeed,\n        WindDirection: windDir\n    })\n};\nreturn [[heatMsg, meteoMsg]];",
+    "func": "const temp      = global.get('outdoor_temp');\nconst humidity  = global.get('outdoor_humidity');\nconst pressure  = global.get('outdoor_pressure');\nconst windSpeed = global.get('outdoor_wind_speed');\nconst windDir   = global.get('outdoor_wind_dir');\n\nif (temp === undefined || temp === null) return null;\n\nconst todaysYield    = global.get('total_yield_today')  || 0;\nconst yieldYesterday = global.get('yield_yesterday')     || 0;\nconst irradiance     = global.get('irradiance_wm2')      || 0;\n\nconst heatMsg = {\n    topic:   'santuario/heat/1/venus',\n    payload: JSON.stringify({\n        Temperature:     temp,\n        TemperatureType: 4,\n        Humidity:        humidity,\n        Pressure:        pressure\n    })\n};\nconst meteoMsg = {\n    topic:   'santuario/meteo/venus',\n    payload: JSON.stringify({\n        Irradiance:     irradiance,\n        TodaysYield:    todaysYield,\n        YieldYesterday: yieldYesterday,\n        WindSpeed:      windSpeed,\n        WindDirection:  windDir\n    })\n};\nreturn [[heatMsg, meteoMsg]];",
     "outputs": 1,
     "timeout": "",
     "noerr": 0,
@@ -269,8 +269,8 @@
     "type": "function",
     "z": "e6e3a16384301f83",
     "name": "Reset production du jour (minuit)",
-    "func": "global.set('total_yield_today', 0);\nglobal.set('pvinv_yield_today', 0);\nglobal.set('pvinv_baseline', null);\nglobal.set('mppt_yield_today', 0);\nglobal.set('mppt_yields', {});\nnode.status({fill:'blue', shape:'dot', text:'Reset minuit OK'});\n// output 2 efface le retained pvinv_baseline → prochain message ET112 pose la nouvelle baseline\nreturn [null, {payload: ''}];",
-    "outputs": 2,
+    "func": "// Sauvegarder la production d'aujourd'hui comme hier AVANT le reset\nconst yieldToday = global.get('total_yield_today') || 0;\nglobal.set('yield_yesterday', yieldToday);\n\n// Reset des compteurs du jour\nglobal.set('total_yield_today', 0);\nglobal.set('pvinv_yield_today', 0);\nglobal.set('pvinv_baseline', null);\nglobal.set('mppt_yield_today', 0);\nglobal.set('mppt_yields', {});\n\nnode.status({fill:'blue', shape:'dot', text:'Reset minuit — hier: ' + yieldToday.toFixed(2) + ' kWh'});\n// out1: n/a | out2: efface retained pvinv_baseline | out3: persiste yield_yesterday\nreturn [null, {payload: ''}, {payload: String(yieldToday)}];",
+    "outputs": 3,
     "timeout": "",
     "noerr": 0,
     "initialize": "",
@@ -282,6 +282,9 @@
       [],
       [
         "pvinv_persist_out"
+      ],
+      [
+        "yield_yesterday_persist_out"
       ]
     ]
   },
@@ -371,102 +374,6 @@
     "wires": []
   },
   {
-    "id": "vrm_comment",
-    "type": "comment",
-    "z": "e6e3a16384301f83",
-    "name": "RESTAURATION VRM API — today.totals.kwh = Production solaire totale du jour",
-    "info": "## Principe\nL'API VRM Victron fournit directement la production solaire du jour (MPPT + PVInverter)\nvia l'endpoint /overallstats → today.totals.kwh\n\nAvantages vs InfluxDB :\n  - Fonctionne même si InfluxDB est vide (premier jour, après make reset)\n  - Source de vérité = VRM (même valeur que le dashboard VRM)\n  - Pas de dérive possible, données certifiées Victron\n  - Fonctionne après n'importe quel reboot\n\n## Variables d'environnement requises\n  VRM_TOKEN            → Personal Access Token (vrm.victronenergy.com → Profile → Tokens)\n  VRM_INSTALLATION_ID  → ID de l'installation (visible dans l'URL VRM : /installation/865936/)\n\n## Procédure création token\n  1. Se connecter à https://vrm.victronenergy.com\n  2. Cliquer sur l'icône profil en haut à droite → Personal Access Tokens\n  3. Créer un token avec nom descriptif (ex: 'pi5-nodered')\n  4. Copier le token dans .env : VRM_TOKEN=xxxx\n  5. Ajouter VRM_INSTALLATION_ID=865936 dans .env\n  6. make down && make up  (pour passer les env vars à Node-RED)\n  7. make deploy-nodered   (pour pousser les flows)\n\n## Séquence au démarrage Node-RED\n  +1-2s : MPPT MQTT retained arrive → mppt_yield_today mis à jour\n  +1-2s : PVInverter MQTT retained arrive → _last_pvinv_cumul stocké\n  +5s   : InfluxDB restore (baseline du jour si disponible)\n  +10s  : VRM restore (REMPLACE la baseline par la valeur authoritative VRM)\n    → pvinv_yield_today = vrm_solar - mppt_yield_today\n    → pvinv_baseline = _last_pvinv_cumul - pvinv_yield_today\n    → total_yield_today = vrm_solar ← CORRECT même après reboot\n\n## Note timezone UTC\n  L'endpoint today de VRM est en UTC. La production solaire ayant lieu\n  de ~06h00 à ~20h00, UTC et heure locale ne causent pas de différence\n  pour la production solaire (pas de production entre minuit local et minuit UTC).\n\n## Endpoint VRM utilisé\n  GET https://vrmapi.victronenergy.com/v2/installations/{id}/overallstats\n  Header: X-Authorization: Token {VRM_TOKEN}\n  Réponse : data.records.today.totals.kwh → kWh solaire du jour",
-    "x": 300,
-    "y": 1120,
-    "wires": []
-  },
-  {
-    "id": "vrm_startup_inject",
-    "type": "inject",
-    "z": "e6e3a16384301f83",
-    "name": "[DÉSACTIVÉ] Récupération VRM — remplacé par Venus system/Yield/Solar",
-    "props": [],
-    "repeat": "300",
-    "crontab": "",
-    "once": true,
-    "onceDelay": 10,
-    "topic": "",
-    "x": 230,
-    "y": 1200,
-    "wires": [
-      [
-        "vrm_restore_fn"
-      ]
-    ],
-    "d": true
-  },
-  {
-    "id": "vrm_restore_fn",
-    "type": "function",
-    "z": "e6e3a16384301f83",
-    "name": "Préparer requête VRM overallstats",
-    "func": "const token  = env.get('VRM_TOKEN');\nconst siteId = env.get('VRM_INSTALLATION_ID') || '865936';\n\nif (!token) {\n    node.status({fill:'grey', shape:'ring',\n        text:'VRM_TOKEN manquant → ajouter dans .env + make down && make up'});\n    return null;\n}\n\n// today.totals.kwh = production solaire du jour (MPPT + PVInverter)\nmsg.url    = `https://vrmapi.victronenergy.com/v2/installations/${siteId}/overallstats`;\nmsg.method = 'GET';\nmsg.headers = {\n    'X-Authorization': 'Token ' + token\n};\nnode.status({fill:'blue', shape:'dot', text:'Requête VRM API installation ' + siteId});\nreturn msg;",
-    "outputs": 1,
-    "timeout": "",
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 550,
-    "y": 1200,
-    "wires": [
-      [
-        "vrm_query_req"
-      ]
-    ],
-    "d": true
-  },
-  {
-    "id": "vrm_query_req",
-    "type": "http request",
-    "z": "e6e3a16384301f83",
-    "name": "VRM API overallstats",
-    "method": "use",
-    "ret": "obj",
-    "paytoqs": "ignore",
-    "url": "",
-    "tls": "",
-    "persist": false,
-    "proxy": "",
-    "insecureHTTPParser": false,
-    "authType": "",
-    "senderr": false,
-    "headers": [],
-    "x": 830,
-    "y": 1200,
-    "wires": [
-      [
-        "vrm_restore_result_fn"
-      ]
-    ]
-  },
-  {
-    "id": "vrm_restore_result_fn",
-    "type": "function",
-    "z": "e6e3a16384301f83",
-    "name": "TodaysYield depuis VRM (source unique)",
-    "func": "// Vérifier erreur réseau / HTTP\nif (msg.statusCode && msg.statusCode >= 400) {\n    node.status({fill:'red', shape:'ring', text:'Erreur HTTP VRM: ' + msg.statusCode});\n    return null;\n}\n\nconst data = msg.payload;\nif (!data || !data.success) {\n    node.status({fill:'red', shape:'ring', text:'Réponse VRM invalide'});\n    return null;\n}\n\n// today.totals.kwh = production solaire du jour (MPPT + PVInverter), calculé côté serveur Victron\nconst todayTotals = data.records && data.records.today && data.records.today.totals;\nif (!todayTotals || todayTotals.kwh === undefined || todayTotals.kwh === null) {\n    node.status({fill:'yellow', shape:'ring', text:'Pas de kwh VRM — vérifier installation_id'});\n    return null;\n}\n\nconst vrmSolarToday = parseFloat(todayTotals.kwh);\nif (isNaN(vrmSolarToday) || vrmSolarToday < 0) {\n    node.status({fill:'red', text:'Valeur VRM invalide: ' + todayTotals.kwh});\n    return null;\n}\n\n// VRM = source unique de vérité pour TodaysYield\nglobal.set('total_yield_today', vrmSolarToday);\nnode.status({fill:'green', shape:'dot', text:'VRM ✓ ' + vrmSolarToday.toFixed(2) + ' kWh'});\n\n// Publier immédiatement vers Venus OS sans attendre le prochain keepalive\nconst temp      = global.get('outdoor_temp')     || 0;\nconst irradiance = global.get('irradiance_wm2')  || 0;\nconst windSpeed  = global.get('outdoor_wind_speed') || 0;\nconst windDir    = global.get('outdoor_wind_dir')   || 0;\n\nconst heatMsg = {\n    topic:   'santuario/heat/1/venus',\n    payload: JSON.stringify({\n        Temperature:     temp,\n        TemperatureType: 4,\n        Humidity:        global.get('outdoor_humidity')  || 0,\n        Pressure:        global.get('outdoor_pressure')  || 0\n    })\n};\nconst meteoMsg = {\n    topic:   'santuario/meteo/venus',\n    payload: JSON.stringify({\n        Irradiance:    irradiance,\n        TodaysYield:   vrmSolarToday,\n        WindSpeed:     windSpeed,\n        WindDirection: windDir\n    })\n};\nreturn [[heatMsg, meteoMsg]];",
-    "outputs": 1,
-    "timeout": "",
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 580,
-    "y": 1280,
-    "wires": [
-      [
-        "meteo_mqtt_out"
-      ]
-    ],
-    "d": true
-  },
-  {
     "id": "influx_comment",
     "type": "comment",
     "z": "e6e3a16384301f83",
@@ -544,7 +451,7 @@
     "type": "function",
     "z": "e6e3a16384301f83",
     "name": "Restaurer globals depuis InfluxDB",
-    "func": "const csv = msg.payload || '';\nconst lines = csv.split('\\n').filter(l => l.trim() && !l.startsWith('#'));\nif (lines.length < 2) {\n    node.status({fill:'grey', shape:'ring', text:'Pas de données InfluxDB pour aujourd\\'hui'});\n    return null;\n}\n\nconst header = lines[0].split(',');\nconst fieldIdx = header.findIndex(h => h.trim() === '_field');\nconst valueIdx = header.findIndex(h => h.trim() === '_value');\nif (fieldIdx === -1 || valueIdx === -1) return null;\n\nconst data = {};\nfor (let i = 1; i < lines.length; i++) {\n    const cols = lines[i].split(',');\n    const field = (cols[fieldIdx] || '').trim();\n    const value = parseFloat((cols[valueIdx] || '').trim());\n    if (field && !isNaN(value)) data[field] = value;\n}\n\n// Restaurer mppt_yield_today depuis InfluxDB (pour cohérence affichage)\nif (data.mppt_yield_today !== undefined) global.set('mppt_yield_today', data.mppt_yield_today || 0);\n\n// total_yield_today : utiliser InfluxDB seulement si Venus n'a pas encore publié\nconst currentTotal = global.get('total_yield_today') || 0;\nconst influxTotal  = data.total_yield_today || 0;\nif (currentTotal <= 0 && influxTotal > 0) {\n    global.set('total_yield_today', influxTotal);\n}\n\nconst total = global.get('total_yield_today') || 0;\nconst mppt  = global.get('mppt_yield_today')  || 0;\nnode.status({fill:'green', shape:'dot',\n    text: 'InfluxDB ✓ Total=' + total.toFixed(2) + ' MPPT=' + mppt.toFixed(2) + ' kWh'});\n\nif (total <= 0) return null;\n\nconst irradiance = global.get('irradiance_wm2')      || 0;\nconst windSpeed  = global.get('outdoor_wind_speed')  || 0;\nconst windDir    = global.get('outdoor_wind_dir')    || 0;\nconst temp       = global.get('outdoor_temp')        || 0;\n\nreturn [[\n    { topic: 'santuario/heat/1/venus', payload: JSON.stringify({\n        Temperature: temp, TemperatureType: 4,\n        Humidity: global.get('outdoor_humidity') || 0,\n        Pressure: global.get('outdoor_pressure') || 0\n    })},\n    { topic: 'santuario/meteo/venus', payload: JSON.stringify({\n        Irradiance: irradiance, TodaysYield: total,\n        WindSpeed: windSpeed, WindDirection: windDir\n    })}\n]];",
+    "func": "const csv = msg.payload || '';\nconst lines = csv.split('\\n').filter(l => l.trim() && !l.startsWith('#'));\nif (lines.length < 2) {\n    node.status({fill:'grey', shape:'ring', text:'Pas de données InfluxDB pour aujourd\\'hui'});\n    return null;\n}\n\nconst header = lines[0].split(',');\nconst fieldIdx = header.findIndex(h => h.trim() === '_field');\nconst valueIdx = header.findIndex(h => h.trim() === '_value');\nif (fieldIdx === -1 || valueIdx === -1) return null;\n\nconst data = {};\nfor (let i = 1; i < lines.length; i++) {\n    const cols = lines[i].split(',');\n    const field = (cols[fieldIdx] || '').trim();\n    const value = parseFloat((cols[valueIdx] || '').trim());\n    if (field && !isNaN(value)) data[field] = value;\n}\n\nif (data.mppt_yield_today !== undefined) global.set('mppt_yield_today', data.mppt_yield_today || 0);\n\nconst currentTotal = global.get('total_yield_today') || 0;\nconst influxTotal  = data.total_yield_today || 0;\nif (currentTotal <= 0 && influxTotal > 0) {\n    global.set('total_yield_today', influxTotal);\n}\n\nconst total = global.get('total_yield_today') || 0;\nconst mppt  = global.get('mppt_yield_today')  || 0;\nnode.status({fill:'green', shape:'dot',\n    text: 'InfluxDB ✓ Total=' + total.toFixed(2) + ' MPPT=' + mppt.toFixed(2) + ' kWh'});\n\nif (total <= 0) return null;\n\nconst irradiance     = global.get('irradiance_wm2')     || 0;\nconst yieldYesterday = global.get('yield_yesterday')     || 0;\nconst windSpeed      = global.get('outdoor_wind_speed')  || 0;\nconst windDir        = global.get('outdoor_wind_dir')    || 0;\nconst temp           = global.get('outdoor_temp')        || 0;\n\nreturn [[\n    { topic: 'santuario/heat/1/venus', payload: JSON.stringify({\n        Temperature: temp, TemperatureType: 4,\n        Humidity: global.get('outdoor_humidity') || 0,\n        Pressure: global.get('outdoor_pressure') || 0\n    })},\n    { topic: 'santuario/meteo/venus', payload: JSON.stringify({\n        Irradiance: irradiance, TodaysYield: total,\n        YieldYesterday: yieldYesterday,\n        WindSpeed: windSpeed, WindDirection: windDir\n    })}\n]];",
     "outputs": 1,
     "timeout": "",
     "noerr": 0,
@@ -631,5 +538,50 @@
     "willMsg": {},
     "userProps": "",
     "sessionExpiry": ""
+  },
+  {
+    "id": "yield_yesterday_persist_out",
+    "type": "mqtt out",
+    "z": "e6e3a16384301f83",
+    "name": "Persist yield_yesterday (retained)",
+    "topic": "santuario/persist/yield_yesterday",
+    "qos": "0",
+    "retain": "true",
+    "broker": "pi5_mqtt_broker",
+    "x": 1200,
+    "y": 540,
+    "wires": []
+  },
+  {
+    "id": "yield_yesterday_persist_in",
+    "type": "mqtt in",
+    "z": "e6e3a16384301f83",
+    "name": "Restore yield_yesterday (au démarrage)",
+    "topic": "santuario/persist/yield_yesterday",
+    "qos": "0",
+    "datatype": "auto",
+    "broker": "pi5_mqtt_broker",
+    "rap": true,
+    "rh": 0,
+    "x": 200,
+    "y": 680,
+    "wires": [
+      [
+        "restore_yield_yesterday_fn"
+      ]
+    ]
+  },
+  {
+    "id": "restore_yield_yesterday_fn",
+    "type": "function",
+    "z": "e6e3a16384301f83",
+    "name": "Restaurer yield_yesterday",
+    "func": "const raw = msg.payload;\nif (raw === '' || raw === null || raw === undefined) {\n    global.set('yield_yesterday', 0);\n    node.status({fill:'grey', shape:'ring', text:'Pas de yield_yesterday (1er jour)'});\n    return null;\n}\nconst val = parseFloat(raw);\nif (!isNaN(val) && val >= 0) {\n    global.set('yield_yesterday', val);\n    node.status({fill:'yellow', shape:'dot', text:'Hier: ' + val.toFixed(2) + ' kWh'});\n}\nreturn null;",
+    "outputs": 1,
+    "x": 480,
+    "y": 680,
+    "wires": [
+      []
+    ]
   }
 ]
