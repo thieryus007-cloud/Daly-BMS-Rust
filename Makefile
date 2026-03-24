@@ -177,10 +177,13 @@ PI_BIN_PATH ?= /usr/local/bin/daly-bms-server
 BRANCH ?= claude/review-dashboard-plan-JEvFY
 
 # sync : utiliser sur Pi5 à la place de git pull
-# Écrase les fichiers locaux sans créer de commits
+# Écrase les fichiers locaux sans créer de commits.
+# Corrige automatiquement les fichiers créés avec owner root par Docker
+# (ex: docker/mosquitto/config/mosquitto.conf) avant le reset.
 .PHONY: sync
 sync:
 	git fetch origin $(BRANCH)
+	@sudo chown -R $(shell whoami):$(shell whoami) . 2>/dev/null || true
 	git reset --hard origin/$(BRANCH)
 	@echo "✓ Synchronisé sur origin/$(BRANCH) (aucun commit local)"
 
