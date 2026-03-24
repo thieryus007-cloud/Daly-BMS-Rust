@@ -2,7 +2,7 @@
 
 Description, en ne retenant que les composants open source et l'utilisation de Rust prioritaire vs JS:
 
----
+--- Attention, je mentionne Grafana puisqu'il est deja installé mais actuellement toutes les données ne sont pas remontées sur InfluxDB, ce serait une premiere etape. Par la suite, une possibilité serait d'utiliser les graaphes ECharts ou Recharts en lieu et place de Grafana, ce dernier s'il n'est pas utilisé pourra etre enlevé.
 
 Projet : Dashboard Unifié pour Système ESS et Domotique
 
