@@ -1,0 +1,201 @@
+
+
+Description, en ne retenant que les composants open source et l'utilisation de Rust prioritaire vs JS:
+
+---
+
+Projet : Dashboard Unifié pour Système ESS et Domotique
+
+📋 Description Générale
+
+Développement d'une application web centralisée permettant à la fois :
+
+· Le monitoring en temps réel d'un système de stockage d'énergie (ESS)
+· Le contrôle et la commande des équipements domotiques et énergétiques
+
+L'application intègre des visualisations Grafana (open source) et des composants de contrôle développés maison, le tout communiquant avec une base InfluxDB (open source) pour les données temporelles.
+
+---
+
+🏗️ Architecture Technique
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Application Frontend                         │
+│                     React + TypeScript                          │
+│  ┌────────────────────────────┬──────────────────────────────┐  │
+│  │   Visualisation Grafana    │    Composants de Commande    │  │
+│  │   (iframe + API embed)     │    (React custom)            │  │
+│  └────────────────────────────┴──────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        ▼                     ▼                     ▼
+┌───────────────┐    ┌───────────────┐    ┌───────────────┐
+│   Grafana     │    │    API REST   │    │  WebSocket    │
+│  (OSS / CE)   │    │   (Node.js)   │    │  (Node.js)    │
+└───────┬───────┘    └───────┬───────┘    └───────┬───────┘
+        └────────────────────┼────────────────────┘
+                             ▼
+                  ┌───────────────────┐
+                  │    InfluxDB       │
+                  │   (OSS v2 ou v3)  │
+                  └───────────────────┘
+                             │
+                             ▼
+                  ┌───────────────────┐
+                  │  Systèmes cibles  │
+                  │  ESS / Domotique  │
+                  └───────────────────┘
+
+---
+
+🧱 Stack Open Source Complète
+
+Frontend
+
+Composant Technologie Rôle
+Framework React + TypeScript Interface utilisateur
+Build tool Vite Compilation et développement
+État global Zustand Gestion d'état légère
+Requêtes API TanStack Query Cache et synchro données serveur
+UI Components Shadcn/ui + TailwindCSS Composants accessibles et personnalisables
+Graphiques (commande) Recharts ou ECharts Visualisations légères pour contrôles
+MQTT WebSocket Temps réel bidirectionnel
+Routing React Router Navigation
+
+Backend / API
+
+Composant Technologie Rôle
+Serveur API Rust au lieu de Node.js + Express Endpoints REST pour commandes
+MQTT WebSocket Communication temps réel
+Proxy Grafana http-proxy-middleware Intégration sécurisée Grafana
+
+Base de Données & Monitoring
+
+Composant Technologie Rôle
+Base temps réel InfluxDB OSS Stockage métriques ESS (température, SOC, puissance)
+Visualisation Grafana OSS Dashboards monitoring
+Reverse proxy Nginx Routage unifié (optionnel)
+
+---
+
+📁 Exemple Structure du Projet
+
+```
+ess-dashboard/
+├── frontend/                    # Application React
+│   ├── src/
+│   │   ├── features/
+│   │   │   ├── monitoring/      # Intégration Grafana
+│   │   │   │   ├── GrafanaPanel.tsx
+│   │   │   │   ├── useGrafanaEmbed.ts
+│   │   │   │   └── types.ts
+│   │   │   ├── commands/        # Composants de contrôle
+│   │   │   │   ├── PowerSlider.tsx
+│   │   │   │   ├── DeviceSwitch.tsx
+│   │   │   │   ├── ScenarioButton.tsx
+│   │   │   │   └── useESSCommands.ts
+│   │   │   ├── realtime/        # Données temps réel
+│   │   │   │   ├── MetricsGauge.tsx
+│   │   │   │   ├── useWebSocket.ts
+│   │   │   │   └── InfluxDBClient.ts
+│   │   │   └── auth/            # Authentification
+│   │   │       ├── Login.tsx
+│   │   │       └── useAuth.ts
+│   │   ├── layouts/
+│   │   │   └── DashboardLayout.tsx  # Grille draggable
+│   │   ├── shared/
+│   │   │   ├── components/       # UI réutilisables
+│   │   │   └── lib/              # Utilitaires
+│   │   └── main.tsx
+│   ├── .env
+│   ├── vite.config.ts
+│   └── package.json
+│
+├── backend/                     # API Node.js
+│   ├── src/
+│   │   ├── routes/
+│   │   │   ├── commands.ts       # Endpoints de contrôle
+│   │   │   ├── auth.ts           # Authentification
+│   │   │   └── metrics.ts        # Proxy InfluxDB
+│   │   ├── services/
+│   │   │   ├── influxService.ts  # Requêtes InfluxDB
+│   │   │   ├── essController.ts  # Logique commandes ESS
+│   │   │   └── websocket.ts      # Gestion Socket.io
+│   │   └── server.ts
+│   └── package.json
+│
+├── grafana/                     # Configuration Grafana OSS
+│   ├── provisioning/
+│   │   ├── datasources/
+│   │   │   └── influxdb.yaml    # Datasource automatique
+│   │   └── dashboards/
+│   │       └── ess-dashboard.json  # Dashboard préconfiguré
+│   └── docker-compose.yaml
+│
+├── influxdb/                    # Configuration InfluxDB OSS
+│   ├── init-scripts/
+│   │   └── setup.sh             # Initialisation bucket
+│   └── docker-compose.yaml
+│
+└── docker-compose.yml           # Orchestration complète
+```
+
+
+🔧 Configuration des Intégrations Clés
+
+. Integration Grafana dans React iframe mode
+. Grafana + InfluxDB (Datasource)
+. Service de commandes avec audit dans InfluxDB
+
+
+---
+
+✅ Fonctionnalités Clés
+
+Monitoring (via Grafana)
+
+· Courbes de charge/décharge ESS
+· État de charge (SOC) et état de santé (SOH)
+· État de cellules
+· Températures batterie et onduleur
+· Historique de consommation/production
+· Alertes configurées dans Grafana
+
+Contrôle (composants maison)
+
+· Limitation de puissance de décharge
+· Mode de fonctionnement (auto, grid)
+· Activation/Désactivation des équipements domotiques
+· Scénarios programmables
+· Audit trail des commandes (stocké dans InfluxDB)
+
+Expérience Utilisateur
+
+· Interface unifiée (pas de basculement entre outils)
+· Mode kiosk Grafana (UI Grafana masquée)
+· Thème clair/sombre synchronisé
+· Layout draggable et persistant
+· Responsive (desktop d'abord, tablette supportée)
+
+---
+
+🚀 Roadmap de Développement
+
+Phase Durée Objectifs
+---
+
+📊 Avantages de cette Stack
+
+· ✅ 100% Open Source : aucune licence propriétaire
+· ✅ Industrialisée : InfluxDB + Grafana sont des standards du monitoring
+· ✅ Évolutive : peut supporter des centaines d'équipements
+· ✅ Maintenable : code structuré, types TypeScript
+· ✅ Sécurisée : audit trail, isolation iframe
+
+---
+
+
+
+
