@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CHINT ATS - Supervision</title>
+    <title>CHINT ATS - Supervision Onduleur/Réseau</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', system-ui; background: linear-gradient(135deg, #0f172a, #1e293b); color: #f1f5f9; padding: 20px; min-height: 100vh; }
@@ -41,16 +41,24 @@
         /* Grid */
         .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 20px; }
         .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 20px; }
-        .card { background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(10px); border-radius: 20px; padding: 20px; border: 1px solid rgba(255,255,255,0.1); }
-        .card-title { font-size: 16px; font-weight: 600; color: #fbbf24; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 8px; }
+        .card { background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(10px); border-radius: 20px; padding: 20px; border: 1px solid rgba(255,255,255,0.1); transition: transform 0.2s; }
+        .card:hover { transform: translateY(-2px); }
+        .card-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 12px; }
+        .source-status { display: flex; align-items: center; gap: 12px; }
+        .source-dot { width: 16px; height: 16px; border-radius: 50%; transition: all 0.3s; }
+        .source-dot.active { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+        .source-dot.inactive { background: #ef4444; box-shadow: 0 0 4px #ef4444; }
+        .source-name { font-size: 18px; font-weight: 700; }
+        .source-connection { font-size: 12px; color: #94a3b8; font-weight: normal; margin-left: 8px; }
+        
         .data-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); align-items: center; }
         .data-label { color: #94a3b8; font-size: 13px; }
         .data-value { font-weight: 600; font-family: monospace; font-size: 14px; }
         
         /* Badges de statut */
-        .badge-normal { background: rgba(34,197,94,0.2); color: #4ade80; padding: 2px 8px; border-radius: 12px; font-size: 11px; }
-        .badge-warning { background: rgba(245,158,11,0.2); color: #fbbf24; padding: 2px 8px; border-radius: 12px; font-size: 11px; }
-        .badge-danger { background: rgba(239,68,68,0.2); color: #f87171; padding: 2px 8px; border-radius: 12px; font-size: 11px; }
+        .badge-normal { background: rgba(34,197,94,0.2); color: #4ade80; padding: 2px 8px; border-radius: 12px; font-size: 11px; display: inline-block; }
+        .badge-warning { background: rgba(245,158,11,0.2); color: #fbbf24; padding: 2px 8px; border-radius: 12px; font-size: 11px; display: inline-block; }
+        .badge-danger { background: rgba(239,68,68,0.2); color: #f87171; padding: 2px 8px; border-radius: 12px; font-size: 11px; display: inline-block; }
         
         .action-buttons { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px; }
         .action-btn { background: rgba(59,130,246,0.2); border: 1px solid rgba(59,130,246,0.5); color: #60a5fa; padding: 8px 16px; border-radius: 40px; font-size: 12px; cursor: pointer; transition: 0.2s; }
@@ -58,7 +66,7 @@
         
         .warning-text { color: #fbbf24; font-size: 11px; margin-top: 8px; }
         footer { text-align: center; margin-top: 24px; font-size: 12px; color: #475569; }
-        .phase-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .phase-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; padding: 6px 0; }
     </style>
 </head>
 <body>
@@ -66,7 +74,7 @@
     <div class="header">
         <div class="header-top">
             <div>
-                <h1>⚡ CHINT ATS - Supervision</h1>
+                <h1>⚡ ATS - Supervision Onduleur / Réseau</h1>
                 <div class="status-bar" style="margin-top: 12px;">
                     <div class="status">
                         <div class="led" id="led"></div>
@@ -92,7 +100,7 @@
         <!-- Bandeau d'infos principales -->
         <div class="info-bar">
             <div class="info-group">
-                <div class="info-item"><span class="info-label">🔀 Source I/II:</span><span class="info-value" id="sw1">---</span><span>/</span><span class="info-value" id="sw2">---</span></div>
+                <div class="info-item"><span class="info-label">🔀 Source active:</span><span class="info-value" id="activeSource">---</span></div>
                 <div class="info-item"><span class="info-label">🤖 Mode:</span><span class="info-value" id="swMode">---</span></div>
                 <div class="info-item"><span class="info-label">📡 Télécom:</span><span class="info-value" id="swRemote">---</span></div>
                 <div class="info-item"><span class="info-label">⚠️ Défaut:</span><span class="info-value" id="swFault">---</span></div>
@@ -101,31 +109,42 @@
                 <div class="info-item"><span class="info-label">📊 Commutations:</span><span class="info-value" id="cnt1">---</span><span>/</span><span class="info-value" id="cnt2">---</span></div>
                 <div class="info-item"><span class="info-label">⏱️ Runtime:</span><span class="info-value" id="runtime">---</span></div>
                 <div class="info-item"><span class="info-label">📦 Version:</span><span class="info-value" id="swVer">---</span></div>
-                <div class="info-item"><span class="info-label">⚙️ Mode opératoire:</span><span class="info-value" id="operation_mode">---</span></div>
             </div>
         </div>
     </div>
 
-    <!-- Source I et Source II côte à côte -->
+    <!-- Source I (Onduleur) et Source II (Réseau) côte à côte -->
     <div class="grid-2">
-        <!-- Source I -->
-        <div class="card">
-            <div class="card-title"><span>🔵</span> Source I</div>
+        <!-- Onduleur (Source I) -->
+        <div class="card" id="cardOnduleur">
+            <div class="card-title">
+                <div class="source-status">
+                    <div class="source-dot" id="onduleurDot"></div>
+                    <span class="source-name">🔋 Onduleur</span>
+                    <span class="source-connection" id="onduleurStatus">---</span>
+                </div>
+            </div>
             <div class="phase-row"><span class="data-label">Phase A</span><span class="data-value"><span id="v1a">---</span> <span id="s1a_badge" class="badge-normal" style="margin-left: 8px;">Normal</span></span></div>
             <div class="phase-row"><span class="data-label">Phase B</span><span class="data-value"><span id="v1b">---</span> <span id="s1b_badge" class="badge-normal" style="margin-left: 8px;">Normal</span></span></div>
             <div class="phase-row"><span class="data-label">Phase C</span><span class="data-value"><span id="v1c">---</span> <span id="s1c_badge" class="badge-normal" style="margin-left: 8px;">Normal</span></span></div>
             <div class="data-row"><span class="data-label">Fréquence</span><span class="data-value" id="freq1">---</span></div>
-            <div class="data-row"><span class="data-label">Max A/B/C</span><span class="data-value" id="max1">---</span></div>
+            <div class="data-row"><span class="data-label">Max enregistré A/B/C</span><span class="data-value" id="max1">---</span></div>
         </div>
 
-        <!-- Source II -->
-        <div class="card">
-            <div class="card-title"><span>🟠</span> Source II</div>
+        <!-- Réseau (Source II) -->
+        <div class="card" id="cardReseau">
+            <div class="card-title">
+                <div class="source-status">
+                    <div class="source-dot" id="reseauDot"></div>
+                    <span class="source-name">⚡ Réseau</span>
+                    <span class="source-connection" id="reseauStatus">---</span>
+                </div>
+            </div>
             <div class="phase-row"><span class="data-label">Phase A</span><span class="data-value"><span id="v2a">---</span> <span id="s2a_badge" class="badge-normal" style="margin-left: 8px;">Normal</span></span></div>
             <div class="phase-row"><span class="data-label">Phase B</span><span class="data-value"><span id="v2b">---</span> <span id="s2b_badge" class="badge-normal" style="margin-left: 8px;">Normal</span></span></div>
             <div class="phase-row"><span class="data-label">Phase C</span><span class="data-value"><span id="v2c">---</span> <span id="s2c_badge" class="badge-normal" style="margin-left: 8px;">Normal</span></span></div>
             <div class="data-row"><span class="data-label">Fréquence</span><span class="data-value" id="freq2">---</span></div>
-            <div class="data-row"><span class="data-label">Max A/B/C</span><span class="data-value" id="max2">---</span></div>
+            <div class="data-row"><span class="data-label">Max enregistré A/B/C</span><span class="data-value" id="max2">---</span></div>
         </div>
     </div>
 
@@ -149,8 +168,8 @@
 
         <div class="card">
             <div class="card-title"><span>📊</span> Statistiques</div>
-            <div class="data-row"><span class="data-label">Commutations Source I</span><span class="data-value" id="cnt1_display">---</span></div>
-            <div class="data-row"><span class="data-label">Commutations Source II</span><span class="data-value" id="cnt2_display">---</span></div>
+            <div class="data-row"><span class="data-label">Commutations Onduleur → Réseau</span><span class="data-value" id="cnt1_display">---</span></div>
+            <div class="data-row"><span class="data-label">Commutations Réseau → Onduleur</span><span class="data-value" id="cnt2_display">---</span></div>
             <div class="data-row"><span class="data-label">Temps de fonctionnement</span><span class="data-value" id="runtime_display">---</span></div>
             <div class="data-row"><span class="data-label">Version logicielle</span><span class="data-value" id="swVer_display">---</span></div>
         </div>
@@ -163,13 +182,13 @@
             <button class="action-btn" onclick="sendCmd('remote_on')">📡 Activer télécommande</button>
             <button class="action-btn" onclick="sendCmd('remote_off')">🔒 Désactiver télécommande</button>
             <button class="action-btn" onclick="sendCmd('force_double')">⏹️ Forcer double déclenché</button>
-            <button class="action-btn" onclick="sendCmd('force_source1')">🔵 Forcer Source I</button>
-            <button class="action-btn" onclick="sendCmd('force_source2')">🟠 Forcer Source II</button>
+            <button class="action-btn" onclick="sendCmd('force_source1')">🔋 Forcer Onduleur</button>
+            <button class="action-btn" onclick="sendCmd('force_source2')">⚡ Forcer Réseau</button>
         </div>
-        <div class="warning-text" style="margin-top: 12px;">⚠️ Les réglages de seuils (sous-tension/surtension) ne sont disponibles que sur les modèles MN (avec afficheur)</div>
+        <div class="warning-text" style="margin-top: 12px;">⚠️ Activez d'abord la télécommande avant d'utiliser les forçages</div>
     </div>
     
-    <footer>CHINT ATS · Modbus RTU · Actualisation auto 5s</footer>
+    <footer>CHINT ATS · Supervision Onduleur / Réseau · Actualisation auto 5s</footer>
 </div>
 
 <script>
@@ -244,40 +263,89 @@
                     document.getElementById('modelBadge').innerHTML = data.model;
                 }
                 
-                // Mise à jour des valeurs
-                const mappings = {
-                    'v1a': 'v1a', 'v1b': 'v1b', 'v1c': 'v1c',
-                    'v2a': 'v2a', 'v2b': 'v2b', 'v2c': 'v2c',
-                    'freq1': 'freq1', 'freq2': 'freq2',
-                    'max1': 'max1', 'max2': 'max2',
-                    'sw1': 'sw1', 'sw2': 'sw2', 'swMode': 'swMode', 'swRemote': 'swRemote', 'swFault': 'swFault',
-                    'cnt1': 'cnt1', 'cnt2': 'cnt2', 'runtime': 'runtime', 'swVer': 'swVer',
-                    't1': 't1', 't2': 't2', 't3': 't3', 't4': 't4',
-                    'modbus_addr': 'modbus_addr', 'modbus_baud': 'modbus_baud', 'modbus_parity': 'modbus_parity',
-                    'operation_mode': 'operation_mode_display'
-                };
-                
-                for (const [key, elementId] of Object.entries(mappings)) {
-                    if (data.values[key]) {
-                        const el = document.getElementById(elementId);
-                        if (el) el.innerHTML = data.values[key];
+                // Mise à jour des valeurs de tension
+                const voltageIds = ['v1a', 'v1b', 'v1c', 'v2a', 'v2b', 'v2c', 'freq1', 'freq2', 'max1', 'max2'];
+                for (const id of voltageIds) {
+                    if (data.values[id]) {
+                        document.getElementById(id).innerHTML = data.values[id];
                     }
                 }
                 
-                // Doublons pour les affichages
-                if (data.values.cnt1) document.getElementById('cnt1_display').innerHTML = data.values.cnt1;
-                if (data.values.cnt2) document.getElementById('cnt2_display').innerHTML = data.values.cnt2;
-                if (data.values.runtime) document.getElementById('runtime_display').innerHTML = data.values.runtime;
-                if (data.values.swVer) document.getElementById('swVer_display').innerHTML = data.values.swVer;
-                if (data.values.operation_mode) document.getElementById('operation_mode_display').innerHTML = data.values.operation_mode;
+                // Mise à jour des états du commutateur
+                const switchMappings = {
+                    'sw1': 'sw1', 'sw2': 'sw2', 'swMode': 'swMode', 'swRemote': 'swRemote', 'swFault': 'swFault'
+                };
+                for (const [key, id] of Object.entries(switchMappings)) {
+                    if (data.values[key]) {
+                        document.getElementById(id).innerHTML = data.values[key];
+                    }
+                }
                 
-                // Mise à jour des badges d'état
+                // Source active (basé sur sw1 et sw2)
+                let activeSource = "---";
+                let onduleurConnected = false;
+                let reseauConnected = false;
+                
+                if (data.values.sw1 === "✅ Fermé") {
+                    activeSource = "🔋 Onduleur";
+                    onduleurConnected = true;
+                } else if (data.values.sw2 === "✅ Fermé") {
+                    activeSource = "⚡ Réseau";
+                    reseauConnected = true;
+                } else if (data.values.sw1 === "⭕ Ouvert" && data.values.sw2 === "⭕ Ouvert") {
+                    activeSource = "❌ Aucune (double déclenché)";
+                }
+                
+                document.getElementById('activeSource').innerHTML = activeSource;
+                
+                // Mise à jour des indicateurs visuels
+                const onduleurDot = document.getElementById('onduleurDot');
+                const reseauDot = document.getElementById('reseauDot');
+                const onduleurStatus = document.getElementById('onduleurStatus');
+                const reseauStatus = document.getElementById('reseauStatus');
+                
+                if (onduleurConnected) {
+                    onduleurDot.className = "source-dot active";
+                    onduleurStatus.innerHTML = "✅ Connecté (actif)";
+                    reseauDot.className = "source-dot inactive";
+                    reseauStatus.innerHTML = "❌ Déconnecté";
+                } else if (reseauConnected) {
+                    onduleurDot.className = "source-dot inactive";
+                    onduleurStatus.innerHTML = "❌ Déconnecté";
+                    reseauDot.className = "source-dot active";
+                    reseauStatus.innerHTML = "✅ Connecté (actif)";
+                } else {
+                    onduleurDot.className = "source-dot inactive";
+                    onduleurStatus.innerHTML = "❌ Déconnecté";
+                    reseauDot.className = "source-dot inactive";
+                    reseauStatus.innerHTML = "❌ Déconnecté";
+                }
+                
+                // Mise à jour des badges d'état des phases
                 if (data.values.s1a) updateStatusBadge('s1a_badge', data.values.s1a);
                 if (data.values.s1b) updateStatusBadge('s1b_badge', data.values.s1b);
                 if (data.values.s1c) updateStatusBadge('s1c_badge', data.values.s1c);
                 if (data.values.s2a) updateStatusBadge('s2a_badge', data.values.s2a);
                 if (data.values.s2b) updateStatusBadge('s2b_badge', data.values.s2b);
                 if (data.values.s2c) updateStatusBadge('s2c_badge', data.values.s2c);
+                
+                // Temporisations
+                const timingIds = ['t1', 't2', 't3', 't4'];
+                for (const id of timingIds) {
+                    if (data.values[id]) {
+                        document.getElementById(id).innerHTML = data.values[id];
+                    }
+                }
+                
+                // Statistiques
+                if (data.values.cnt1) document.getElementById('cnt1_display').innerHTML = data.values.cnt1;
+                if (data.values.cnt2) document.getElementById('cnt2_display').innerHTML = data.values.cnt2;
+                if (data.values.runtime) document.getElementById('runtime_display').innerHTML = data.values.runtime;
+                if (data.values.swVer) document.getElementById('swVer_display').innerHTML = data.values.swVer;
+                if (data.values.operation_mode) document.getElementById('operation_mode_display').innerHTML = data.values.operation_mode;
+                if (data.values.modbus_addr) document.getElementById('modbus_addr').innerHTML = data.values.modbus_addr;
+                if (data.values.modbus_baud) document.getElementById('modbus_baud').innerHTML = data.values.modbus_baud;
+                if (data.values.modbus_parity) document.getElementById('modbus_parity').innerHTML = data.values.modbus_parity;
                 
                 updateCompactLog(`Actu #${refreshCount} OK`, 'success');
             } else {
