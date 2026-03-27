@@ -1,26 +1,46 @@
-from pymodbus.client import ModbusSerialClient
+import serial
+import time
 
 # Configuration
-client = ModbusSerialClient(
-    port='COM5',
-    baudrate=9600,
-    bytesize=8,
-    parity='E',
-    stopbits=1,
-    timeout=2
-)
+PORT = 'COM5'
+BAUDRATE = 9600
+TIMEOUT = 2
 
-if client.connect():
-    print("✅ Connecté à COM5")
+# Trame qui fonctionne avec QModbusExplorer (adresse 6, état sources)
+# 06 03 00 4F 00 01 B4 6A
+FRAME = bytes([0x06, 0x03, 0x00, 0x4F, 0x00, 0x01, 0xB4, 0x6A])
+
+try:
+    # Ouverture du port série
+    ser = serial.Serial(
+        port=PORT,
+        baudrate=BAUDRATE,
+        bytesize=8,
+        parity='E',
+        stopbits=1,
+        timeout=TIMEOUT
+    )
     
-    # Lecture état sources (0x004F)
-    result = client.read_holding_registers(0x004F, 1, slave=6)
+    print(f"✅ Port {PORT} ouvert avec 9600 Even 8N1")
     
-    if not result.isError():
-        print(f"📊 État sources: 0x{result.registers[0]:04X} ({result.registers[0]})")
+    # Attente du silence T3.5
+    time.sleep(0.05)
+    
+    # Envoi de la trame
+    print(f"📤 Envoi: {FRAME.hex().upper()}")
+    ser.write(FRAME)
+    
+    # Attente de la réponse
+    response = ser.read(256)
+    
+    if response:
+        print(f"📥 Réponse reçue ({len(response)} octets): {response.hex().upper()}")
     else:
-        print(f"❌ Erreur: {result}")
+        print("⏱️ TIMEOUT - Pas de réponse")
     
-    client.close()
-else:
-    print("❌ Échec connexion COM5")
+    ser.close()
+    
+except serial.SerialException as e:
+    print(f"❌ Erreur port série: {e}")
+except Exception as e:
+    print(f"❌ Erreur: {e}")
