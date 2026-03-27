@@ -1,9 +1,9 @@
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
 use actix_files::NamedFile;
-use serde::{Serialize, Deserialize};
+use serde::Serialize;
 use std::sync::Mutex;
 use std::time::Duration;
-use serialport::prelude::*;
+use serialport::{self, SerialPort};
 use std::io::{Write, Read};
 use std::thread;
 
@@ -82,7 +82,7 @@ fn read_register(port_name: &str, addr: u8, reg: u16) -> Option<u16> {
     match port.read(&mut buffer) {
         Ok(n) if n >= 5 => {
             let resp = &buffer[..n];
-            if resp[1] == 0x03 && resp.len() >= 5 {
+            if resp.len() >= 5 && resp[1] == 0x03 {
                 Some(((resp[3] as u16) << 8) | resp[4] as u16)
             } else {
                 None
@@ -128,18 +128,24 @@ async fn read_all(data: web::Data<Mutex<AppState>>) -> impl Responder {
     let mut values = std::collections::HashMap::new();
     let addr = 6u8;
     
-    // Lectures des tensions
-    let regs = vec![
-        (0x0006, "v1a", |x| format!("{} V", x)),
-        (0x0007, "v1b", |x| format!("{} V", x)),
-        (0x0008, "v1c", |x| format!("{} V", x)),
-        (0x0009, "v2a", |x| format!("{} V", x)),
-        (0x000A, "v2b", |x| format!("{} V", x)),
-        (0x000B, "v2c", |x| format!("{} V", x)),
-        (0x000C, "swVer", |x| format!("{:.2}", x as f32 / 100.0)),
-        (0x0015, "cnt1", |x| x.to_string()),
-        (0x0016, "cnt2", |x| x.to_string()),
-        (0x0017, "runtime", |x| format!("{} h", x)),
+    // Lectures des tensions - fonction helper pour formater
+    let fmt_v = |x: u16| format!("{} V", x);
+    let fmt_ver = |x: u16| format!("{:.2}", x as f32 / 100.0);
+    let fmt_cnt = |x: u16| x.to_string();
+    let fmt_h = |x: u16| format!("{} h", x);
+    
+    // Liste des registres avec leur formateur
+    let regs: Vec<(u16, &str, Box<dyn Fn(u16) -> String>)> = vec![
+        (0x0006, "v1a", Box::new(fmt_v)),
+        (0x0007, "v1b", Box::new(fmt_v)),
+        (0x0008, "v1c", Box::new(fmt_v)),
+        (0x0009, "v2a", Box::new(fmt_v)),
+        (0x000A, "v2b", Box::new(fmt_v)),
+        (0x000B, "v2c", Box::new(fmt_v)),
+        (0x000C, "swVer", Box::new(fmt_ver)),
+        (0x0015, "cnt1", Box::new(fmt_cnt)),
+        (0x0016, "cnt2", Box::new(fmt_cnt)),
+        (0x0017, "runtime", Box::new(fmt_h)),
     ];
     
     for (reg, key, formatter) in regs {
