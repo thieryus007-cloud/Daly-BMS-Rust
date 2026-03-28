@@ -103,7 +103,7 @@ fn open_port(port_name: &str) -> Option<Box<dyn SerialPort + Send>> {
         .timeout(Duration::from_millis(600))
         .open()
     {
-        Ok(p) => Some(Box::new(p) as Box<dyn SerialPort + Send>),
+        Ok(p) => Some(p as Box<dyn SerialPort + Send>),
         Err(_) => None,
     }
 }
@@ -154,9 +154,8 @@ fn read_register(state: &AppState, addr: u8, reg: u16, debug: bool) -> Option<u1
         match port.read(&mut buffer) {
             Ok(n) if n >= 5 => {
                 let resp = &buffer[0..n];
-                if resp[1] == 0x83 {
-                    None
-                } else if resp[1] == 0x03 && resp.len() >= 5 {
+                if resp[1] == 0x83 { None }
+                else if resp[1] == 0x03 && resp.len() >= 5 {
                     Some(((resp[3] as u16) << 8) | resp[4] as u16)
                 } else {
                     None
@@ -355,7 +354,6 @@ async fn read_all(data: web::Data<Mutex<AppState>>) -> impl Responder {
             }
         }
 
-        // Fréquence, états, commutateur, mode, max, config (identique à ton original)
         if let Some(freq) = read_register(&guard, addr, 0x000D, debug) {
             values.insert("freq1".to_string(), format!("{} Hz", (freq >> 8) & 0xFF));
             values.insert("freq2".to_string(), format!("{} Hz", freq & 0xFF));
@@ -445,7 +443,7 @@ async fn read_all(data: web::Data<Mutex<AppState>>) -> impl Responder {
     })
 }
 
-// Macro commandes
+// Macro pour les commandes
 macro_rules! make_cmd {
     ($name:ident, $reg:expr, $val:expr, $msg:literal) => {
         async fn $name(data: web::Data<Mutex<AppState>>) -> impl Responder {
@@ -467,7 +465,7 @@ make_cmd!(force_double, 0x2700, 0x00FF, "Forçage double déclenché");
 make_cmd!(force_source1, 0x2700, 0x0000, "Forçage Onduleur");
 make_cmd!(force_source2, 0x2700, 0x00AA, "Forçage Réseau");
 
-// Routes MN
+// Routes de réglage MN
 async fn set_undervoltage1(data: web::Data<Mutex<AppState>>, query: web::Query<RegValue>) -> impl Responder {
     let state = data.clone();
     let value = query.value;
@@ -475,9 +473,7 @@ async fn set_undervoltage1(data: web::Data<Mutex<AppState>>, query: web::Query<R
         let guard = state.lock().unwrap();
         let debug = *guard.debug_log.lock().unwrap();
         let model = guard.model_type.lock().unwrap().clone();
-        if model != "MN" {
-            return (false, "Cette fonction n'est pas disponible sur ce modèle".to_string());
-        }
+        if model != "MN" { return (false, "Cette fonction n'est pas disponible sur ce modèle".to_string()); }
         let success = write_register(&guard, 6, 0x2065, value, debug);
         (success, format!("Sous-tension Source I réglée à {} V", value))
     }).await.unwrap();
@@ -489,7 +485,6 @@ async fn set_undervoltage1(data: web::Data<Mutex<AppState>>, query: web::Query<R
     }))
 }
 
-// Les 3 autres set_ sont identiques (seul le registre change)
 async fn set_undervoltage2(data: web::Data<Mutex<AppState>>, query: web::Query<RegValue>) -> impl Responder {
     let state = data.clone();
     let value = query.value;
@@ -596,7 +591,7 @@ async fn main() -> std::io::Result<()> {
     let port_name = env::var("SERIAL_PORT").unwrap_or_else(|_| "COM5".to_string());
 
     println!("========================================");
-    println!("  CHINT ATS - Serveur Rust v2.4 (Résilient)");
+    println!("  CHINT ATS - Serveur Rust v2.5 (Résilient)");
     println!("  Port: {} | 9600 Even | Adresse 6", port_name);
 
     let initial_port = open_port(&port_name);
@@ -604,9 +599,10 @@ async fn main() -> std::io::Result<()> {
         println!("⚠️ Impossible d'ouvrir le port {} au démarrage.", port_name);
     }
 
+    // Détection du modèle sans cloner le port (port temporaire si besoin)
     let temp_state = AppState {
         port_name: port_name.clone(),
-        port: Mutex::new(initial_port.clone()),
+        port: Mutex::new(None),           // <--- None = read_register ouvrira si besoin
         debug_log: Mutex::new(false),
         model_type: Mutex::new("?".to_string()),
         last_success: Mutex::new(Instant::now()),
