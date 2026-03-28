@@ -4,15 +4,16 @@ use actix_cors::Cors;
 use serde::{Serialize, Deserialize};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use serialport::{self, SerialPort};
+use serialport::{self, SerialPort, ClearBuffer};
 use std::io::{Write, Read};
 use std::thread;
 use chrono::Local;
 use std::env;
 use dotenv::dotenv;
-use log::{info, warn, error};
+use log::{info, error};
 
 // ==================== CONFIGURATION ====================
+#[derive(Clone)]
 struct Config {
     port_name: String,
     baud_rate: u32,
@@ -64,6 +65,7 @@ struct ModbusResponse {
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 struct RegValue {
     value: u16,
 }
@@ -79,7 +81,6 @@ fn write_debug_log(message: &str, debug: bool) {
     let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
     let log_line = format!("[{}] {}\n", timestamp, message);
     
-    // Ignorer les erreurs d'écriture de log pour ne pas crasher l'app
     let _ = std::fs::OpenOptions::new().create(true).append(true)
         .open("modbus_debug.log").and_then(|mut f| f.write_all(log_line.as_bytes()));
 }
@@ -175,8 +176,7 @@ fn read_register(state: &AppState, addr: u8, reg: u16, debug: bool) -> Option<u1
             }
         };
         
-        // Flush avant écriture pour éviter les restes de buffer
-        let _ = port.clear(serialport::ClearBuffer::Both);
+        let _ = port.clear(ClearBuffer::All);
         let _ = port.write_all(&frame);
         thread::sleep(Duration::from_millis(90));
         
@@ -218,7 +218,7 @@ fn write_register(state: &AppState, addr: u8, reg: u16, value: u16, debug: bool)
             }
         };
 
-        let _ = port.clear(serialport::ClearBuffer::Both);
+        let _ = port.clear(ClearBuffer::All);
         let _ = port.write_all(&frame);
         thread::sleep(Duration::from_millis(90));
         
@@ -256,7 +256,7 @@ fn send_raw_frame(state: &AppState, frame_hex: &str, debug: bool) -> Result<(Vec
             }
         };
 
-        let _ = port.clear(serialport::ClearBuffer::Both);
+        let _ = port.clear(ClearBuffer::All);
         let _ = port.write_all(&frame);
         thread::sleep(Duration::from_millis(150));
         
@@ -274,7 +274,6 @@ fn send_raw_frame(state: &AppState, frame_hex: &str, debug: bool) -> Result<(Vec
 }
 
 fn detect_model(state: &AppState, addr: u8, debug: bool) -> String {
-    // Teste un registre spécifique au modèle MN
     if read_register(state, addr, 0x2065, debug).is_some() { 
         "MN".to_string() 
     } else { 
@@ -296,8 +295,7 @@ async fn start_monitoring(state: web::Data<Arc<Mutex<AppState>>>) {
             if read_register(&app, app.config.modbus_addr, test_reg, debug).is_none() {
                 write_debug_log("⚠️ Monitoring : tentative de reconnexion du port...", debug);
                 let mut g = app.port.lock().unwrap();
-                *g = None; // Force reopen on next request
-                // Tentative immédiate de réouverture
+                *g = None;
                 *g = open_port(&app.config);
             }
         }
@@ -308,7 +306,7 @@ async fn start_monitoring(state: web::Data<Arc<Mutex<AppState>>>) {
 async fn index(req: HttpRequest) -> impl Responder {
     match NamedFile::open_async("index.html").await {
         Ok(f) => f.into_response(&req),
-        Err(_) => HttpResponse::NotFound().body("index.html non trouvé. Veuillez placer le fichier frontend à la racine."),
+        Err(_) => HttpResponse::NotFound().body("index.html non trouvé"),
     }
 }
 
@@ -361,7 +359,6 @@ async fn read_all(data: web::Data<Arc<Mutex<AppState>>>) -> impl Responder {
             }
         }
 
-        // Tensions MAX
         let max_regs = vec![(0x000F,"max1a"),(0x0010,"max1b"),(0x0011,"max1c"),
                             (0x0012,"max2a"),(0x0013,"max2b"),(0x0014,"max2c")];
         for (r, k) in max_regs {
@@ -370,7 +367,6 @@ async fn read_all(data: web::Data<Arc<Mutex<AppState>>>) -> impl Responder {
             }
         }
         
-        // Agrégats MAX
         if let (Some(a), Some(b), Some(c)) = (values.get("max1a"), values.get("max1b"), values.get("max1c")) {
             values.insert("max1".to_string(), format!("{}/{}/{}", a, b, c));
         }
@@ -378,7 +374,6 @@ async fn read_all(data: web::Data<Arc<Mutex<AppState>>>) -> impl Responder {
             values.insert("max2".to_string(), format!("{}/{}/{}", a, b, c));
         }
 
-        // Seuils + T3/T4 uniquement MN
         if model == "MN" {
             let extra = vec![(0x2065,"uv1"),(0x2066,"uv2"),(0x2067,"ov1"),(0x2068,"ov2"),
                             (0x206B,"t3"),(0x206C,"t4")];
@@ -396,7 +391,6 @@ async fn read_all(data: web::Data<Arc<Mutex<AppState>>>) -> impl Responder {
             }
         }
 
-        // Fréquence uniquement MN
         if model == "MN" {
             if let Some(freq) = read_register(&guard, addr, 0x000D, debug) {
                 values.insert("freq1".to_string(), format!("{} Hz", (freq >> 8) & 0xFF));
@@ -407,7 +401,6 @@ async fn read_all(data: web::Data<Arc<Mutex<AppState>>>) -> impl Responder {
             values.insert("freq2".to_string(), "N/A".to_string());
         }
 
-        // États sources & commutateur
         if let Some(power) = read_register(&guard, addr, 0x004F, debug) {
             let decode = |bit: u8| -> String {
                 match (power >> bit) & 0x03 {
@@ -447,7 +440,6 @@ async fn read_all(data: web::Data<Arc<Mutex<AppState>>>) -> impl Responder {
             }.to_string());
         }
 
-        // === CONFIG MODBUS ===
         if let Some(addr_val) = read_register(&guard, addr, 0x0100, debug) {
             values.insert("modbus_addr".to_string(), addr_val.to_string());
         }
@@ -496,7 +488,6 @@ make_cmd!(force_double, 0x2700, 0x00FF, "Forçage double déclenché");
 make_cmd!(force_source1, 0x2700, 0x0000, "Forçage Onduleur");
 make_cmd!(force_source2, 0x2700, 0x00AA, "Forçage Réseau");
 
-// Routes de réglage (Vérification modèle interne)
 async fn set_setting(data: web::Data<Arc<Mutex<AppState>>>, query: web::Query<RegValue>, reg: u16, name: &str) -> impl Responder {
     let state = data.clone();
     let result = actix_web::rt::task::spawn_blocking(move || {
@@ -557,7 +548,6 @@ async fn send_raw(data: web::Data<Arc<Mutex<AppState>>>, body: web::Json<RawFram
 async fn debug_on(data: web::Data<Arc<Mutex<AppState>>>) -> impl Responder {
     let state = data.lock().unwrap();
     *state.debug_log.lock().unwrap() = true;
-    *state.config.debug_enabled = true; // Sync with config
     write_debug_log("=== DEBUG ACTIVÉ ===", true);
     HttpResponse::Ok().json(serde_json::json!({ "success": true, "message": "Debug activé" }))
 }
@@ -571,7 +561,6 @@ async fn debug_off(data: web::Data<Arc<Mutex<AppState>>>) -> impl Responder {
 // ==================== MAIN ====================
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    // Init logs console
     env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
 
     let config = Config::from_env();
@@ -581,7 +570,6 @@ async fn main() -> std::io::Result<()> {
     println!("  Port: {} | {} | Adresse {}", config.port_name, config.baud_rate, config.modbus_addr);
     println!("========================================");
 
-    // Initialisation État
     let initial_port = open_port(&config);
     let temp_state = AppState {
         config: config.clone(),
@@ -592,28 +580,23 @@ async fn main() -> std::io::Result<()> {
         last_error: Mutex::new(None),
     };
 
-    // Détection Modèle (avec le port déjà ouvert si possible)
     let model = detect_model(&temp_state, config.modbus_addr, config.debug_enabled);
     info!("✅ Modèle détecté : {}", model);
     *temp_state.model_type.lock().unwrap() = model.clone();
 
     let app_state = web::Data::new(Arc::new(Mutex::new(temp_state)));
     
-    // Lancer le monitoring en arrière-plan
     start_monitoring(app_state.clone()).await;
-
-    // Configuration CORS
-    let cors = Cors::default()
-        .allow_any_origin()
-        .allow_any_method()
-        .allow_any_header()
-        .max_age(3600);
 
     info!("🌐 Serveur démarré → http://{}:{}", config.host, config.port_http);
 
     HttpServer::new(move || {
-        let mut app = App::new()
-            .wrap(cors.clone())
+        App::new()
+            .wrap(Cors::default()
+                .allow_any_origin()
+                .allow_any_method()
+                .allow_any_header()
+                .max_age(3600))
             .wrap(middleware::Logger::default())
             .app_data(app_state.clone())
             .route("/", web::get().to(index))
@@ -626,17 +609,11 @@ async fn main() -> std::io::Result<()> {
             .route("/api/force_source2", web::post().to(force_source2))
             .route("/api/send_raw", web::post().to(send_raw))
             .route("/api/debug_on", web::get().to(debug_on))
-            .route("/api/debug_off", web::get().to(debug_off));
-
-        // Routes de configuration uniquement si modèle MN
-        if model == "MN" {
-            app = app
-                .route("/api/set_undervoltage1", web::post().to(set_undervoltage1))
-                .route("/api/set_undervoltage2", web::post().to(set_undervoltage2))
-                .route("/api/set_overvoltage1", web::post().to(set_overvoltage1))
-                .route("/api/set_overvoltage2", web::post().to(set_overvoltage2));
-        }
-        app
+            .route("/api/debug_off", web::get().to(debug_off))
+            .route("/api/set_undervoltage1", web::post().to(set_undervoltage1))
+            .route("/api/set_undervoltage2", web::post().to(set_undervoltage2))
+            .route("/api/set_overvoltage1", web::post().to(set_overvoltage1))
+            .route("/api/set_overvoltage2", web::post().to(set_overvoltage2))
     })
     .bind((config.host.as_str(), config.port_http))?
     .run()
