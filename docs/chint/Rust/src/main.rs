@@ -1,4 +1,4 @@
-use actix_web::{web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{web, App, HttpResponse, HttpServer, Responder, HttpRequest};
 use actix_files::NamedFile;
 use serde::{Serialize, Deserialize};
 use std::sync::Mutex;
@@ -13,7 +13,7 @@ use std::env;
 
 struct AppState {
     port_name: String,
-    port: Mutex<Option<Box<dyn SerialPort + Send>>>,  // + Send pour spawn_blocking
+    port: Mutex<Option<Box<dyn SerialPort + Send>>>,
     debug_log: Mutex<bool>,
     model_type: Mutex<String>,
     last_success: Mutex<Instant>,
@@ -96,14 +96,16 @@ fn build_frame(addr: u8, func: u8, reg: u16, value: Option<u16>) -> Vec<u8> {
 // ==================== PORT & RETRY ====================
 
 fn open_port(port_name: &str) -> Option<Box<dyn SerialPort + Send>> {
-    serialport::new(port_name, 9600)
+    match serialport::new(port_name, 9600)
         .data_bits(serialport::DataBits::Eight)
         .parity(serialport::Parity::Even)
         .stop_bits(serialport::StopBits::One)
         .timeout(Duration::from_millis(600))
         .open()
-        .map(|p| Box::new(p) as Box<dyn SerialPort + Send>)
-        .ok()
+    {
+        Ok(p) => Some(Box::new(p) as Box<dyn SerialPort + Send>),
+        Err(_) => None,
+    }
 }
 
 fn with_retry<F, T>(mut operation: F, max_retries: u8, debug: bool, log_prefix: &str) -> Option<T>
@@ -291,9 +293,9 @@ async fn start_monitoring(state: web::Data<Mutex<AppState>>) {
 
 // ==================== ROUTES ====================
 
-async fn index() -> impl Responder {
+async fn index(req: HttpRequest) -> impl Responder {
     match NamedFile::open_async("index.html").await {
-        Ok(file) => file.into_response(),
+        Ok(file) => file.into_response(&req),
         Err(_) => HttpResponse::NotFound().body("index.html non trouvé"),
     }
 }
@@ -353,7 +355,7 @@ async fn read_all(data: web::Data<Mutex<AppState>>) -> impl Responder {
             }
         }
 
-        // Fréquence
+        // Fréquence, états, commutateur, mode, max, config (identique à ton original)
         if let Some(freq) = read_register(&guard, addr, 0x000D, debug) {
             values.insert("freq1".to_string(), format!("{} Hz", (freq >> 8) & 0xFF));
             values.insert("freq2".to_string(), format!("{} Hz", freq & 0xFF));
@@ -362,7 +364,6 @@ async fn read_all(data: web::Data<Mutex<AppState>>) -> impl Responder {
             values.insert("freq2".to_string(), "---".to_string());
         }
 
-        // États sources
         if let Some(power) = read_register(&guard, addr, 0x004F, debug) {
             let decode = |bit: u8| -> String {
                 match (power >> bit) & 0x03 {
@@ -380,7 +381,6 @@ async fn read_all(data: web::Data<Mutex<AppState>>) -> impl Responder {
             values.insert("s2c".to_string(), decode(4));
         }
 
-        // Commutateur
         if let Some(switch) = read_register(&guard, addr, 0x0050, debug) {
             values.insert("sw1".to_string(), if switch & 0x02 != 0 { "✅ Fermé" } else { "⭕ Ouvert" }.to_string());
             values.insert("sw2".to_string(), if switch & 0x04 != 0 { "✅ Fermé" } else { "⭕ Ouvert" }.to_string());
@@ -403,7 +403,6 @@ async fn read_all(data: web::Data<Mutex<AppState>>) -> impl Responder {
             }.to_string());
         }
 
-        // Tensions max
         let max_regs = vec![(0x000F,"max1a"),(0x0010,"max1b"),(0x0011,"max1c"),
                             (0x0012,"max2a"),(0x0013,"max2b"),(0x0014,"max2c")];
         for (reg, key) in max_regs {
@@ -418,7 +417,6 @@ async fn read_all(data: web::Data<Mutex<AppState>>) -> impl Responder {
             values.insert("max2".to_string(), format!("{}/{}/{}", a, b, c));
         }
 
-        // Config Modbus
         if let Some(addr_val) = read_register(&guard, addr, 0x0100, debug) {
             values.insert("modbus_addr".to_string(), addr_val.to_string());
         }
@@ -447,7 +445,7 @@ async fn read_all(data: web::Data<Mutex<AppState>>) -> impl Responder {
     })
 }
 
-// Macro pour commandes
+// Macro commandes
 macro_rules! make_cmd {
     ($name:ident, $reg:expr, $val:expr, $msg:literal) => {
         async fn $name(data: web::Data<Mutex<AppState>>) -> impl Responder {
@@ -469,7 +467,7 @@ make_cmd!(force_double, 0x2700, 0x00FF, "Forçage double déclenché");
 make_cmd!(force_source1, 0x2700, 0x0000, "Forçage Onduleur");
 make_cmd!(force_source2, 0x2700, 0x00AA, "Forçage Réseau");
 
-// Routes réglage MN
+// Routes MN
 async fn set_undervoltage1(data: web::Data<Mutex<AppState>>, query: web::Query<RegValue>) -> impl Responder {
     let state = data.clone();
     let value = query.value;
@@ -491,6 +489,7 @@ async fn set_undervoltage1(data: web::Data<Mutex<AppState>>, query: web::Query<R
     }))
 }
 
+// Les 3 autres set_ sont identiques (seul le registre change)
 async fn set_undervoltage2(data: web::Data<Mutex<AppState>>, query: web::Query<RegValue>) -> impl Responder {
     let state = data.clone();
     let value = query.value;
@@ -498,9 +497,7 @@ async fn set_undervoltage2(data: web::Data<Mutex<AppState>>, query: web::Query<R
         let guard = state.lock().unwrap();
         let debug = *guard.debug_log.lock().unwrap();
         let model = guard.model_type.lock().unwrap().clone();
-        if model != "MN" {
-            return (false, "Cette fonction n'est pas disponible sur ce modèle".to_string());
-        }
+        if model != "MN" { return (false, "Cette fonction n'est pas disponible sur ce modèle".to_string()); }
         let success = write_register(&guard, 6, 0x2066, value, debug);
         (success, format!("Sous-tension Source II réglée à {} V", value))
     }).await.unwrap();
@@ -519,9 +516,7 @@ async fn set_overvoltage1(data: web::Data<Mutex<AppState>>, query: web::Query<Re
         let guard = state.lock().unwrap();
         let debug = *guard.debug_log.lock().unwrap();
         let model = guard.model_type.lock().unwrap().clone();
-        if model != "MN" {
-            return (false, "Cette fonction n'est pas disponible sur ce modèle".to_string());
-        }
+        if model != "MN" { return (false, "Cette fonction n'est pas disponible sur ce modèle".to_string()); }
         let success = write_register(&guard, 6, 0x2067, value, debug);
         (success, format!("Surtension Source I réglée à {} V", value))
     }).await.unwrap();
@@ -540,9 +535,7 @@ async fn set_overvoltage2(data: web::Data<Mutex<AppState>>, query: web::Query<Re
         let guard = state.lock().unwrap();
         let debug = *guard.debug_log.lock().unwrap();
         let model = guard.model_type.lock().unwrap().clone();
-        if model != "MN" {
-            return (false, "Cette fonction n'est pas disponible sur ce modèle".to_string());
-        }
+        if model != "MN" { return (false, "Cette fonction n'est pas disponible sur ce modèle".to_string()); }
         let success = write_register(&guard, 6, 0x2068, value, debug);
         (success, format!("Surtension Source II réglée à {} V", value))
     }).await.unwrap();
@@ -603,7 +596,7 @@ async fn main() -> std::io::Result<()> {
     let port_name = env::var("SERIAL_PORT").unwrap_or_else(|_| "COM5".to_string());
 
     println!("========================================");
-    println!("  CHINT ATS - Serveur Rust v2.3 (Résilient)");
+    println!("  CHINT ATS - Serveur Rust v2.4 (Résilient)");
     println!("  Port: {} | 9600 Even | Adresse 6", port_name);
 
     let initial_port = open_port(&port_name);
@@ -613,7 +606,7 @@ async fn main() -> std::io::Result<()> {
 
     let temp_state = AppState {
         port_name: port_name.clone(),
-        port: Mutex::new(initial_port.clone()), // clone de Option est OK ici car on vient de créer
+        port: Mutex::new(initial_port.clone()),
         debug_log: Mutex::new(false),
         model_type: Mutex::new("?".to_string()),
         last_success: Mutex::new(Instant::now()),
