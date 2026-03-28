@@ -1,7 +1,7 @@
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
 use actix_files::NamedFile;
 use serde::{Serialize, Deserialize};
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use serialport::{self, SerialPort};
 use std::io::{Write, Read};
@@ -127,49 +127,41 @@ where
 
 fn read_register(state: &AppState, addr: u8, reg: u16, debug: bool) -> Option<u16> {
     let frame = build_frame(addr, 0x03, reg, None);
-
     if debug {
         write_debug_log(&format!("📤 READ REG 0x{:04X}", reg), debug);
     }
 
-    let result = with_retry(
-        || {
-            let mut port_guard = state.port.lock().unwrap();
-            let port = match port_guard.as_mut() {
-                Some(p) => p,
-                None => {
-                    if let Some(new_p) = open_port(&state.port_name) {
-                        *port_guard = Some(new_p);
-                        port_guard.as_mut().unwrap()
-                    } else {
-                        return None;
-                    }
+    let result = with_retry(|| {
+        let mut port_guard = state.port.lock().unwrap();
+        let port = match port_guard.as_mut() {
+            Some(p) => p,
+            None => {
+                if let Some(new_p) = open_port(&state.port_name) {
+                    *port_guard = Some(new_p);
+                    port_guard.as_mut().unwrap()
+                } else {
+                    return None;
                 }
-            };
-
-            let _ = port.write_all(&frame);
-            thread::sleep(Duration::from_millis(90));
-
-            let mut buffer = vec![0u8; 256];
-            match port.read(&mut buffer) {
-                Ok(n) if n >= 5 => {
-                    let resp = &buffer[0..n];
-                    if resp[1] == 0x83 {
-                        None
-                    } else if resp[1] == 0x03 && resp.len() >= 5 {
-                        let value = ((resp[3] as u16) << 8) | resp[4] as u16;
-                        Some(value)
-                    } else {
-                        None
-                    }
-                }
-                _ => None,
             }
-        },
-        3,
-        debug,
-        &format!("Read 0x{:04X}", reg),
-    );
+        };
+
+        let _ = port.write_all(&frame);
+        thread::sleep(Duration::from_millis(90));
+
+        let mut buffer = vec![0u8; 256];
+        match port.read(&mut buffer) {
+            Ok(n) if n >= 5 => {
+                let resp = &buffer[0..n];
+                if resp[1] == 0x83 { None }
+                else if resp[1] == 0x03 && resp.len() >= 5 {
+                    Some(((resp[3] as u16) << 8) | resp[4] as u16)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }, 3, debug, &format!("Read 0x{:04X}", reg));
 
     if result.is_some() {
         *state.last_success.lock().unwrap() = Instant::now();
@@ -177,48 +169,38 @@ fn read_register(state: &AppState, addr: u8, reg: u16, debug: bool) -> Option<u1
     } else if debug {
         write_debug_log(&format!("❌ Échec lecture 0x{:04X}", reg), debug);
     }
-
     result
 }
 
 fn write_register(state: &AppState, addr: u8, reg: u16, value: u16, debug: bool) -> bool {
     let frame = build_frame(addr, 0x06, reg, Some(value));
-
     if debug {
         write_debug_log(&format!("📝 WRITE REG 0x{:04X} = {}", reg, value), debug);
     }
 
-    let success = with_retry(
-        || {
-            let mut port_guard = state.port.lock().unwrap();
-            let port = match port_guard.as_mut() {
-                Some(p) => p,
-                None => {
-                    if let Some(new_p) = open_port(&state.port_name) {
-                        *port_guard = Some(new_p);
-                        port_guard.as_mut().unwrap()
-                    } else {
-                        return None;
-                    }
+    let success = with_retry(|| {
+        let mut port_guard = state.port.lock().unwrap();
+        let port = match port_guard.as_mut() {
+            Some(p) => p,
+            None => {
+                if let Some(new_p) = open_port(&state.port_name) {
+                    *port_guard = Some(new_p);
+                    port_guard.as_mut().unwrap()
+                } else {
+                    return None;
                 }
-            };
-
-            let _ = port.write_all(&frame);
-            thread::sleep(Duration::from_millis(90));
-
-            let mut buffer = vec![0u8; 256];
-            match port.read(&mut buffer) {
-                Ok(n) if n > 0 => {
-                    let resp = &buffer[0..n];
-                    Some(resp[1] != 0x86)
-                }
-                _ => None,
             }
-        },
-        3,
-        debug,
-        &format!("Write 0x{:04X}", reg),
-    ).unwrap_or(false);
+        };
+
+        let _ = port.write_all(&frame);
+        thread::sleep(Duration::from_millis(90));
+
+        let mut buffer = vec![0u8; 256];
+        match port.read(&mut buffer) {
+            Ok(n) if n > 0 => Some(buffer[1] != 0x86),
+            _ => None,
+        }
+    }, 3, debug, &format!("Write 0x{:04X}", reg)).unwrap_or(false);
 
     if success {
         *state.last_success.lock().unwrap() = Instant::now();
@@ -226,53 +208,46 @@ fn write_register(state: &AppState, addr: u8, reg: u16, value: u16, debug: bool)
     } else if debug {
         write_debug_log(&format!("❌ Échec écriture 0x{:04X}", reg), debug);
     }
-
     success
 }
 
 fn send_raw_frame(state: &AppState, frame_hex: &str, debug: bool) -> Result<(Vec<u8>, Vec<u8>), String> {
-    let bytes: Result<Vec<u8>, _> = frame_hex
-        .split_whitespace()
+    let bytes: Result<Vec<u8>, _> = frame_hex.split_whitespace()
         .map(|b| u8::from_str_radix(b, 16))
         .collect();
 
     let frame = match bytes {
         Ok(f) => f,
-        Err(e) => return Err(format!("Trame hexadécimale invalide: {}", e)),
+        Err(e) => return Err(format!("Trame hex invalide: {}", e)),
     };
 
     if debug {
         write_debug_log(&format!("📤 RAW SEND: {:02X?}", frame), debug);
     }
 
-    let result = with_retry(
-        || {
-            let mut port_guard = state.port.lock().unwrap();
-            let port = match port_guard.as_mut() {
-                Some(p) => p,
-                None => {
-                    if let Some(new_p) = open_port(&state.port_name) {
-                        *port_guard = Some(new_p);
-                        port_guard.as_mut().unwrap()
-                    } else {
-                        return None;
-                    }
+    let result = with_retry(|| {
+        let mut port_guard = state.port.lock().unwrap();
+        let port = match port_guard.as_mut() {
+            Some(p) => p,
+            None => {
+                if let Some(new_p) = open_port(&state.port_name) {
+                    *port_guard = Some(new_p);
+                    port_guard.as_mut().unwrap()
+                } else {
+                    return None;
                 }
-            };
-
-            let _ = port.write_all(&frame);
-            thread::sleep(Duration::from_millis(150));
-
-            let mut buffer = vec![0u8; 256];
-            match port.read(&mut buffer) {
-                Ok(n) if n > 0 => Some((frame.clone(), buffer[0..n].to_vec())),
-                _ => None,
             }
-        },
-        2,
-        debug,
-        "Raw frame",
-    );
+        };
+
+        let _ = port.write_all(&frame);
+        thread::sleep(Duration::from_millis(150));
+
+        let mut buffer = vec![0u8; 256];
+        match port.read(&mut buffer) {
+            Ok(n) if n > 0 => Some((frame.clone(), buffer[0..n].to_vec())),
+            _ => None,
+        }
+    }, 2, debug, "Raw frame");
 
     match result {
         Some((sent, recv)) => {
@@ -283,7 +258,6 @@ fn send_raw_frame(state: &AppState, frame_hex: &str, debug: bool) -> Result<(Vec
     }
 }
 
-// Détection modèle
 fn detect_model(state: &AppState, addr: u8, debug: bool) -> String {
     if read_register(state, addr, 0x2065, debug).is_some() {
         "MN".to_string()
@@ -296,18 +270,17 @@ fn detect_model(state: &AppState, addr: u8, debug: bool) -> String {
 
 async fn start_monitoring(state: web::Data<Mutex<AppState>>) {
     let state_clone = state.clone();
-    tokio::spawn(async move {
+    actix_web::rt::spawn(async move {
         loop {
-            tokio::time::sleep(Duration::from_secs(10)).await;
+            actix_web::rt::time::sleep(Duration::from_secs(10)).await;
 
             let app = state_clone.lock().unwrap();
             let debug = *app.debug_log.lock().unwrap();
             let model = app.model_type.lock().unwrap().clone();
 
             let test_reg = if model == "MN" { 0x2065u16 } else { 0x000Cu16 };
-
             if read_register(&app, 6, test_reg, debug).is_none() {
-                write_debug_log("⚠️ Monitoring : reconnexion du port série...", debug);
+                write_debug_log("⚠️ Monitoring : tentative de reconnexion...", debug);
                 let mut port_guard = app.port.lock().unwrap();
                 *port_guard = open_port(&app.port_name);
             }
@@ -315,20 +288,19 @@ async fn start_monitoring(state: web::Data<Mutex<AppState>>) {
     });
 }
 
-// ==================== ROUTES (avec spawn_blocking) ====================
+// ==================== ROUTES ====================
 
 async fn index() -> impl Responder {
-    NamedFile::open_async("index.html").await.unwrap_or_else(|_| {
-        HttpResponse::NotFound().body("index.html non trouvé")
-    })
+    NamedFile::open_async("index.html").await.unwrap_or_else(|_| HttpResponse::NotFound().body("index.html non trouvé"))
 }
 
 async fn read_all(data: web::Data<Mutex<AppState>>) -> impl Responder {
-    let state = data.lock().unwrap().clone();
+    let state = data.clone();
 
-    let result: (bool, std::collections::HashMap<String, String>, String) = tokio::task::spawn_blocking(move || {
-        let debug = *state.debug_log.lock().unwrap();
-        let model = state.model_type.lock().unwrap().clone();
+    let result = actix_web::rt::task::spawn_blocking(move || {
+        let guard = state.lock().unwrap();
+        let debug = *guard.debug_log.lock().unwrap();
+        let model = guard.model_type.lock().unwrap().clone();
         let addr = 6u8;
         let mut values = std::collections::HashMap::new();
 
@@ -354,18 +326,17 @@ async fn read_all(data: web::Data<Mutex<AppState>>) -> impl Responder {
         ];
 
         for (reg, key, formatter) in regs {
-            if let Some(val) = read_register(&state, addr, reg, debug) {
+            if let Some(val) = read_register(&guard, addr, reg, debug) {
                 values.insert(key.to_string(), formatter(val));
             } else {
                 values.insert(key.to_string(), "---".to_string());
             }
         }
 
-        // T3/T4 et seuils MN
         if model == "MN" {
-            let extra = vec![(0x206B, "t3"), (0x206C, "t4"), (0x2065, "uv1"), (0x2066, "uv2"), (0x2067, "ov1"), (0x2068, "ov2")];
+            let extra = vec![(0x206B,"t3"), (0x206C,"t4"), (0x2065,"uv1"), (0x2066,"uv2"), (0x2067,"ov1"), (0x2068,"ov2")];
             for (reg, key) in extra {
-                if let Some(val) = read_register(&state, addr, reg, debug) {
+                if let Some(val) = read_register(&guard, addr, reg, debug) {
                     let s = if key.starts_with('t') { format!("{} s", val) } else { format!("{} V", val) };
                     values.insert(key.to_string(), s);
                 } else {
@@ -379,7 +350,7 @@ async fn read_all(data: web::Data<Mutex<AppState>>) -> impl Responder {
         }
 
         // Fréquence
-        if let Some(freq) = read_register(&state, addr, 0x000D, debug) {
+        if let Some(freq) = read_register(&guard, addr, 0x000D, debug) {
             values.insert("freq1".to_string(), format!("{} Hz", (freq >> 8) & 0xFF));
             values.insert("freq2".to_string(), format!("{} Hz", freq & 0xFF));
         } else {
@@ -387,10 +358,8 @@ async fn read_all(data: web::Data<Mutex<AppState>>) -> impl Responder {
             values.insert("freq2".to_string(), "---".to_string());
         }
 
-        // États sources, commutateur, mode, max, config Modbus... (copié de ton original)
-        // Pour garder la compatibilité totale, je reproduis la logique existante :
-
-        if let Some(power) = read_register(&state, addr, 0x004F, debug) {
+        // États sources
+        if let Some(power) = read_register(&guard, addr, 0x004F, debug) {
             let decode = |bit: u8| -> String {
                 match (power >> bit) & 0x03 {
                     0 => "✅ Normal".to_string(),
@@ -407,7 +376,8 @@ async fn read_all(data: web::Data<Mutex<AppState>>) -> impl Responder {
             values.insert("s2c".to_string(), decode(4));
         }
 
-        if let Some(switch) = read_register(&state, addr, 0x0050, debug) {
+        // Commutateur
+        if let Some(switch) = read_register(&guard, addr, 0x0050, debug) {
             values.insert("sw1".to_string(), if switch & 0x02 != 0 { "✅ Fermé" } else { "⭕ Ouvert" }.to_string());
             values.insert("sw2".to_string(), if switch & 0x04 != 0 { "✅ Fermé" } else { "⭕ Ouvert" }.to_string());
             values.insert("swMode".to_string(), if switch & 0x01 != 0 { "🤖 Auto" } else { "👆 Manuel" }.to_string());
@@ -421,7 +391,8 @@ async fn read_all(data: web::Data<Mutex<AppState>>) -> impl Responder {
             }.to_string());
         }
 
-        if let Some(mode) = read_register(&state, addr, 0x206D, debug) {
+        // Mode opération
+        if let Some(mode) = read_register(&guard, addr, 0x206D, debug) {
             values.insert("operation_mode".to_string(), match mode {
                 0 => "Auto-réarmement automatique", 1 => "Auto-non-réarmement",
                 2 => "Secours", 3 => "Mode générateur", 4 => "Générateur non réarmé",
@@ -429,11 +400,11 @@ async fn read_all(data: web::Data<Mutex<AppState>>) -> impl Responder {
             }.to_string());
         }
 
-        // Max tensions
+        // Tensions max
         let max_regs = vec![(0x000F,"max1a"),(0x0010,"max1b"),(0x0011,"max1c"),
                             (0x0012,"max2a"),(0x0013,"max2b"),(0x0014,"max2c")];
         for (reg, key) in max_regs {
-            if let Some(val) = read_register(&state, addr, reg, debug) {
+            if let Some(val) = read_register(&guard, addr, reg, debug) {
                 values.insert(key.to_string(), format!("{} V", val));
             }
         }
@@ -445,15 +416,15 @@ async fn read_all(data: web::Data<Mutex<AppState>>) -> impl Responder {
         }
 
         // Config Modbus
-        if let Some(addr_val) = read_register(&state, addr, 0x0100, debug) {
+        if let Some(addr_val) = read_register(&guard, addr, 0x0100, debug) {
             values.insert("modbus_addr".to_string(), addr_val.to_string());
         }
-        if let Some(baud) = read_register(&state, addr, 0x0101, debug) {
+        if let Some(baud) = read_register(&guard, addr, 0x0101, debug) {
             values.insert("modbus_baud".to_string(), match baud {
                 0 => "4800", 1 => "9600", 2 => "19200", 3 => "38400", _ => "?"
             }.to_string());
         }
-        if let Some(parity) = read_register(&state, addr, 0x000E, debug) {
+        if let Some(parity) = read_register(&guard, addr, 0x000E, debug) {
             values.insert("modbus_parity".to_string(), match parity {
                 0 => "None", 1 => "Odd", 2 => "Even", _ => "?"
             }.to_string());
@@ -473,138 +444,128 @@ async fn read_all(data: web::Data<Mutex<AppState>>) -> impl Responder {
     })
 }
 
-// Commandes (exemples adaptés)
-async fn remote_on(data: web::Data<Mutex<AppState>>) -> impl Responder {
-    let state = data.lock().unwrap().clone();
-    let success = tokio::task::spawn_blocking(move || {
-        let debug = *state.debug_log.lock().unwrap();
-        write_register(&state, 6, 0x2800, 0x0004, debug)
-    }).await.unwrap();
+// Macro pour les commandes
+macro_rules! make_cmd {
+    ($name:ident, $reg:expr, $val:expr, $msg:literal) => {
+        async fn $name(data: web::Data<Mutex<AppState>>) -> impl Responder {
+            let state = data.clone();
+            let success = actix_web::rt::task::spawn_blocking(move || {
+                let guard = state.lock().unwrap();
+                let debug = *guard.debug_log.lock().unwrap();
+                write_register(&guard, 6, $reg, $val, debug)
+            }).await.unwrap();
 
-    HttpResponse::Ok().json(serde_json::json!({ "success": success, "message": "Télécommande activée" }))
+            HttpResponse::Ok().json(serde_json::json!({ "success": success, "message": $msg }))
+        }
+    };
 }
 
-async fn remote_off(data: web::Data<Mutex<AppState>>) -> impl Responder {
-    let state = data.lock().unwrap().clone();
-    let success = tokio::task::spawn_blocking(move || {
-        let debug = *state.debug_log.lock().unwrap();
-        write_register(&state, 6, 0x2800, 0x0000, debug)
-    }).await.unwrap();
-
-    HttpResponse::Ok().json(serde_json::json!({ "success": success, "message": "Télécommande désactivée" }))
-}
-
-async fn force_double(data: web::Data<Mutex<AppState>>) -> impl Responder {
-    let state = data.lock().unwrap().clone();
-    let success = tokio::task::spawn_blocking(move || {
-        let debug = *state.debug_log.lock().unwrap();
-        write_register(&state, 6, 0x2700, 0x00FF, debug)
-    }).await.unwrap();
-
-    HttpResponse::Ok().json(serde_json::json!({ "success": success, "message": "Forçage double déclenché" }))
-}
-
-async fn force_source1(data: web::Data<Mutex<AppState>>) -> impl Responder {
-    let state = data.lock().unwrap().clone();
-    let success = tokio::task::spawn_blocking(move || {
-        let debug = *state.debug_log.lock().unwrap();
-        write_register(&state, 6, 0x2700, 0x0000, debug)
-    }).await.unwrap();
-
-    HttpResponse::Ok().json(serde_json::json!({ "success": success, "message": "Forçage Onduleur" }))
-}
-
-async fn force_source2(data: web::Data<Mutex<AppState>>) -> impl Responder {
-    let state = data.lock().unwrap().clone();
-    let success = tokio::task::spawn_blocking(move || {
-        let debug = *state.debug_log.lock().unwrap();
-        write_register(&state, 6, 0x2700, 0x00AA, debug)
-    }).await.unwrap();
-
-    HttpResponse::Ok().json(serde_json::json!({ "success": success, "message": "Forçage Réseau" }))
-}
+make_cmd!(remote_on, 0x2800, 0x0004, "Télécommande activée");
+make_cmd!(remote_off, 0x2800, 0x0000, "Télécommande désactivée");
+make_cmd!(force_double, 0x2700, 0x00FF, "Forçage double déclenché");
+make_cmd!(force_source1, 0x2700, 0x0000, "Forçage Onduleur");
+make_cmd!(force_source2, 0x2700, 0x00AA, "Forçage Réseau");
 
 // Routes de réglage MN
 async fn set_undervoltage1(data: web::Data<Mutex<AppState>>, query: web::Query<RegValue>) -> impl Responder {
-    let state = data.lock().unwrap().clone();
+    let state = data.clone();
     let value = query.value;
-    let result = tokio::task::spawn_blocking(move || {
-        let debug = *state.debug_log.lock().unwrap();
-        let model = state.model_type.lock().unwrap().clone();
-        if model != "MN" { return (false, "Fonction non disponible sur ce modèle".to_string()); }
-        let success = write_register(&state, 6, 0x2065, value, debug);
+    let result = actix_web::rt::task::spawn_blocking(move || {
+        let guard = state.lock().unwrap();
+        let debug = *guard.debug_log.lock().unwrap();
+        let model = guard.model_type.lock().unwrap().clone();
+        if model != "MN" {
+            return (false, "Cette fonction n'est pas disponible sur ce modèle".to_string());
+        }
+        let success = write_register(&guard, 6, 0x2065, value, debug);
         (success, format!("Sous-tension Source I réglée à {} V", value))
     }).await.unwrap();
 
     HttpResponse::Ok().json(serde_json::json!({
         "success": result.0,
-        "message": if result.0 { result.1 } else { "Échec".to_string() },
+        "message": if result.0 { result.1.clone() } else { "".to_string() },
         "error": if !result.0 { Some(result.1) } else { None }
     }))
 }
 
-// Répète le même pattern pour set_undervoltage2, set_overvoltage1, set_overvoltage2 (identique à ton original, juste avec spawn_blocking)
-
 async fn set_undervoltage2(data: web::Data<Mutex<AppState>>, query: web::Query<RegValue>) -> impl Responder {
-    // Même logique que set_undervoltage1 mais registre 0x2066
-    let state = data.lock().unwrap().clone();
+    let state = data.clone();
     let value = query.value;
-    let result = tokio::task::spawn_blocking(move || {
-        let debug = *state.debug_log.lock().unwrap();
-        let model = state.model_type.lock().unwrap().clone();
-        if model != "MN" { return (false, "Fonction non disponible sur ce modèle".to_string()); }
-        let success = write_register(&state, 6, 0x2066, value, debug);
+    let result = actix_web::rt::task::spawn_blocking(move || {
+        let guard = state.lock().unwrap();
+        let debug = *guard.debug_log.lock().unwrap();
+        let model = guard.model_type.lock().unwrap().clone();
+        if model != "MN" {
+            return (false, "Cette fonction n'est pas disponible sur ce modèle".to_string());
+        }
+        let success = write_register(&guard, 6, 0x2066, value, debug);
         (success, format!("Sous-tension Source II réglée à {} V", value))
     }).await.unwrap();
 
     HttpResponse::Ok().json(serde_json::json!({
         "success": result.0,
-        "message": if result.0 { result.1 } else { "Échec".to_string() }
+        "message": if result.0 { result.1.clone() } else { "".to_string() },
+        "error": if !result.0 { Some(result.1) } else { None }
     }))
 }
 
 async fn set_overvoltage1(data: web::Data<Mutex<AppState>>, query: web::Query<RegValue>) -> impl Responder {
-    let state = data.lock().unwrap().clone();
+    let state = data.clone();
     let value = query.value;
-    let result = tokio::task::spawn_blocking(move || {
-        let debug = *state.debug_log.lock().unwrap();
-        let model = state.model_type.lock().unwrap().clone();
-        if model != "MN" { return (false, "Fonction non disponible".to_string()); }
-        let success = write_register(&state, 6, 0x2067, value, debug);
+    let result = actix_web::rt::task::spawn_blocking(move || {
+        let guard = state.lock().unwrap();
+        let debug = *guard.debug_log.lock().unwrap();
+        let model = guard.model_type.lock().unwrap().clone();
+        if model != "MN" {
+            return (false, "Cette fonction n'est pas disponible sur ce modèle".to_string());
+        }
+        let success = write_register(&guard, 6, 0x2067, value, debug);
         (success, format!("Surtension Source I réglée à {} V", value))
     }).await.unwrap();
 
-    HttpResponse::Ok().json(serde_json::json!({ "success": result.0, "message": if result.0 { result.1 } else { "Échec".to_string() } }))
+    HttpResponse::Ok().json(serde_json::json!({
+        "success": result.0,
+        "message": if result.0 { result.1.clone() } else { "".to_string() },
+        "error": if !result.0 { Some(result.1) } else { None }
+    }))
 }
 
 async fn set_overvoltage2(data: web::Data<Mutex<AppState>>, query: web::Query<RegValue>) -> impl Responder {
-    let state = data.lock().unwrap().clone();
+    let state = data.clone();
     let value = query.value;
-    let result = tokio::task::spawn_blocking(move || {
-        let debug = *state.debug_log.lock().unwrap();
-        let model = state.model_type.lock().unwrap().clone();
-        if model != "MN" { return (false, "Fonction non disponible".to_string()); }
-        let success = write_register(&state, 6, 0x2068, value, debug);
+    let result = actix_web::rt::task::spawn_blocking(move || {
+        let guard = state.lock().unwrap();
+        let debug = *guard.debug_log.lock().unwrap();
+        let model = guard.model_type.lock().unwrap().clone();
+        if model != "MN" {
+            return (false, "Cette fonction n'est pas disponible sur ce modèle".to_string());
+        }
+        let success = write_register(&guard, 6, 0x2068, value, debug);
         (success, format!("Surtension Source II réglée à {} V", value))
     }).await.unwrap();
 
-    HttpResponse::Ok().json(serde_json::json!({ "success": result.0, "message": if result.0 { result.1 } else { "Échec".to_string() } }))
+    HttpResponse::Ok().json(serde_json::json!({
+        "success": result.0,
+        "message": if result.0 { result.1.clone() } else { "".to_string() },
+        "error": if !result.0 { Some(result.1) } else { None }
+    }))
 }
 
 async fn send_raw(data: web::Data<Mutex<AppState>>, body: web::Json<RawFrame>) -> impl Responder {
-    let state = data.lock().unwrap().clone();
+    let state = data.clone();
     let frame = body.frame.clone();
 
-    let result = tokio::task::spawn_blocking(move || {
-        let debug = *state.debug_log.lock().unwrap();
-        match send_raw_frame(&state, &frame, debug) {
+    let result = actix_web::rt::task::spawn_blocking(move || {
+        let guard = state.lock().unwrap();
+        let debug = *guard.debug_log.lock().unwrap();
+        match send_raw_frame(&guard, &frame, debug) {
             Ok((sent, response)) => {
                 let sent_hex = sent.iter().map(|b| format!("{:02X}", b)).collect::<Vec<_>>().join(" ");
                 let resp_hex = response.iter().map(|b| format!("{:02X}", b)).collect::<Vec<_>>().join(" ");
                 write_command_log(&sent_hex, &resp_hex);
                 (true, resp_hex, response.len())
             }
-            Err(e) => (false, e, 0)
+            Err(e) => (false, e, 0usize),
         }
     }).await.unwrap();
 
@@ -615,22 +576,19 @@ async fn send_raw(data: web::Data<Mutex<AppState>>, body: web::Json<RawFrame>) -
             "response_length": result.2
         }))
     } else {
-        HttpResponse::Ok().json(serde_json::json!({
-            "success": false,
-            "error": result.1
-        }))
+        HttpResponse::Ok().json(serde_json::json!({ "success": false, "error": result.1 }))
     }
 }
 
 async fn debug_on(data: web::Data<Mutex<AppState>>) -> impl Responder {
-    let mut state = data.lock().unwrap();
+    let state = data.lock().unwrap();
     *state.debug_log.lock().unwrap() = true;
     write_debug_log("=== DEBUG ACTIVÉ ===", true);
     HttpResponse::Ok().json(serde_json::json!({ "success": true, "message": "Debug activé" }))
 }
 
 async fn debug_off(data: web::Data<Mutex<AppState>>) -> impl Responder {
-    let mut state = data.lock().unwrap();
+    let state = data.lock().unwrap();
     *state.debug_log.lock().unwrap() = false;
     HttpResponse::Ok().json(serde_json::json!({ "success": true, "message": "Debug désactivé" }))
 }
@@ -642,13 +600,12 @@ async fn main() -> std::io::Result<()> {
     let port_name = env::var("SERIAL_PORT").unwrap_or_else(|_| "COM5".to_string());
 
     println!("========================================");
-    println!("  CHINT ATS - Serveur Rust v2.1 (Résilient)");
-    println!("  Port: {} | 9600 Even 1 | Adresse Modbus 6", port_name);
-    println!("  Ouverture du port série...");
+    println!("  CHINT ATS - Serveur Rust v2.2 (Résilient)");
+    println!("  Port: {} | 9600 Even | Adresse 6", port_name);
 
     let initial_port = open_port(&port_name);
     if initial_port.is_none() {
-        println!("⚠️  Impossible d'ouvrir le port {} au démarrage.", port_name);
+        println!("⚠️ Impossible d'ouvrir le port {} au démarrage.", port_name);
     }
 
     let temp_state = AppState {
@@ -662,12 +619,8 @@ async fn main() -> std::io::Result<()> {
 
     let model = detect_model(&temp_state, 6, false);
     println!("  ✅ Modèle détecté : {}", model);
-    if model == "BN" {
-        println!("  ℹ️  Modèle BN - réglages seuils non disponibles");
-    }
 
-    println!("  🌐 Serveur démarré → http://localhost:5000");
-    println!("  📁 Logs : modbus_debug.log + modbus_commands.log");
+    println!("  🌐 Serveur démarré sur http://localhost:5000");
     println!("========================================");
 
     let app_state = web::Data::new(Mutex::new(AppState {
