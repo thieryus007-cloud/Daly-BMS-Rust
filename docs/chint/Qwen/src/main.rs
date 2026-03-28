@@ -80,7 +80,6 @@ fn write_debug_log(message: &str, debug: bool) {
     if !debug { return; }
     let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
     let log_line = format!("[{}] {}\n", timestamp, message);
-    
     let _ = std::fs::OpenOptions::new().create(true).append(true)
         .open("modbus_debug.log").and_then(|mut f| f.write_all(log_line.as_bytes()));
 }
@@ -467,7 +466,7 @@ async fn read_all(data: web::Data<Arc<Mutex<AppState>>>) -> impl Responder {
     })
 }
 
-// Macro commandes
+// Macro commandes - POST uniquement
 macro_rules! make_cmd {
     ($name:ident, $reg:expr, $val:expr, $msg:literal) => {
         async fn $name(data: web::Data<Arc<Mutex<AppState>>>) -> impl Responder {
@@ -566,7 +565,7 @@ async fn main() -> std::io::Result<()> {
     let config = Config::from_env();
     
     println!("========================================");
-    println!("  CHINT ATS - Serveur Rust v3.0");
+    println!("  CHINT ATS - Serveur Rust v3.1");
     println!("  Port: {} | {} | Adresse {}", config.port_name, config.baud_rate, config.modbus_addr);
     println!("========================================");
 
@@ -602,6 +601,7 @@ async fn main() -> std::io::Result<()> {
             .route("/", web::get().to(index))
             .route("/api/health", web::get().to(health))
             .route("/api/read_all", web::get().to(read_all))
+            // Commandes - POST
             .route("/api/remote_on", web::post().to(remote_on))
             .route("/api/remote_off", web::post().to(remote_off))
             .route("/api/force_double", web::post().to(force_double))
@@ -610,6 +610,7 @@ async fn main() -> std::io::Result<()> {
             .route("/api/send_raw", web::post().to(send_raw))
             .route("/api/debug_on", web::get().to(debug_on))
             .route("/api/debug_off", web::get().to(debug_off))
+            // Réglages - POST (MN uniquement)
             .route("/api/set_undervoltage1", web::post().to(set_undervoltage1))
             .route("/api/set_undervoltage2", web::post().to(set_undervoltage2))
             .route("/api/set_overvoltage1", web::post().to(set_overvoltage1))
