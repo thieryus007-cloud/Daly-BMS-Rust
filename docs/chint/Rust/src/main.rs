@@ -15,7 +15,7 @@ struct AppState {
     port_name: String,
     port: Mutex<Option<Box<dyn SerialPort + Send>>>,
     debug_log: Mutex<bool>,
-    model_type: Mutex<String>,        // "MN" ou "BN"
+    model_type: Mutex<String>,
     last_success: Mutex<Instant>,
     last_error: Mutex<Option<String>>,
 }
@@ -298,7 +298,7 @@ async fn read_all(data: web::Data<Mutex<AppState>>) -> impl Responder {
             }
         }
 
-        // MAX tensions (toujours présent)
+        // Tensions MAX (toujours présentes)
         let max_regs = vec![(0x000F,"max1a"),(0x0010,"max1b"),(0x0011,"max1c"),
                             (0x0012,"max2a"),(0x0013,"max2b"),(0x0014,"max2c")];
         for (r, k) in max_regs {
@@ -313,11 +313,14 @@ async fn read_all(data: web::Data<Mutex<AppState>>) -> impl Responder {
             values.insert("max2".to_string(), format!("{}/{}/{}", a, b, c));
         }
 
-        // Seuils et T3/T4 uniquement sur MN
+        // Seuils, T3, T4 uniquement sur MN
         if model == "MN" {
-            for (reg, key) in &[(0x2065,"uv1"), (0x2066,"uv2"), (0x2067,"ov1"), (0x2068,"ov2"), (0x206B,"t3"), (0x206C,"t4")] {
-                if let Some(v) = read_register(&guard, addr, *reg, debug) {
-                    values.insert(key.to_string(), if key.starts_with('t') { format!("{} s", v) } else { format!("{} V", v) });
+            let extra = vec![(0x2065,"uv1"), (0x2066,"uv2"), (0x2067,"ov1"), (0x2068,"ov2"),
+                             (0x206B,"t3"), (0x206C,"t4")];
+            for (reg, key) in extra {
+                if let Some(v) = read_register(&guard, addr, reg, debug) {
+                    let s = if key.starts_with('t') { format!("{} s", v) } else { format!("{} V", v) };
+                    values.insert(key.to_string(), s);
                 } else {
                     values.insert(key.to_string(), "---".to_string());
                 }
@@ -339,7 +342,7 @@ async fn read_all(data: web::Data<Mutex<AppState>>) -> impl Responder {
             values.insert("freq2".to_string(), "N/A".to_string());
         }
 
-        // États sources, commutateur, mode, config Modbus (identique à ton code original)
+        // États sources, commutateur, mode, config (identique à ton original)
         if let Some(power) = read_register(&guard, addr, 0x004F, debug) {
             let decode = |bit: u8| -> String {
                 match (power >> bit) & 0x03 {
@@ -415,24 +418,35 @@ make_cmd!(force_source1, 0x2700, 0x0000, "Forçage Onduleur");
 make_cmd!(force_source2, 0x2700, 0x00AA, "Forçage Réseau");
 
 // Routes de réglage (bloquées sur BN)
-async fn set_undervoltage1(data: web::Data<Mutex<AppState>>, query: web::Query<RegValue>) -> impl Responder {
+async fn set_undervoltage1(data: web::Data<Mutex<AppState>>, _query: web::Query<RegValue>) -> impl Responder {
     let guard = data.lock().unwrap();
-    if guard.model_type.lock().unwrap() != "MN" {
+    if *guard.model_type.lock().unwrap() != "MN" {
         return HttpResponse::Ok().json(serde_json::json!({ "success": false, "error": "Lecture seule sur modèle NXZBN" }));
     }
-    // ... (le reste identique à ta version précédente)
-    // Je te laisse le code original pour ces 4 routes si tu veux, mais pour l'instant je les ai mises en placeholder
     HttpResponse::Ok().json(serde_json::json!({ "success": false, "error": "Lecture seule sur modèle NXZBN" }))
 }
 
-// Les 3 autres set_* sont identiques (même blocage)
-async fn set_undervoltage2(data: web::Data<Mutex<AppState>>, _q: web::Query<RegValue>) -> impl Responder {
+async fn set_undervoltage2(data: web::Data<Mutex<AppState>>, _query: web::Query<RegValue>) -> impl Responder {
+    let guard = data.lock().unwrap();
+    if *guard.model_type.lock().unwrap() != "MN" {
+        return HttpResponse::Ok().json(serde_json::json!({ "success": false, "error": "Lecture seule sur modèle NXZBN" }));
+    }
     HttpResponse::Ok().json(serde_json::json!({ "success": false, "error": "Lecture seule sur modèle NXZBN" }))
 }
-async fn set_overvoltage1(data: web::Data<Mutex<AppState>>, _q: web::Query<RegValue>) -> impl Responder {
+
+async fn set_overvoltage1(data: web::Data<Mutex<AppState>>, _query: web::Query<RegValue>) -> impl Responder {
+    let guard = data.lock().unwrap();
+    if *guard.model_type.lock().unwrap() != "MN" {
+        return HttpResponse::Ok().json(serde_json::json!({ "success": false, "error": "Lecture seule sur modèle NXZBN" }));
+    }
     HttpResponse::Ok().json(serde_json::json!({ "success": false, "error": "Lecture seule sur modèle NXZBN" }))
 }
-async fn set_overvoltage2(data: web::Data<Mutex<AppState>>, _q: web::Query<RegValue>) -> impl Responder {
+
+async fn set_overvoltage2(data: web::Data<Mutex<AppState>>, _query: web::Query<RegValue>) -> impl Responder {
+    let guard = data.lock().unwrap();
+    if *guard.model_type.lock().unwrap() != "MN" {
+        return HttpResponse::Ok().json(serde_json::json!({ "success": false, "error": "Lecture seule sur modèle NXZBN" }));
+    }
     HttpResponse::Ok().json(serde_json::json!({ "success": false, "error": "Lecture seule sur modèle NXZBN" }))
 }
 
