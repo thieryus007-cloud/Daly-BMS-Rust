@@ -106,7 +106,8 @@
     "y": 260,
     "wires": [
       [
-        "meteo_mqtt_out"
+        "meteo_mqtt_out",
+        "mppt_to_http"
       ]
     ]
   },
@@ -180,8 +181,8 @@
     "type": "function",
     "z": "e6e3a16384301f83",
     "name": "Accumuler MPPT yields",
-    "func": "const val = msg.payload && msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nif (val === null || val === undefined || isNaN(val)) return null;\n\nlet mpptYields = global.get('mppt_yields') || {};\nmpptYields[msg.topic] = parseFloat(val) || 0;\nglobal.set('mppt_yields', mpptYields);\n\nconst mpptTotal = Object.values(mpptYields).reduce((a, b) => a + b, 0);\nglobal.set('mppt_yield_today', mpptTotal);\n\n// Mettre à jour total si pvinvToday déjà calculé\nconst pvinvToday = global.get('pvinv_yield_today') || 0;\nconst total = parseFloat((mpptTotal + pvinvToday).toFixed(3));\nif (pvinvToday > 0 || mpptTotal > 0) {\n    global.set('total_yield_today', total);\n}\n\nnode.status({fill:'green', shape:'dot', text:'MPPT: ' + mpptTotal.toFixed(2) + ' kWh'});\nreturn [msg, {}];",
-    "outputs": 2,
+    "func": "const val = msg.payload && msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nif (val === null || val === undefined || isNaN(val)) return null;\n\nlet mpptYields = global.get('mppt_yields') || {};\nmpptYields[msg.topic] = parseFloat(val) || 0;\nglobal.set('mppt_yields', mpptYields);\n\nconst mpptTotal = Object.values(mpptYields).reduce((a, b) => a + b, 0);\nglobal.set('mppt_yield_today', mpptTotal);\n\n// Mettre à jour total si pvinvToday déjà calculé\nconst pvinvToday = global.get('pvinv_yield_today') || 0;\nconst total = parseFloat((mpptTotal + pvinvToday).toFixed(3));\nif (pvinvToday > 0 || mpptTotal > 0) {\n    global.set('total_yield_today', total);\n}\n\nnode.status({fill:'green', shape:'dot', text:'MPPT: ' + mpptTotal.toFixed(2) + ' kWh'});\nreturn [msg, {}, {}];",
+    "outputs": 3,
     "timeout": "",
     "noerr": 0,
     "initialize": "",
@@ -195,6 +196,9 @@
       ],
       [
         "influx_write_fn"
+      ],
+      [
+        "mppt_to_http"
       ]
     ]
   },
@@ -543,6 +547,48 @@
       [
         "yield_yesterday_persist_out"
       ]
+    ]
+  },
+  {
+    "id": "mppt_to_http",
+    "type": "function",
+    "z": "e6e3a16384301f83",
+    "name": "Préparer POST mppt-yield",
+    "func": "// Envoyer mppt_yield_today vers daly-bms-server\n// Déclenché : à chaque mise à jour MPPT + keepalive 5 min\nconst kwh = global.get('mppt_yield_today') || 0;\nmsg.payload = { mppt_yield_kwh: kwh };\nmsg.headers = { 'Content-Type': 'application/json' };\nnode.status({fill:'blue', shape:'dot', text: kwh.toFixed(2) + ' kWh → serveur'});\nreturn msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 760,
+    "y": 440,
+    "wires": [
+      [
+        "mppt_http_req"
+      ]
+    ]
+  },
+  {
+    "id": "mppt_http_req",
+    "type": "http request",
+    "z": "e6e3a16384301f83",
+    "name": "POST /api/v1/solar/mppt-yield",
+    "method": "POST",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "http://localhost:8080/api/v1/solar/mppt-yield",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 980,
+    "y": 440,
+    "wires": [
+      []
     ]
   }
 ]
