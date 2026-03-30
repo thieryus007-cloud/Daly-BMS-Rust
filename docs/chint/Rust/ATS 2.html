@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ATS Mimic Diagram - Onduleur & Grid</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; }
+    .dial {
+      transition: transform 0.6s ease;
+    }
+    .selector {
+      transition: transform 0.5s ease;
+    }
+    .led {
+      width: 28px; height: 28px; border-radius: 50%; box-shadow: 0 0 15px currentColor;
+    }
+  </style>
+</head>
+<body class="bg-zinc-100 py-12">
+  <div class="max-w-4xl mx-auto bg-white border-8 border-gray-800 rounded-3xl shadow-2xl overflow-hidden">
+    
+    <!-- En-tête du panneau -->
+    <div class="bg-gray-800 text-white py-4 px-8 flex justify-between items-center">
+      <h1 class="text-3xl font-bold tracking-wider">AUTOMATIC TRANSFER SWITCH</h1>
+      <div class="text-right">
+        <div class="text-sm text-gray-400">Onduleur ↔ Grid</div>
+      </div>
+    </div>
+
+    <div class="p-10 bg-white">
+      <div class="grid grid-cols-2 gap-12">
+
+        <!-- Colonne gauche : Onduleur + Mode -->
+        <div>
+          <div class="flex items-center gap-4 mb-8">
+            <div class="flex-1">
+              <div class="flex items-center gap-3">
+                <div class="w-20 h-8 border-4 border-red-600 bg-white"></div>
+                <span class="text-xl font-semibold">Onduleur</span>
+              </div>
+            </div>
+            <div class="text-4xl font-light text-gray-300">↔</div>
+            <div class="flex-1">
+              <div class="flex items-center gap-3 justify-end">
+                <span class="text-xl font-semibold">Grid</span>
+                <div class="w-20 h-8 border-4 border-red-600 bg-white"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Timers -->
+          <div class="flex justify-center gap-16 mb-12">
+            <div class="text-center">
+              <svg width="110" height="110" viewBox="0 0 100 100" class="dial mx-auto">
+                <circle cx="50" cy="50" r="42" fill="none" stroke="#e5e7eb" stroke-width="12"/>
+                <circle cx="50" cy="50" r="42" fill="none" stroke="#3b82f6" stroke-width="12" stroke-dasharray="264" stroke-dashoffset="80" transform="rotate(-90 50 50)"/>
+                <text x="50" y="55" text-anchor="middle" font-size="18" font-weight="600" fill="#1f2937">T1(s)</text>
+              </svg>
+              <div class="mt-3 text-sm font-medium">10  0  20<br>30</div>
+            </div>
+
+            <div class="text-center">
+              <svg width="110" height="110" viewBox="0 0 100 100" class="dial mx-auto">
+                <circle cx="50" cy="50" r="42" fill="none" stroke="#e5e7eb" stroke-width="12"/>
+                <circle cx="50" cy="50" r="42" fill="none" stroke="#3b82f6" stroke-width="12" stroke-dasharray="264" stroke-dashoffset="100" transform="rotate(-90 50 50)"/>
+                <text x="50" y="55" text-anchor="middle" font-size="18" font-weight="600" fill="#1f2937">T2(s)</text>
+              </svg>
+              <div class="mt-3 text-sm font-medium">10  0  20<br>30</div>
+            </div>
+          </div>
+
+          <!-- Sélecteur de Mode -->
+          <div class="flex flex-col items-center">
+            <div class="relative">
+              <svg width="180" height="180" viewBox="0 0 180 180">
+                <!-- Cercle principal -->
+                <circle cx="90" cy="90" r="75" fill="none" stroke="#d1d5db" stroke-width="35"/>
+                <!-- Positions -->
+                <text x="90" y="35" text-anchor="middle" font-size="15" font-weight="600" fill="#1f2937">Mode 1</text>
+                <text x="145" y="85" text-anchor="middle" font-size="15" font-weight="600" fill="#1f2937">Mode 2</text>
+                <text x="90" y="145" text-anchor="middle" font-size="15" font-weight="600" fill="#1f2937">Mode 3</text>
+                <text x="35" y="85" text-anchor="middle" font-size="15" font-weight="600" fill="#1f2937">Mode 4</text>
+                
+                <!-- Sélecteur actuel (Mode 1) -->
+                <g id="mode-selector">
+                  <circle cx="90" cy="35" r="18" fill="#22c55e"/>
+                  <line x1="90" y1="90" x2="90" y2="35" stroke="#15803d" stroke-width="14" stroke-linecap="round"/>
+                </g>
+              </svg>
+            </div>
+            
+            <div class="mt-6 flex gap-8 text-sm">
+              <div class="flex items-center gap-2">
+                <div class="w-6 h-6 bg-green-500 rounded"></div>
+                <span class="font-medium">Mode sélectionné</span>
+              </div>
+              <div class="text-green-600 font-medium flex items-center gap-2">
+                ← Mode 1
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Colonne droite : Auto/Manual + Légende -->
+        <div class="space-y-10">
+          <!-- Bouton Auto / Manual -->
+          <div class="flex justify-center">
+            <div class="bg-gray-200 border-4 border-gray-800 rounded-xl p-2 w-64">
+              <div class="flex bg-white rounded-lg overflow-hidden shadow-inner">
+                <div onclick="setMode('auto')" id="btn-auto"
+                     class="flex-1 py-6 text-center font-bold text-lg bg-blue-500 text-white cursor-pointer transition">
+                  Auto
+                </div>
+                <div onclick="setMode('manual')" id="btn-manual"
+                     class="flex-1 py-6 text-center font-bold text-lg cursor-pointer transition">
+                  Manual/Reset
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Légende des modes -->
+          <div class="bg-zinc-50 border border-gray-300 rounded-2xl p-6 text-sm">
+            <table class="w-full">
+              <thead>
+                <tr class="border-b">
+                  <th class="text-left py-2 font-semibold">Mode</th>
+                  <th class="text-left py-2 font-semibold">Description</th>
+                </tr>
+              </thead>
+              <tbody class="text-gray-700">
+                <tr class="border-b">
+                  <td class="py-2 font-medium">1</td>
+                  <td>Automatic charge and recovery</td>
+                </tr>
+                <tr class="border-b">
+                  <td class="py-2 font-medium">2</td>
+                  <td>Automatic charge and no recovery</td>
+                </tr>
+                <tr class="border-b">
+                  <td class="py-2 font-medium">3</td>
+                  <td>Mutual backup operation</td>
+                </tr>
+                <tr>
+                  <td class="py-2 font-medium">4</td>
+                  <td>Test mode</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Indicateurs de statut -->
+          <div class="flex justify-center gap-12">
+            <div class="text-center">
+              <div class="led bg-green-500 mx-auto mb-2"></div>
+              <div class="text-xs font-medium text-green-700">ONDULEUR OK</div>
+            </div>
+            <div class="text-center">
+              <div class="led bg-green-500 mx-auto mb-2"></div>
+              <div class="text-xs font-medium text-green-700">GRID OK</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pied de page du panneau -->
+    <div class="bg-gray-800 text-white py-4 px-8 text-center text-sm">
+      Automatic Transfer Switch - Mimic Diagram • Positions interactives
+    </div>
+  </div>
+
+  <script>
+    function setMode(mode) {
+      const btnAuto = document.getElementById('btn-auto');
+      const btnManual = document.getElementById('btn-manual');
+
+      if (mode === 'auto') {
+        btnAuto.classList.add('bg-blue-500', 'text-white');
+        btnManual.classList.remove('bg-blue-500', 'text-white');
+      } else {
+        btnManual.classList.add('bg-blue-500', 'text-white');
+        btnAuto.classList.remove('bg-blue-500', 'text-white');
+      }
+    }
+
+    // Initialisation
+    window.onload = () => {
+      setMode('auto');
+    };
+  </script>
+</body>
+</html>
