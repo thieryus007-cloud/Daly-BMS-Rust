@@ -151,10 +151,10 @@ footer { text-align: center; margin-top: 24px; font-size: 12px; color: #64748b; 
 </div>
 </div>
 
-<!-- Carte 2: État Commutation (Reg 0x0050) AMELIOREE -->
+<!-- Carte 2: État Commutation -->
 <div class="card" id="cardReg50">
 <div class="card-title">
-<span>🔄</span> État Commutation (Reg 0x0050) - Décodage complet
+<span>🔄</span> État Commutation 
 <div class="info-badge" style="margin-left: auto;" id="remoteBadgeReg">🔒 Télécom: OFF</div>
 </div>
 <div class="data-row"><span class="data-label">Mode opératoire</span><span class="data-value" id="swModeReg">---</span></div>
@@ -192,19 +192,11 @@ footer { text-align: center; margin-top: 24px; font-size: 12px; color: #64748b; 
 <button class="action-btn action-btn-primary" id="forceReseauAutoBtn" onclick="forceSource2WithRemote()" style="flex: 1;">⚡ Forcer Réseau (auto)</button>
 <button class="action-btn" onclick="sendCmd('force_source2')">🎮 Direct</button>
 </div>
-<div class="warning-text" style="font-size: 10px; margin: 0;">💡 Auto = active/désactive la télécommande automatiquement</div>
+<div class="warning-text" style="font-size: 10px; margin: 0;">💡 Auto = active/désactive la télécommande</div>
 </div>
 </div>
 </div>
 
-<!-- Barre d'info télécommande globale -->
-<div class="info-bar">
-<div class="info-group">
-<div class="info-item"><span class="info-label">🎮 État télécommande</span><span class="info-value" id="globalRemoteState">🔒 Inactive</span></div>
-<button class="action-btn" onclick="sendCmd('remote_on')" style="background:#22c55e;color:white;">📡 Activer</button>
-<button class="action-btn" onclick="sendCmd('remote_off')" style="background:#ef4444;color:white;">🔒 Désactiver</button>
-</div>
-</div>
 
 <!-- Console Modbus -->
 <div class="console-card">
@@ -457,7 +449,7 @@ async function refreshNow() {
                 const isRemoteActive = data.values.swRemote === "📡 Activé";
                 updateRemoteBanner(isRemoteActive);
                 updateRemoteIndicators(isRemoteActive);
-                document.getElementById('globalRemoteState').innerHTML = isRemoteActive ? '📡 Activée' : '🔒 Inactive';
+                //document.getElementById('globalRemoteState').innerHTML = isRemoteActive ? '📡 Activée' : '🔒 Inactive';
                 document.getElementById('remoteBadgeReg').innerHTML = isRemoteActive ? '📡 Télécom: ON' : '🔒 Télécom: OFF';
                 if (isRemoteActive) document.getElementById('remoteBadgeReg').style.background = '#22c55e';
                 else document.getElementById('remoteBadgeReg').style.background = '#e2e8f0';
