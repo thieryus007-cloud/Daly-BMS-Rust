@@ -156,9 +156,7 @@ const ET112_DEVS = [{% for d in et112_list %}{"addr":{{ d.address }},"type":"{{ 
       </div>
 
       <div class="ov-hero">
-        <div class="ov-big c-solar" id="solar-w">
-          {% for d in et112_list %}{% if d.service_type == "pvinverter" %}{% if d.connected %}{{ d.power_w|f0 }}{% else %}—{% endif %}{% endif %}{% endfor %}
-        </div>
+        <div class="ov-big c-solar" id="solar-w">—</div>
         <div class="ov-unit c-solar">W Production solaire</div>
 
         <div class="ov-sub">
@@ -167,7 +165,7 @@ const ET112_DEVS = [{% for d in et112_list %}{"addr":{{ d.address }},"type":"{{ 
             <div class="ov-sub-lbl" style="color:#a16207">W/m² Irrad.</div>
           </div>
           <div class="ov-sub-cell">
-            <div class="ov-sub-val c-solar" id="solar-kwh">{% for d in et112_list %}{% if d.service_type == "pvinverter" %}{{ d.energy_kwh|f2 }}{% endif %}{% endfor %}</div>
+            <div class="ov-sub-val c-solar" id="solar-kwh">—</div>
             <div class="ov-sub-lbl" style="color:#92400e">kWh Auj.</div>
           </div>
         </div>
@@ -611,7 +609,7 @@ async function refresh() {
   // Feed rolling history
   const t    = new Date().toLocaleTimeString('fr-FR');
   const soc  = combinedSoc();
-  const solW = et112 ? et112.solarW : 0;
+  const solW = (et112 ? et112.solarW : 0) + mpptPowerW;
   const ldW  = et112 ? et112.loadW  : 0;
 
   hTime .push(t);    if (hTime .length > MAX_PTS) hTime .shift();
