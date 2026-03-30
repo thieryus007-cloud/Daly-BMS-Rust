@@ -98,6 +98,7 @@ pub async fn get_irradiance_status(State(state): State<AppState>) -> impl IntoRe
                 "timestamp": snap.timestamp.to_rfc3339(),
                 "total_yield_kwh": *state.mppt_yield_kwh.read().await,
                 "mppt_power_w":    *state.mppt_power_w.read().await,
+                "solar_total_w":   *state.solar_total_w.read().await,
             })),
         ),
         None => (
@@ -107,6 +108,7 @@ pub async fn get_irradiance_status(State(state): State<AppState>) -> impl IntoRe
                 "irradiance_wm2": 0.0,
                 "total_yield_kwh": *state.mppt_yield_kwh.read().await,
                 "mppt_power_w":    *state.mppt_power_w.read().await,
+                "solar_total_w":   *state.solar_total_w.read().await,
             })),
         ),
     }
@@ -119,14 +121,17 @@ pub struct MpptYieldBody {
     pub total_yield_kwh: Option<f32>,
     /// Rétrocompat ancien nom de champ.
     pub mppt_yield_kwh:  Option<f32>,
-    /// Puissance MPPT instantanée totale en W (somme de tous les chargeurs).
+    /// Puissance MPPT seule en W (273+289, sans ET112).
     pub mppt_power_w:    Option<f32>,
+    /// Puissance solaire totale en W = MPPT + ET112 PVInverter (source VRM Node-RED).
+    /// Champ canonique depuis Solar_power.json — source de vérité pour le dashboard.
+    pub solar_total_w:   Option<f32>,
 }
 
 /// POST /api/v1/solar/mppt-yield
 ///
 /// Mise à jour partielle : seuls les champs présents dans le body sont écrits.
-/// Solar_power.json envoie uniquement mppt_power_w (puissance instantanée).
+/// Solar_power.json envoie solar_total_w + mppt_power_w.
 /// meteo.json envoie total_yield_kwh + mppt_power_w (keepalive kWh).
 pub async fn set_mppt_yield(
     State(state): State<AppState>,
@@ -138,9 +143,18 @@ pub async fn set_mppt_yield(
     if let Some(pw) = body.mppt_power_w {
         *state.mppt_power_w.write().await = pw;
     }
+    if let Some(tw) = body.solar_total_w {
+        *state.solar_total_w.write().await = tw;
+    }
     let kwh = *state.mppt_yield_kwh.read().await;
     let pw  = *state.mppt_power_w.read().await;
-    (StatusCode::OK, Json(json!({ "ok": true, "total_yield_kwh": kwh, "mppt_power_w": pw })))
+    let tw  = *state.solar_total_w.read().await;
+    (StatusCode::OK, Json(json!({
+        "ok": true,
+        "total_yield_kwh": kwh,
+        "mppt_power_w":    pw,
+        "solar_total_w":   tw,
+    })))
 }
 
 /// GET /api/v1/discover

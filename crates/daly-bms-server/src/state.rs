@@ -163,6 +163,10 @@ pub struct AppState {
     /// Puissance MPPT instantanée totale en W (somme de tous les chargeurs solaires).
     /// Publiée par Node-RED via POST /api/v1/solar/mppt-yield.
     pub mppt_power_w: Arc<RwLock<f32>>,
+
+    /// Puissance solaire totale en W = MPPT 273+289 + PV Inverter ET112 (VRM).
+    /// Source unique : Solar_power.json Node-RED (via POST solar_total_w).
+    pub solar_total_w: Arc<RwLock<f32>>,
 }
 
 impl AppState {
@@ -202,6 +206,7 @@ impl AppState {
             tasmota_buffers: Arc::new(RwLock::new(tasmota_buffers)),
             mppt_yield_kwh: Arc::new(RwLock::new(0.0)),
             mppt_power_w:   Arc::new(RwLock::new(0.0)),
+            solar_total_w:  Arc::new(RwLock::new(0.0)),
         }
     }
 
