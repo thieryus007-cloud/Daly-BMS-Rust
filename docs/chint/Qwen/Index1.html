@@ -30,11 +30,9 @@ body { font-family: 'Segoe UI', system-ui; background: linear-gradient(135deg, #
 .log-line.success { color: #16a34a; }
 .log-line.error { color: #ef4444; }
 .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 20px; }
-.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 20px; }
-.card { background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); border-radius: 20px; padding: 20px; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: transform 0.2s; }
-.card:hover { transform: translateY(-2px); }
+.card { background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); border-radius: 20px; padding: 20px; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: all 0.3s ease; }
 
-/* Styles pour les contours clignotants */
+/* Contours clignotants */
 .card-active-source1 {
     border: 3px solid #3b82f6;
     box-shadow: 0 0 15px rgba(59,130,246,0.5);
@@ -69,6 +67,82 @@ body { font-family: 'Segoe UI', system-ui; background: linear-gradient(135deg, #
     0% { border-color: #ef4444; box-shadow: 0 0 5px rgba(239,68,68,0.3); }
     50% { border-color: #f87171; box-shadow: 0 0 25px rgba(239,68,68,0.9); }
     100% { border-color: #ef4444; box-shadow: 0 0 5px rgba(239,68,68,0.3); }
+}
+
+/* Slider à 3 positions (style interrupteur industriel) */
+.selector-container {
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    border-radius: 60px;
+    padding: 8px;
+    margin: 20px 0;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.three-way-switch {
+    display: flex;
+    background: #334155;
+    border-radius: 50px;
+    padding: 4px;
+    gap: 4px;
+}
+
+.switch-option {
+    flex: 1;
+    text-align: center;
+    padding: 12px 8px;
+    border-radius: 40px;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: #94a3b8;
+    border: none;
+    background: transparent;
+}
+
+.switch-option:hover {
+    background: rgba(255,255,255,0.1);
+    color: #f1f5f9;
+}
+
+.switch-option.active {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+    box-shadow: 0 2px 8px rgba(59,130,246,0.4);
+}
+
+.switch-option.source1-active {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+}
+
+.switch-option.source2-active {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+}
+
+.switch-option.middle-active {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+}
+
+.switch-option:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.position-indicator {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+    padding: 0 15px;
+    color: #64748b;
+    font-size: 10px;
+}
+
+.position-indicator span {
+    text-align: center;
+    flex: 1;
 }
 
 .card-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -151,6 +225,27 @@ footer { text-align: center; margin-top: 24px; font-size: 12px; color: #64748b; 
 </div>
 </div>
 </div>
+
+<!-- SELECTEUR 3 POSITIONS PROFESSIONNEL -->
+<div class="selector-container">
+<div class="three-way-switch">
+<button class="switch-option" id="selectSource1" onclick="selectPosition('source1')">
+🔋 ON - Onduleur
+</button>
+<button class="switch-option" id="selectMiddle" onclick="selectPosition('middle')">
+⏹️ OFF - Central
+</button>
+<button class="switch-option" id="selectSource2" onclick="selectPosition('source2')">
+⚡ ON - Réseau
+</button>
+</div>
+<div class="position-indicator">
+<span>🔵 Onduleur</span>
+<span>🔴 Arrêt central</span>
+<span>🟠 Réseau</span>
+</div>
+</div>
+
 <div class="info-bar">
 <div class="info-group">
 <div class="info-item"><span class="info-label">🔀 SOURCE ACTIVE</span><span class="info-value" id="activeSource">---</span></div>
@@ -158,7 +253,6 @@ footer { text-align: center; margin-top: 24px; font-size: 12px; color: #64748b; 
 <div class="info-item"><span class="info-label">Adresse ModBus</span><span class="data-value" id="modbus_addr">---</span></div>
 <div class="info-item"><span class="info-label">Baud rate</span><span class="data-value" id="modbus_baud">---</span></div>
 <div class="info-item"><span class="info-label">Parité</span><span class="data-value" id="modbus_parity">---</span></div>
-</div>
 </div>
 </div>
 
@@ -185,7 +279,6 @@ footer { text-align: center; margin-top: 24px; font-size: 12px; color: #64748b; 
 <button class="action-btn action-btn-primary" id="forceOnduleurAutoBtn" onclick="forceSource1WithRemote()" style="flex: 1;">🔋 Forcer Onduleur (auto)</button>
 <button class="action-btn" onclick="sendCmd('force_source1')">⚡ Direct</button>
 </div>
-<div class="warning-text" style="font-size: 10px; margin: 0;">💡 Auto = active/désactive la télécommande automatiquement</div>
 </div>
 </div>
 
@@ -205,9 +298,7 @@ footer { text-align: center; margin-top: 24px; font-size: 12px; color: #64748b; 
 <div class="action-buttons">
 <button class="action-btn" onclick="sendCmd('remote_on')">📡 Activer télécommande</button>
 <button class="action-btn" onclick="sendCmd('remote_off')">🔒 Désactiver télécommande</button>
-<button class="action-btn" onclick="sendCmd('force_double')" style="background:#ef4444;color:white;">⏹️ Forcer OFF</button>
 </div>
-<div class="warning-text" style="margin-top: 8px;">⚠️ Les boutons "Forcer OFF" et "Direct" nécessitent télécommande active</div>
 </div>
 
 <!-- Carte 3: Réseau -->
@@ -230,7 +321,6 @@ footer { text-align: center; margin-top: 24px; font-size: 12px; color: #64748b; 
 <button class="action-btn action-btn-primary" id="forceReseauAutoBtn" onclick="forceSource2WithRemote()" style="flex: 1;">⚡ Forcer Réseau (auto)</button>
 <button class="action-btn" onclick="sendCmd('force_source2')">🎮 Direct</button>
 </div>
-<div class="warning-text" style="font-size: 10px; margin: 0;">💡 Auto = active/désactive la télécommande</div>
 </div>
 </div>
 </div>
@@ -274,6 +364,92 @@ let autoInterval = null;
 let debugEnabled = false;
 let logLines = ["✨ Prêt", "---", "---", "---"];
 let isExecutingCommand = false;
+
+// ==================== SELECTEUR 3 POSITIONS ====================
+async function selectPosition(position) {
+    if (isExecutingCommand) {
+        updateCompactLog('⏳ Commande en cours, veuillez patienter...', 'warning');
+        return;
+    }
+    
+    // Désactiver tous les boutons du sélecteur pendant l'opération
+    const btns = ['selectSource1', 'selectMiddle', 'selectSource2'];
+    btns.forEach(id => {
+        document.getElementById(id).disabled = true;
+    });
+    
+    isExecutingCommand = true;
+    
+    try {
+        // Activer la télécommande
+        updateCompactLog('🔧 Activation télécommande...', 'send');
+        let resp = await fetch('/api/remote_on', { method: 'POST' });
+        let data = await resp.json();
+        if (!data.success) throw new Error('Échec activation télécommande');
+        
+        await new Promise(r => setTimeout(r, 300));
+        
+        // Exécuter la commande selon la position
+        let cmd = '';
+        let cmdName = '';
+        if (position === 'source1') {
+            cmd = 'force_source1';
+            cmdName = 'Forçage Onduleur';
+            updateCompactLog('🔋 Forçage source Onduleur...', 'send');
+        } else if (position === 'source2') {
+            cmd = 'force_source2';
+            cmdName = 'Forçage Réseau';
+            updateCompactLog('⚡ Forçage source Réseau...', 'send');
+        } else if (position === 'middle') {
+            cmd = 'force_double';
+            cmdName = 'Forçage OFF (position centrale)';
+            updateCompactLog('⏹️ Forçage position centrale...', 'send');
+        }
+        
+        resp = await fetch('/api/' + cmd, { method: 'POST' });
+        data = await resp.json();
+        if (!data.success) throw new Error(data.error || `Échec ${cmdName}`);
+        
+        await new Promise(r => setTimeout(r, 300));
+        
+        // Désactiver la télécommande
+        updateCompactLog('🔒 Désactivation télécommande...', 'send');
+        await fetch('/api/remote_off', { method: 'POST' });
+        
+        updateCompactLog(`✅ ${cmdName} réussi !`, 'success');
+        setTimeout(refreshNow, 500);
+        
+    } catch(e) {
+        updateCompactLog(`❌ Erreur: ${e.message}`, 'error');
+        try { await fetch('/api/remote_off', { method: 'POST' }); } catch(_) {}
+    } finally {
+        isExecutingCommand = false;
+        btns.forEach(id => {
+            document.getElementById(id).disabled = false;
+        });
+        setTimeout(refreshNow, 300);
+    }
+}
+
+// Mettre à jour l'état visuel du sélecteur
+function updateSelectorState(activeSource, isMiddleOFF) {
+    const btnSource1 = document.getElementById('selectSource1');
+    const btnSource2 = document.getElementById('selectSource2');
+    const btnMiddle = document.getElementById('selectMiddle');
+    
+    // Reset classes
+    btnSource1.classList.remove('source1-active', 'active');
+    btnSource2.classList.remove('source2-active', 'active');
+    btnMiddle.classList.remove('middle-active', 'active');
+    
+    if (isMiddleOFF) {
+        btnMiddle.classList.add('middle-active', 'active');
+    } else if (activeSource === 'source1') {
+        btnSource1.classList.add('source1-active', 'active');
+    } else if (activeSource === 'source2') {
+        btnSource2.classList.add('source2-active', 'active');
+    }
+}
 
 // ==================== CRC ====================
 function calculateCRC(data) {
@@ -407,20 +583,22 @@ function updateBlinkingBorders(v1a, v2a, middleOFF) {
     // Vérifier si middleOFF est actif (position centrale)
     const isMiddleOFF = middleOFF === "✅ Actif" || middleOFF === "Actif" || middleOFF === true;
     
-    if (isMiddleOFF || (tensionOnduleur < 50 && tensionReseau < 50)) {
-        // Aucune source sélectionnée - contour ROUGE clignotant sur cardReg50
+    if (isMiddleOFF) {
+        // Position centrale - contour ROUGE sur cardReg50
         cardReg50.classList.add('card-active-middle');
-        updateCompactLog('⚠️ Aucune source active - position centrale', 'warning');
+        updateSelectorState(null, true);
     } 
     else if (tensionOnduleur > 50 && tensionOnduleur > tensionReseau) {
-        // Source Onduleur active - contour BLEU clignotant
+        // Source Onduleur active - contour BLEU
         cardOnduleur.classList.add('card-active-source1');
-        updateCompactLog('🔵 Source Onduleur active - contour bleu', 'info');
+        updateSelectorState('source1', false);
     }
     else if (tensionReseau > 50 && tensionReseau > tensionOnduleur) {
-        // Source Réseau active - contour ORANGE clignotant
+        // Source Réseau active - contour ORANGE
         cardReseau.classList.add('card-active-source2');
-        updateCompactLog('🟠 Source Réseau active - contour orange', 'info');
+        updateSelectorState('source2', false);
+    } else {
+        updateSelectorState(null, false);
     }
 }
 
@@ -529,11 +707,20 @@ async function refreshNow() {
             if (data.values.sw2) document.getElementById('sw2').innerHTML = data.values.sw2;
             if (data.values.middleOFF) document.getElementById('middleOFF').innerHTML = data.values.middleOFF;
 
-            const v1a = parseInt(data.values.v1a) || 0;
-            const v2a = parseInt(data.values.v2a) || 0;
+            const v1a = parseFloat(data.values.v1a) || 0;
+            const v2a = parseFloat(data.values.v2a) || 0;
             const middleOFF = data.values.middleOFF || "";
             
-            document.getElementById('activeSource').innerHTML = v1a > 50 ? "🔋 Onduleur" : (v2a > 50 ? "⚡ Réseau" : "❌ Aucune");
+            // Déterminer la source active pour l'affichage texte
+            let activeSourceText = "❌ Aucune";
+            if (middleOFF === "✅ Actif") {
+                activeSourceText = "⏹️ Position centrale (OFF)";
+            } else if (v1a > 50 && v1a > v2a) {
+                activeSourceText = "🔋 Onduleur";
+            } else if (v2a > 50 && v2a > v1a) {
+                activeSourceText = "⚡ Réseau";
+            }
+            document.getElementById('activeSource').innerHTML = activeSourceText;
 
             const onduleurConnected = v1a > 50;
             const reseauConnected = v2a > 50;
