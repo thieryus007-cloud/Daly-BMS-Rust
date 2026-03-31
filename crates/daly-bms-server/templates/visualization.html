@@ -1,0 +1,435 @@
+{% extends "base.html" %}
+{% block title %}Visualisation ESS{% endblock %}
+{% block page_title %}⚡ Visualisation Système{% endblock %}
+{% block nav_viz %}active{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/reactflow@11/dist/style.css">
+<style>
+  main { padding: 0 !important; max-width: 100% !important; height: calc(100vh - var(--topbar-h)); overflow: hidden; }
+
+  /* ── ReactFlow canvas ── */
+  .react-flow { background: #f0f4f8; }
+  .react-flow__node { border: none !important; background: transparent !important; padding: 0 !important; border-radius: 0 !important; box-shadow: none !important; }
+  .react-flow__handle { width: 8px; height: 8px; border-radius: 50%; border: 2px solid #fff; background: #94a3b8; opacity: 0; transition: opacity 0.2s; }
+  .react-flow__node:hover .react-flow__handle { opacity: 1; }
+  .react-flow__controls { box-shadow: 0 1px 3px rgba(15,23,42,.1); border-radius: 8px; border: 1px solid #d6dce5; overflow: hidden; }
+  .react-flow__controls-button { background: #fff; border: none; border-bottom: 1px solid #d6dce5; color: #4b5563; }
+  .react-flow__controls-button:hover { background: #f5f7fa; }
+  .react-flow__controls-button:last-child { border-bottom: none; }
+
+  /* ── Node: Summary (top row) ── */
+  .sn { width: 195px; background: #fff; border: 1px solid #d6dce5; border-radius: 10px; padding: 10px 13px; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(15,23,42,.06),0 2px 8px rgba(15,23,42,.04); cursor: default; }
+  .sn-icon { font-size: 1.55rem; flex-shrink: 0; line-height: 1; }
+  .sn-body { flex: 1; min-width: 0; }
+  .sn-label { font-size: 0.6rem; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.07em; }
+  .sn-value { font-size: 1.05rem; font-weight: 800; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+  .sn-sub { font-size: 0.63rem; color: #94a3b8; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sn-dot { width: 7px; height: 7px; border-radius: 50%; background: #94a3b8; flex-shrink: 0; }
+  .sn-dot.live { background: #16a34a; box-shadow: 0 0 6px rgba(22,163,74,.5); animation: nd-blink 2s infinite; }
+  .sn-dot.warn { background: #ca8a04; }
+  .sn-dot.alarm { background: #dc2626; box-shadow: 0 0 6px rgba(220,38,38,.5); animation: nd-blink 1s infinite; }
+
+  /* ── Node: BMS ── */
+  .bms-nd { width: 215px; background: #fff; border: 1px solid #d6dce5; border-radius: 10px; padding: 10px 12px; box-shadow: 0 1px 3px rgba(15,23,42,.06),0 2px 8px rgba(15,23,42,.04); cursor: default; }
+  .bms-nd.alarm { border-color: #fca5a5; background: #fff9f9; }
+  .bms-hdr { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+  .bms-name { font-size: 0.78rem; font-weight: 700; color: #0f172a; flex: 1; }
+  .bms-live-dot { width: 7px; height: 7px; border-radius: 50%; background: #94a3b8; flex-shrink: 0; }
+  .bms-live-dot.on { background: #16a34a; box-shadow: 0 0 6px rgba(22,163,74,.5); animation: nd-blink 2.5s infinite; }
+  .bms-bar-bg { background: #e2e8f0; border-radius: 3px; height: 5px; margin-bottom: 8px; overflow: hidden; }
+  .bms-bar-fill { height: 100%; border-radius: 3px; transition: width 1.2s ease, background 0.6s; }
+  .bms-kpis { display: flex; gap: 4px; }
+  .bms-kpi { flex: 1; background: #f8fafc; border-radius: 6px; padding: 4px 5px; text-align: center; border: 1px solid #e2e8f0; }
+  .bms-kpi-v { font-size: 0.82rem; font-weight: 700; color: #0f172a; line-height: 1.2; }
+  .bms-kpi-l { font-size: 0.53rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 1px; }
+  .bms-pwr { font-size: 0.68rem; color: #4b5563; text-align: center; margin-top: 7px; padding-top: 6px; border-top: 1px solid #f0f4f8; font-family: 'JetBrains Mono', monospace; letter-spacing: -0.02em; }
+  .bms-wait { font-size: 0.7rem; color: #94a3b8; font-style: italic; text-align: center; padding: 4px 0; }
+
+  /* ── Node: Device (ET112 measured) ── */
+  .dev-nd { width: 185px; background: #fff; border: 1px solid #d6dce5; border-radius: 10px; padding: 10px 12px; box-shadow: 0 1px 3px rgba(15,23,42,.06),0 2px 8px rgba(15,23,42,.04); cursor: default; }
+  .dev-hdr { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .dev-lbl { font-size: 0.78rem; font-weight: 700; color: #0f172a; flex: 1; }
+  .dev-dot { width: 7px; height: 7px; border-radius: 50%; background: #94a3b8; flex-shrink: 0; }
+  .dev-dot.on { background: #16a34a; box-shadow: 0 0 6px rgba(22,163,74,.5); animation: nd-blink 2.5s infinite; }
+  .dev-pwr { font-size: 1.05rem; font-weight: 800; color: #0f172a; font-family: 'JetBrains Mono', monospace; }
+  .dev-nrj { font-size: 0.63rem; color: #94a3b8; margin-top: 2px; }
+  .dev-wait { font-size: 0.68rem; color: #94a3b8; font-style: italic; }
+
+  /* ── Node: Hub (ATS, Onduleur, Lynx, Shunt) ── */
+  .hub-nd { width: 165px; background: #fff; border: 1.5px solid #b8c2cf; border-radius: 10px; padding: 11px 13px; text-align: center; box-shadow: 0 1px 3px rgba(15,23,42,.06),0 2px 8px rgba(15,23,42,.04); cursor: default; }
+  .hub-icon { font-size: 1.35rem; line-height: 1; margin-bottom: 4px; }
+  .hub-lbl { font-size: 0.82rem; font-weight: 700; color: #0f172a; }
+  .hub-sub { font-size: 0.62rem; color: #94a3b8; margin-top: 2px; }
+
+  /* ── Node: Placeholder ── */
+  .ph-nd { width: 155px; background: #f8fafc; border: 1.5px dashed #b8c2cf; border-radius: 10px; padding: 10px 12px; text-align: center; cursor: default; }
+  .ph-icon { font-size: 1.1rem; display: block; margin-bottom: 3px; line-height: 1; }
+  .ph-lbl { font-size: 0.78rem; font-weight: 600; color: #4b5563; }
+  .ph-badge { display: inline-block; font-size: 0.57rem; color: #94a3b8; font-style: italic; background: #e2e8f0; border-radius: 4px; padding: 1px 6px; margin-top: 4px; }
+
+  /* ── Animations ── */
+  @keyframes nd-blink { 0%,100%{opacity:1}50%{opacity:0.35} }
+
+  /* ── Panel overlays ── */
+  .viz-panel { background: rgba(255,255,255,0.92); border: 1px solid #d6dce5; border-radius: 8px; padding: 6px 11px; font-size: 0.7rem; color: #4b5563; backdrop-filter: blur(6px); box-shadow: 0 1px 4px rgba(15,23,42,.08); }
+  .viz-legend { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .viz-leg-item { display: flex; align-items: center; gap: 5px; font-size: 0.65rem; color: #6b7280; }
+  .viz-leg-line { width: 22px; height: 3px; border-radius: 2px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="ess-flow-root" style="width:100%;height:calc(100vh - 56px)"></div>
+
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/reactflow@11/dist/umd/index.js" crossorigin></script>
+<script>
+'use strict';
+
+/* ── Shorthand ──────────────────────────────────────────────────────────── */
+const h = React.createElement;
+const { useState, useEffect, useCallback } = React;
+const {
+  ReactFlow, Background, Controls, Panel,
+  Handle, Position,
+  useNodesState, useEdgesState,
+  MarkerType,
+} = window.ReactFlow;
+
+/* ── Helpers ────────────────────────────────────────────────────────────── */
+const fmtKw  = w  => w  != null ? `${(w  / 1000).toFixed(2)} kW`  : '—';
+const fmtKwh = wh => wh != null ? `${wh.toFixed(1)} kWh`           : '—';
+const socColor = s => s > 60 ? '#16a34a' : s > 30 ? '#ca8a04' : '#dc2626';
+
+function mkHandle(type, pos, id, style) {
+  return h(Handle, { type, position: pos, id, style: { background: '#94a3b8', width: 8, height: 8, ...style } });
+}
+
+/* ── Node: SummaryNode ──────────────────────────────────────────────────── */
+function SummaryNode({ data }) {
+  return h('div', { className: 'sn' },
+    mkHandle('source', Position.Bottom, 'sb'),
+    mkHandle('target', Position.Bottom, 'tb', { left: '65%' }),
+    h('div', { className: 'sn-icon' }, data.icon),
+    h('div', { className: 'sn-body' },
+      h('div', { className: 'sn-label' }, data.label),
+      h('div', { className: 'sn-value' }, data.value ?? '—'),
+      h('div', { className: 'sn-sub'   }, data.sub   ?? '\u00a0')
+    ),
+    h('div', { className: `sn-dot ${data.dotClass ?? ''}` })
+  );
+}
+
+/* ── Node: BmsNode ──────────────────────────────────────────────────────── */
+function BmsNode({ data }) {
+  const live  = data.live;
+  const soc   = live?.soc   ?? null;
+  const cur   = live?.dc?.current ?? null;
+  const pwr   = live?.dc?.power   ?? null;
+  const alarm = live?.alarms ? Object.values(live.alarms).some(v => v > 0) : false;
+
+  return h('div', { className: `bms-nd${alarm ? ' alarm' : ''}` },
+    mkHandle('target', Position.Top, 'tt'),
+    h('div', { className: 'bms-hdr' },
+      h('span', null, '🔋'),
+      h('span', { className: 'bms-name' }, data.label),
+      h('div',  { className: `bms-live-dot${live ? ' on' : ''}` })
+    ),
+    h('div', { className: 'bms-bar-bg' },
+      h('div', {
+        className: 'bms-bar-fill',
+        style: { width: `${soc ?? 0}%`, background: soc != null ? socColor(soc) : '#e2e8f0' }
+      })
+    ),
+    h('div', { className: 'bms-kpis' },
+      h('div', { className: 'bms-kpi' },
+        h('div', { className: 'bms-kpi-v' }, soc != null ? `${soc.toFixed(0)}%` : '—'),
+        h('div', { className: 'bms-kpi-l' }, 'SOC')
+      ),
+      h('div', { className: 'bms-kpi' },
+        h('div', { className: 'bms-kpi-v' }, live?.dc?.voltage != null ? `${live.dc.voltage.toFixed(1)}V` : '—'),
+        h('div', { className: 'bms-kpi-l' }, 'Tension')
+      ),
+      h('div', { className: 'bms-kpi' },
+        h('div', {
+          className: 'bms-kpi-v',
+          style: { color: cur != null ? (cur < 0 ? '#dc2626' : cur > 0 ? '#2563eb' : '#0f172a') : undefined }
+        }, cur != null ? `${cur > 0 ? '+' : ''}${cur.toFixed(1)}A` : '—'),
+        h('div', { className: 'bms-kpi-l' }, 'Courant')
+      )
+    ),
+    h('div', { className: 'bms-pwr' },
+      pwr != null
+        ? `${pwr > 0 ? '+' : ''}${(pwr / 1000).toFixed(2)} kW`
+        : live ? 'Données reçues…' : h('span', { className: 'bms-wait' }, 'En attente…')
+    )
+  );
+}
+
+/* ── Node: DeviceNode (ET112) ───────────────────────────────────────────── */
+function DeviceNode({ data }) {
+  const live = data.live;
+  const pwr  = live?.power_w;
+  const nrj  = live?.energy_import_kwh;
+
+  return h('div', { className: 'dev-nd' },
+    mkHandle('target', Position.Top,    'tt'),
+    mkHandle('source', Position.Bottom, 'sb'),
+    mkHandle('target', Position.Left,   'tl'),
+    mkHandle('source', Position.Right,  'sr'),
+    mkHandle('source', Position.Left,   'sl', { top: '65%' }),
+    mkHandle('target', Position.Right,  'tr', { top: '65%' }),
+    h('div', { className: 'dev-hdr' },
+      h('span', null, data.icon ?? '⚡'),
+      h('span', { className: 'dev-lbl' }, data.label),
+      h('div',  { className: `dev-dot${live?.connected ? ' on' : ''}` })
+    ),
+    live
+      ? h('div', null,
+          h('div', { className: 'dev-pwr' }, fmtKw(pwr ?? 0)),
+          h('div', { className: 'dev-nrj' }, nrj != null ? `${fmtKwh(nrj)} total` : '\u00a0')
+        )
+      : h('div', { className: 'dev-wait' }, 'En attente…')
+  );
+}
+
+/* ── Node: HubNode ──────────────────────────────────────────────────────── */
+function HubNode({ data }) {
+  return h('div', { className: 'hub-nd' },
+    mkHandle('target', Position.Top,    'tt'),
+    mkHandle('source', Position.Bottom, 'sb'),
+    mkHandle('target', Position.Left,   'tl'),
+    mkHandle('source', Position.Right,  'sr'),
+    mkHandle('target', Position.Right,  'tr', { top: '68%' }),
+    mkHandle('source', Position.Left,   'sl', { top: '68%' }),
+    h('div', { className: 'hub-icon' }, data.icon),
+    h('div', { className: 'hub-lbl'  }, data.label),
+    data.sub && h('div', { className: 'hub-sub' }, data.sub)
+  );
+}
+
+/* ── Node: PlaceholderNode ──────────────────────────────────────────────── */
+function PlaceholderNode({ data }) {
+  return h('div', { className: 'ph-nd' },
+    mkHandle('target', Position.Top,    'tt'),
+    mkHandle('source', Position.Bottom, 'sb'),
+    mkHandle('target', Position.Left,   'tl'),
+    mkHandle('source', Position.Right,  'sr'),
+    mkHandle('target', Position.Right,  'tr', { top: '68%' }),
+    mkHandle('source', Position.Left,   'sl', { top: '68%' }),
+    data.icon && h('span', { className: 'ph-icon' }, data.icon),
+    h('div', { className: 'ph-lbl'   }, data.label),
+    h('div', { className: 'ph-badge' }, 'À venir')
+  );
+}
+
+const nodeTypes = {
+  summary:     SummaryNode,
+  bms:         BmsNode,
+  device:      DeviceNode,
+  hub:         HubNode,
+  placeholder: PlaceholderNode,
+};
+
+/* ── Initial nodes ──────────────────────────────────────────────────────── */
+const NODES0 = [
+  /* ── Summary row ── */
+  { id: 'reseau',      type: 'summary',     position: { x: 30,   y: 20  }, data: { label: 'Réseau',          icon: '🔌', value: '—',   sub: 'Réseau EDF',            dotClass: '' } },
+  { id: 'production',  type: 'summary',     position: { x: 265,  y: 20  }, data: { label: 'Production',      icon: '☀️',  value: '—',   sub: 'Micro-onduleurs',        dotClass: '' } },
+  { id: 'batteries',   type: 'summary',     position: { x: 500,  y: 20  }, data: { label: 'Batteries',       icon: '🔋', value: '—',   sub: '360 Ah + 320 Ah',       dotClass: '' } },
+  { id: 'meteo',       type: 'summary',     position: { x: 1020, y: 20  }, data: { label: 'Météo',           icon: '🌤️',  value: '—',   sub: 'Irradiance solaire',     dotClass: '' } },
+
+  /* ── Main flow ── */
+  { id: 'ats',         type: 'hub',         position: { x: 65,   y: 170 }, data: { label: 'ATS',             icon: '🔀', sub: 'CHINT' } },
+  { id: 'maison',      type: 'placeholder', position: { x: 330,  y: 170 }, data: { label: 'Maison',          icon: '🏠' } },
+  { id: 'micro-ond',   type: 'device',      position: { x: 320,  y: 300 }, data: { label: 'Micro-onduleurs', icon: '🌞', live: null } },
+  { id: 'onduleur',    type: 'placeholder', position: { x: 65,   y: 375 }, data: { label: 'Onduleur',        icon: '⚙️' } },
+  { id: 'mppt-289',    type: 'placeholder', position: { x: 560,  y: 350 }, data: { label: 'MPPT-289',        icon: '⚡' } },
+  { id: 'mppt-273',    type: 'placeholder', position: { x: 560,  y: 435 }, data: { label: 'MPPT-273',        icon: '⚡' } },
+  { id: 'mppt-xx1',    type: 'placeholder', position: { x: 560,  y: 520 }, data: { label: 'MPPT-xx1',        icon: '⚡' } },
+  { id: 'mppt-xx2',    type: 'placeholder', position: { x: 560,  y: 600 }, data: { label: 'MPPT-xx2',        icon: '⚡' } },
+  { id: 'mppt-xx3',    type: 'placeholder', position: { x: 560,  y: 680 }, data: { label: 'MPPT-xx3',        icon: '⚡' } },
+  { id: 'lynx',        type: 'placeholder', position: { x: 65,   y: 510 }, data: { label: 'Lynx',            icon: '🔗' } },
+  { id: 'shunt',       type: 'placeholder', position: { x: 65,   y: 640 }, data: { label: 'Shunt',           icon: '📏' } },
+  { id: 'bms1',        type: 'bms',         position: { x: -100, y: 790 }, data: { label: 'BMS-360Ah',       live: null } },
+  { id: 'bms2',        type: 'bms',         position: { x: 165,  y: 790 }, data: { label: 'BMS-320Ah',       live: null } },
+  { id: 'bms3',        type: 'placeholder', position: { x: 430,  y: 790 }, data: { label: 'BMS3',            icon: '🔋' } },
+
+  /* ── Right column ── */
+  { id: 'premier',        type: 'placeholder', position: { x: 1020, y: 170 }, data: { label: 'Premier',       icon: '🏠' } },
+  { id: 'second',         type: 'placeholder', position: { x: 1020, y: 260 }, data: { label: 'Second',        icon: '🏠' } },
+  { id: 'troisieme',      type: 'placeholder', position: { x: 1020, y: 350 }, data: { label: 'Troisième',     icon: '🏠' } },
+  { id: 'quatrieme',      type: 'placeholder', position: { x: 1020, y: 440 }, data: { label: 'Quatrième',     icon: '🏠' } },
+  { id: 'chauffe-eau',    type: 'device',      position: { x: 1020, y: 530 }, data: { label: 'Chauffe-eau',   icon: '🚿', live: null } },
+  { id: 'climatisation',  type: 'device',      position: { x: 1020, y: 630 }, data: { label: 'Climatisation', icon: '❄️',  live: null } },
+];
+
+/* ── Edge factory ───────────────────────────────────────────────────────── */
+const COLOR = { ac: '#2563eb', dc: '#ea580c', bat: '#16a34a', gray: '#94a3b8' };
+
+function mkEdge(id, src, tgt, color, opts = {}) {
+  return {
+    id,
+    source: src,
+    target: tgt,
+    type: 'smoothstep',
+    animated: false,
+    style: { stroke: color, strokeWidth: 2.5 },
+    markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color },
+    ...opts,
+  };
+}
+
+/* ── Initial edges ──────────────────────────────────────────────────────── */
+const EDGES0 = [
+  /* AC réseau */
+  mkEdge('e-res-ats',  'reseau',    'ats',       COLOR.ac,  { sourceHandle: 'sb', targetHandle: 'tt' }),
+  /* ATS → Maison */
+  mkEdge('e-ats-mai',  'ats',       'maison',    COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tl' }),
+  /* Micro-onduleurs → ATS */
+  mkEdge('e-mic-ats',  'micro-ond', 'ats',       COLOR.ac,  { sourceHandle: 'sl', targetHandle: 'tr' }),
+  /* ATS → Onduleur */
+  mkEdge('e-ats-ond',  'ats',       'onduleur',  COLOR.ac,  { sourceHandle: 'sb', targetHandle: 'tt' }),
+  /* MPPT → Onduleur */
+  mkEdge('e-289-ond',  'mppt-289',  'onduleur',  COLOR.dc,  { sourceHandle: 'tl', targetHandle: 'sr' }),
+  mkEdge('e-273-ond',  'mppt-273',  'onduleur',  COLOR.dc,  { sourceHandle: 'tl', targetHandle: 'sr' }),
+  /* MPPT → Lynx */
+  mkEdge('e-xx1-lyn',  'mppt-xx1',  'lynx',      COLOR.dc,  { sourceHandle: 'tl', targetHandle: 'sr' }),
+  mkEdge('e-xx2-lyn',  'mppt-xx2',  'lynx',      COLOR.dc,  { sourceHandle: 'tl', targetHandle: 'sr' }),
+  mkEdge('e-xx3-lyn',  'mppt-xx3',  'lynx',      COLOR.dc,  { sourceHandle: 'tl', targetHandle: 'sr' }),
+  /* Onduleur → Lynx */
+  mkEdge('e-ond-lyn',  'onduleur',  'lynx',      COLOR.dc,  { sourceHandle: 'sb', targetHandle: 'tt' }),
+  /* Lynx → Shunt */
+  mkEdge('e-lyn-shu',  'lynx',      'shunt',     COLOR.bat, { sourceHandle: 'sb', targetHandle: 'tt' }),
+  /* Shunt → BMS */
+  mkEdge('e-shu-b1',   'shunt',     'bms1',      COLOR.bat, { sourceHandle: 'sb', targetHandle: 'tt' }),
+  mkEdge('e-shu-b2',   'shunt',     'bms2',      COLOR.bat, { sourceHandle: 'sb', targetHandle: 'tt' }),
+  mkEdge('e-shu-b3',   'shunt',     'bms3',      COLOR.bat, { sourceHandle: 'sb', targetHandle: 'tt' }),
+];
+
+/* ── Main App ────────────────────────────────────────────────────────────── */
+function ESSFlow() {
+  const [nodes, setNodes, onNodesChange] = useNodesState(NODES0);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(EDGES0);
+  const [lastUpdate, setLastUpdate] = useState('—');
+
+  const applyData = useCallback(function(d) {
+    const bms1 = d.bms1, bms2 = d.bms2;
+    const et7  = d.et7,  et8  = d.et8, et9 = d.et9;
+    const irr  = d.irr;
+
+    /* Compute summary values */
+    const validBms = [bms1, bms2].filter(Boolean);
+    const avgSoc   = validBms.length
+      ? (validBms.reduce((s, b) => s + (b.soc ?? 0), 0) / validBms.length).toFixed(0)
+      : null;
+    const totalPwr = validBms.reduce((s, b) => s + (b.dc?.power ?? 0), 0);
+    const batVal   = avgSoc != null ? `SOC ${avgSoc}%` : '—';
+    const batSub   = totalPwr ? `${totalPwr > 0 ? '+' : ''}${(totalPwr / 1000).toFixed(2)} kW` : '360 Ah + 320 Ah';
+    const batDot   = avgSoc == null ? '' : avgSoc > 50 ? 'live' : avgSoc > 20 ? 'warn' : 'alarm';
+
+    const microPwr = et7?.power_w ?? null;
+    const prodVal  = fmtKw(microPwr);
+    const prodDot  = et7?.connected ? (microPwr > 0 ? 'live' : '') : '';
+
+    const irrVal = irr?.irradiance_wm2 != null ? `${irr.irradiance_wm2.toFixed(0)} W/m²` : '—';
+    const irrDot = irr ? 'live' : '';
+
+    /* Update edge animations */
+    setEdges(prev => prev.map(e => {
+      let animated = false;
+      if (e.id === 'e-mic-ats' && et7?.connected && (microPwr ?? 0) > 50)  animated = true;
+      if (e.id === 'e-shu-b1'  && bms1 && Math.abs(bms1.dc?.current ?? 0) > 0.5) animated = true;
+      if (e.id === 'e-shu-b2'  && bms2 && Math.abs(bms2.dc?.current ?? 0) > 0.5) animated = true;
+      if ((e.id === 'e-lyn-shu') && validBms.length) animated = true;
+      return animated !== e.animated ? { ...e, animated } : e;
+    }));
+
+    /* Update node data */
+    setNodes(prev => prev.map(n => {
+      switch (n.id) {
+        case 'batteries':
+          return { ...n, data: { ...n.data, value: batVal, sub: batSub, dotClass: batDot } };
+        case 'production':
+          return { ...n, data: { ...n.data, value: prodVal, sub: et7 ? `${fmtKwh(et7.energy_import_kwh)} total` : 'Micro-onduleurs', dotClass: prodDot } };
+        case 'meteo':
+          return { ...n, data: { ...n.data, value: irrVal, dotClass: irrDot } };
+        case 'bms1':        return { ...n, data: { ...n.data, live: bms1 ?? null } };
+        case 'bms2':        return { ...n, data: { ...n.data, live: bms2 ?? null } };
+        case 'micro-ond':   return { ...n, data: { ...n.data, live: et7  ?? null } };
+        case 'chauffe-eau': return { ...n, data: { ...n.data, live: et8  ?? null } };
+        case 'climatisation': return { ...n, data: { ...n.data, live: et9 ?? null } };
+        default: return n;
+      }
+    }));
+
+    setLastUpdate(new Date().toLocaleTimeString('fr-FR'));
+  }, []);
+
+  /* Polling every 2 s */
+  useEffect(function() {
+    const safe = p => p.catch(() => null);
+    async function fetchAll() {
+      const [bms1, bms2, et7, et8, et9, irr] = await Promise.all([
+        safe(fetch('/api/v1/bms/1/status').then(r => r.ok ? r.json() : null)),
+        safe(fetch('/api/v1/bms/2/status').then(r => r.ok ? r.json() : null)),
+        safe(fetch('/api/v1/et112/7/status').then(r => r.ok ? r.json() : null)),
+        safe(fetch('/api/v1/et112/8/status').then(r => r.ok ? r.json() : null)),
+        safe(fetch('/api/v1/et112/9/status').then(r => r.ok ? r.json() : null)),
+        safe(fetch('/api/v1/irradiance/status').then(r => r.ok ? r.json() : null)),
+      ]);
+      applyData({ bms1, bms2, et7, et8, et9, irr });
+    }
+    fetchAll();
+    const timer = setInterval(fetchAll, 2000);
+    return function() { clearInterval(timer); };
+  }, [applyData]);
+
+  /* Legend items */
+  const legend = [
+    { color: COLOR.ac,  label: 'Courant AC' },
+    { color: COLOR.dc,  label: 'Bus DC' },
+    { color: COLOR.bat, label: 'Batterie' },
+  ];
+
+  return h(ReactFlow, {
+    nodes, edges,
+    onNodesChange, onEdgesChange,
+    nodeTypes,
+    fitView: true,
+    fitViewOptions: { padding: 0.06 },
+    minZoom: 0.2,
+    maxZoom: 2.5,
+    nodesDraggable: false,
+    nodesConnectable: false,
+    elementsSelectable: false,
+    preventScrolling: false,
+  },
+    h(Background, { variant: 'dots', gap: 20, size: 1, color: '#c8d3de' }),
+    h(Controls, { showInteractive: false }),
+
+    /* Bottom-left: legend */
+    h(Panel, { position: 'bottom-left' },
+      h('div', { className: 'viz-panel viz-legend' },
+        ...legend.map(l =>
+          h('div', { key: l.color, className: 'viz-leg-item' },
+            h('div', { className: 'viz-leg-line', style: { background: l.color } }),
+            l.label
+          )
+        )
+      )
+    ),
+
+    /* Bottom-right: last update */
+    h(Panel, { position: 'bottom-right' },
+      h('div', { className: 'viz-panel' }, `Màj : ${lastUpdate}`)
+    )
+  );
+}
+
+/* ── Mount ──────────────────────────────────────────────────────────────── */
+ReactDOM.createRoot(document.getElementById('ess-flow-root')).render(h(ESSFlow));
+</script>
+{% endblock %}

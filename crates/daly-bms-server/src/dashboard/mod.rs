@@ -280,6 +280,10 @@ struct DetailTemplate {
 #[template(path = "logs.html")]
 struct LogsTemplate {}
 
+#[derive(Template)]
+#[template(path = "visualization.html")]
+struct VisualizationTemplate {}
+
 /// Entrée BMS minimale pour la page Paramètres.
 #[derive(Debug, Clone)]
 pub struct SettingsBmsEntry {
@@ -370,6 +374,11 @@ pub async fn dashboard_bms(
 /// Page des logs serveur.
 pub async fn dashboard_logs() -> Response {
     render(LogsTemplate {})
+}
+
+/// Page de visualisation ReactFlow.
+pub async fn dashboard_visualization() -> Response {
+    render(VisualizationTemplate {})
 }
 
 /// Page des paramètres BMS (globale, tous BMS).
@@ -770,4 +779,5 @@ pub fn build_dashboard_router() -> Router<AppState> {
         .route("/dashboard/et112/:addr",       get(dashboard_et112))
         .route("/dashboard/tasmota",           get(dashboard_tasmota_list))
         .route("/dashboard/tasmota/:id",       get(dashboard_tasmota))
+        .route("/dashboard/visualization",     get(dashboard_visualization))
 }
