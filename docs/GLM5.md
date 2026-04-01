@@ -1,19 +1,6 @@
----
-
-📘 Guide complet : GLM-5 en local sur Windows (sans compte chinois)
-
-✅ Pourquoi cette méthode ?
-
-Avantage Explication
-Pas d'inscription Rien à créer, pas de compte bigmodel.cn
-Totalement gratuit Pas d'API payante, pas d'abonnement
-100% privé Tout tourne sur ta machine, aucune donnée envoyée
-Fonctionne hors ligne Une fois téléchargé, pas besoin d'internet
-Interface en anglais/CLI Pas de chinois à traduire
+## GLM-5 en local sur Windows (sans compte chinois)
 
 ⚠️ Prérequis matériel
-
-Avant de commencer, vérifie ta configuration :
 
 Composant Minimum Recommandé pour GLM-5
 RAM 32 Go 64 Go+
@@ -21,7 +8,7 @@ Stockage 30 Go 100 Go+ (SSD)
 GPU (optionnel) - NVIDIA avec 8-12 Go VRAM accélère
 OS Windows 10/11 Windows 10/11
 
-⚠️ Important : GLM-5 complet fait 241 Go en version compressée. Si tu as 32 Go de RAM, je te recommande plutôt GLM-4.7-Flash (beaucoup plus léger) ou GLM-5-Turbo. Je te donne les deux options.
+⚠️ Important : GLM-5 complet fait 241 Go en version compressée. Si tu as 32 Go de RAM, je te recommande plutôt GLM-4.7-Flash (beaucoup plus léger) ou GLM-5-Turbo.
 
 ---
 
@@ -44,13 +31,12 @@ Ouvre PowerShell ou Invite de commandes (cmd) et tape :
 ollama pull glm-5:cloud
 ```
 
-⚠️ Ce modèle fait environ 30 Go. Assure-toi d'avoir assez d'espace disque et une bonne connexion.
+⚠️ Ce modèle fait environ 30 Go.
 
 Variantes plus légères si 30 Go c'est trop :
-
-Modèle Taille Commande
-GLM-4.7-Flash (recommandé pour 32 Go RAM) ~20 Go ollama pull glm-4.7-flash 
-GLM-5-Turbo ~25 Go ollama pull glm-5-turbo
+-- Modèle Taille Commande
+-- GLM-4.7-Flash (recommandé pour 32 Go RAM) ~20 Go ollama pull glm-4.7-flash 
+-- GLM-5-Turbo ~25 Go ollama pull glm-5-turbo
 
 Étape 3 : Vérifier que ça fonctionne
 
@@ -80,7 +66,7 @@ Configurer Claude Code pour utiliser Ollama :
 
 Crée (ou modifie) le fichier de configuration :
 
-· Chemin : C:\Users\TON_NOM_UTILISATEUR\.claude\settings.json
+· Chemin : C:\Users\TON_NOM\.claude\settings.json
 
 ```json
 {
@@ -140,7 +126,7 @@ set HF_HUB_ENABLE_HF_TRANSFER=1
 hf download unsloth/GLM-5-GGUF --local-dir GLM-5-GGUF --include "*UD-IQ2_XXS*"
 ```
 
-⏱️ Cette étape peut prendre plusieurs heures (241 Go à télécharger).
+⏱️  241 Go à télécharger.
 
 Étape 4 : Lancer le serveur
 
@@ -203,13 +189,3 @@ llama.cpp + GLM-5 complet 241 Go 64 Go+ ❌ Aucune Serveur local
 Claude Code + Ollama 20-30 Go 32 Go+ ❌ Aucune CLI (avec GitHub)
 
 ---
-
-✅ Mon conseil pour toi
-
-Avec 32 Go de RAM et ton besoin de développement JS/Rust/React :
-
-1. Installe Ollama (5 minutes)
-2. Télécharge GLM-4.7-Flash : ollama pull glm-4.7-flash
-3. Teste : ollama run glm-4.7-flash
-4. Installe Claude Code et configure-le pour utiliser Ollama (fichier settings.json)
-5. Travaille normalement – tu fais tes commits toi-même comme avant
