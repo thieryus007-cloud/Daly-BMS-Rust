@@ -1,5 +1,3 @@
----
-
 DOCUMENTATION - Visualisation Énergétique Complète avec React Flow
 
 Version : 1.0
