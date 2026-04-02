@@ -187,6 +187,7 @@ function Et112CardNode({ data }) {
   const imp  = live?.energy_import_wh != null ? live.energy_import_wh / 1000 : null;
   const expW = live?.energy_export_wh != null ? live.energy_export_wh / 1000 : null;
   const addr = data.address ?? 7;
+  const icon = data.icon || '☀'; // Icône par défaut ou personnalisée
 
   return h('div', { className: 'et112-card-wrapper' },
     mkHandle('target', Position.Left,   'tl'),
@@ -199,7 +200,7 @@ function Et112CardNode({ data }) {
       h('div', { className: `bms-hdr ${connected ? '' : 'offline'}` },
         h('div', { className: 'bms-hdr-left' },
           connected ? h('div', { className: 'bms-live' }, h('div', { className: 'live-dot' }), 'LIVE') : h('span', { style: { fontSize: '0.62rem', color: 'var(--muted2)' } }, 'Hors ligne'),
-          h('span', { className: 'bms-hdr-name' }, '☀ ', data.label)
+          h('span', { className: 'bms-hdr-name' }, `${icon} `, data.label)
         ),
         h('div', { className: 'bms-hdr-right' }, h('span', { className: 'bms-badge' }, `0x0${addr.toString(16).toUpperCase()}`))
       ),
@@ -298,7 +299,7 @@ const NODES0 = [
   { id: 'ats',         type: 'hub',         position: { x: 65,   y: 170 }, data: { label: 'ATS',             icon: '🔀', sub: 'CHINT' } },
   { id: 'maison',      type: 'placeholder', position: { x: 1020, y: 170 }, data: { label: 'Maison',          icon: '🏠' } },
   { id: 'micro-ond',   type: 'et112card',   position: { x: -300, y: 272 }, data: { label: 'Micro-onduleurs', address: 7, live: null } },
-  { id: 'onduleur',    type: 'placeholder', position: { x: 65,   y: 375 }, data: { label: 'Onduleur',        icon: '⚙️' } },
+  { id: 'onduleur',    type: 'et112card',   position: { x: 65,   y: 375 }, data: { label: 'Onduleur',        icon: '⚙️', address: 1, live: null } },
   { id: 'mppt-289',    type: 'placeholder', position: { x: 560,  y: 375 }, data: { label: 'MPPT-289',        icon: '⚡' } },
   { id: 'mppt-273',    type: 'placeholder', position: { x: 560,  y: 510 }, data: { label: 'MPPT-273',        icon: '⚡' } },
   { id: 'lynx',        type: 'placeholder', position: { x: 65,   y: 510 }, data: { label: 'Lynx',            icon: '🔗' } },
