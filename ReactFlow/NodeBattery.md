@@ -1,5 +1,3 @@
----
-
 DOCUMENTATION TECHNIQUE - NodeType Batterie pour React Flow
 
 Version : 1.0
