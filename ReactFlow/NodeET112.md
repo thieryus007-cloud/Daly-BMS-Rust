@@ -1,5 +1,3 @@
----
-
 DOCUMENTATION TECHNIQUE - NodeType ET112 pour React Flow
 
 Version : 1.0
