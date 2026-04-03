@@ -1,22 +1,37 @@
-http://localhost:3002/
-les deux fichiers existent mais j ai cette erreur
-[plugin:vite:import-analysis] Failed to resolve import "./mpptAnimations.css" from "src/components/nodes/MPPTNode.jsx". Does the file exist?
-C:/reactflow-energie/src/components/nodes/MPPTNode.jsx:2:7
-16 |  }
-17 |  import { Handle, Position } from "@xyflow/react";
-18 |  import "./mpptAnimations.css";
-   |          ^
-19 |  const MPPTNode = ({ id, data }) => {
-20 |    const {
-    at TransformPluginContext._formatError (file:///C:/reactflow-energie/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:49258:41)
-    at TransformPluginContext.error (file:///C:/reactflow-energie/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:49253:16)
-    at normalizeUrl (file:///C:/reactflow-energie/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:64307:23)
-    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
-    at async file:///C:/reactflow-energie/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:64439:39
-    at async Promise.all (index 4)
-    at async TransformPluginContext.transform (file:///C:/reactflow-energie/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:64366:7)
-    at async PluginContainer.transform (file:///C:/reactflow-energie/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:49099:18)
-    at async loadAndTransform (file:///C:/reactflow-energie/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:51978:27)
-    at async viteTransformMiddleware (file:///C:/reactflow-energie/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:62106:24
-Click outside, press Esc key, or fix the code to dismiss.
-You can also disable this overlay by setting server.hmr.overlay to false in vite.config.js.
+Voici la solution unique qui fonctionne :
+
+---
+
+Dans PowerShell, exécutez cette commande :
+
+```powershell
+cd C:\reactflow-energie && New-Item -ItemType Directory -Path "src\styles" -Force | Out-Null && @'
+.mppt-node {
+  min-width: 260px;
+  background: linear-gradient(135deg, #1a2a1a 0%, #0d1a0d 100%);
+  border-radius: 20px;
+  padding: 16px;
+  border: 2px solid #4caf50;
+  font-family: "Segoe UI", monospace;
+}
+.mppt-total-power { text-align: center; margin-bottom: 16px; padding: 8px; background: #1a2a1a; border-radius: 16px; }
+.total-value { font-size: 36px; font-weight: bold; color: #4caf50; }
+.mppt-list { display: flex; flex-direction: column; gap: 12px; }
+.mppt-item { background: #1a2a1a; border-radius: 12px; padding: 10px; }
+.mppt-id { font-size: 11px; font-weight: bold; color: #88ff88; }
+.mppt-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.metric { background: #0d1a0d; border-radius: 8px; padding: 6px; text-align: center; }
+.metric-label { display: block; font-size: 8px; color: #888; }
+.metric-value { display: block; font-size: 12px; font-weight: bold; color: #ddd; }
+'@ | Out-File -FilePath "src\styles\mpptAnimations.css" -Encoding utf8 && (Get-Content "src\components\nodes\MPPTNode.jsx") -replace 'import "./mpptAnimations.css"', 'import "../styles/mpptAnimations.css"' | Set-Content "src\components\nodes\MPPTNode.jsx" && Write-Host "✅ Fichier créé et import corrigé. Redémarrez le serveur avec : npm run dev" -ForegroundColor Green
+```
+
+---
+
+Après exécution, redémarrez le serveur :
+
+```powershell
+npm run dev
+```
+
+Puis ouvrez http://localhost:3000/
