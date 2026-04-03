@@ -1,37 +1,56 @@
-Voici la solution unique qui fonctionne :
+Vous avez raison. Allons à l'essentiel.
 
 ---
 
-Dans PowerShell, exécutez cette commande :
+SOLUTION UNIQUE ET SIMPLE
+
+Étape 1 : Supprimez tout et recommencez proprement
+
+Ouvrez PowerShell et exécutez ces commandes une par une :
 
 ```powershell
-cd C:\reactflow-energie && New-Item -ItemType Directory -Path "src\styles" -Force | Out-Null && @'
-.mppt-node {
-  min-width: 260px;
-  background: linear-gradient(135deg, #1a2a1a 0%, #0d1a0d 100%);
-  border-radius: 20px;
-  padding: 16px;
-  border: 2px solid #4caf50;
-  font-family: "Segoe UI", monospace;
-}
-.mppt-total-power { text-align: center; margin-bottom: 16px; padding: 8px; background: #1a2a1a; border-radius: 16px; }
-.total-value { font-size: 36px; font-weight: bold; color: #4caf50; }
-.mppt-list { display: flex; flex-direction: column; gap: 12px; }
-.mppt-item { background: #1a2a1a; border-radius: 12px; padding: 10px; }
-.mppt-id { font-size: 11px; font-weight: bold; color: #88ff88; }
-.mppt-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.metric { background: #0d1a0d; border-radius: 8px; padding: 6px; text-align: center; }
-.metric-label { display: block; font-size: 8px; color: #888; }
-.metric-value { display: block; font-size: 12px; font-weight: bold; color: #ddd; }
-'@ | Out-File -FilePath "src\styles\mpptAnimations.css" -Encoding utf8 && (Get-Content "src\components\nodes\MPPTNode.jsx") -replace 'import "./mpptAnimations.css"', 'import "../styles/mpptAnimations.css"' | Set-Content "src\components\nodes\MPPTNode.jsx" && Write-Host "✅ Fichier créé et import corrigé. Redémarrez le serveur avec : npm run dev" -ForegroundColor Green
+cd C:\
+rm -r reactflow-energie -Force
+npm create vite@latest reactflow-energie -- --template react
+cd reactflow-energie
+npm install @xyflow/react
+npm run dev
 ```
 
----
+Étape 2 : Vérifiez que ça fonctionne
 
-Après exécution, redémarrez le serveur :
+Ouvrez http://localhost:5173/ → Vous voyez le logo React qui tourne ? ✅ C'est bon.
+
+Étape 3 : Créez UN SEUL fichier de test
+
+Dans le dossier src, remplacez le fichier App.jsx par ce code :
+
+```jsx
+import { ReactFlow, useNodesState } from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
+
+const initialNodes = [
+  { id: '1', position: { x: 100, y: 100 }, data: { label: 'Test Node' } },
+];
+
+function App() {
+  const [nodes] = useNodesState(initialNodes);
+  return <div style={{ width: '100vw', height: '100vh' }}><ReactFlow nodes={nodes} /></div>;
+}
+
+export default App;
+```
+
+Étape 4 : Vérifiez
 
 ```powershell
 npm run dev
 ```
 
-Puis ouvrez http://localhost:3000/
+Vous devez voir un nœud sur fond noir. ✅
+
+---
+
+Une fois cette base qui fonctionne, je vous donnerai la procédure pour ajouter UN SEUL nodeType à la fois.
+
+Confirmez-moi que l'étape 4 fonctionne.
