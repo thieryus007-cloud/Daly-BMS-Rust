@@ -416,6 +416,7 @@ pub async fn start_venus_mqtt_subscriber(state: AppState, cfg: MqttConfig) {
     // S'abonner aux topics Venus OS
     let topics = vec![
         ("santuario/meteo/venus", QoS::AtLeastOnce),
+        ("santuario/inverter/venus", QoS::AtLeastOnce),
         ("santuario/heat/+/venus", QoS::AtLeastOnce),
         ("santuario/heatpump/+/venus", QoS::AtLeastOnce),
         ("santuario/system/venus", QoS::AtLeastOnce),
@@ -449,6 +450,8 @@ pub async fn start_venus_mqtt_subscriber(state: AppState, cfg: MqttConfig) {
                         debug!("Heatpump topic reçu : {}", topic);
                     } else if topic == "santuario/system/venus" {
                         handle_system_topic(&state, &json).await;
+                    } else if topic == "santuario/inverter/venus" {
+                        handle_inverter_topic(&state, &json).await;
                     }
                 }
             }
@@ -549,4 +552,31 @@ async fn handle_system_topic(state: &AppState, json: &Value) {
 
         state.on_venus_smartshunt(shunt).await;
     }
+}
+
+/// Traite le topic `santuario/inverter/venus`
+/// Payload : Inverter data { "Voltage": 48.32, "Current": 5.5, "Power": 250.0, "AcVoltage": 230.0, ... }
+async fn handle_inverter_topic(state: &AppState, json: &Value) {
+    let voltage = json.get("Voltage").and_then(|v| v.as_f64()).map(|v| v as f32);
+    let current = json.get("Current").and_then(|v| v.as_f64()).map(|v| v as f32);
+    let power = json.get("Power").and_then(|v| v.as_f64()).map(|v| v as f32);
+    let ac_voltage = json.get("AcVoltage").and_then(|v| v.as_f64()).map(|v| v as f32);
+    let ac_current = json.get("AcCurrent").and_then(|v| v.as_f64()).map(|v| v as f32);
+    let ac_power = json.get("AcPower").and_then(|v| v.as_f64()).map(|v| v as f32);
+    let state_str = json.get("State").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
+    let mode_str = json.get("Mode").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
+
+    let inverter = crate::state::VenusInverter {
+        voltage_v: voltage,
+        current_a: current,
+        power_w: power,
+        ac_output_voltage_v: ac_voltage,
+        ac_output_current_a: ac_current,
+        ac_output_power_w: ac_power,
+        state: state_str,
+        mode: mode_str,
+        timestamp: Utc::now(),
+    };
+
+    state.on_venus_inverter(inverter).await;
 }

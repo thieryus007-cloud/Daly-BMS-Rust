@@ -154,6 +154,20 @@ pub struct VenusSmartShunt {
     pub timestamp: DateTime<Utc>,
 }
 
+/// Snapshot Onduleur/Charger Victron (MultiPlus, cgwacs, etc).
+#[derive(Clone, Serialize, Debug)]
+pub struct VenusInverter {
+    pub voltage_v: Option<f32>,
+    pub current_a: Option<f32>,
+    pub power_w: Option<f32>,
+    pub ac_output_voltage_v: Option<f32>,
+    pub ac_output_current_a: Option<f32>,
+    pub ac_output_power_w: Option<f32>,
+    pub state: String, // "off", "on", "error", etc.
+    pub mode: String,  // "charger", "inverter", "passthrough", etc.
+    pub timestamp: DateTime<Utc>,
+}
+
 /// Snapshot Capteur Température (depuis D-Bus Venus OS via MQTT).
 #[derive(Clone, Serialize, Debug)]
 pub struct VenusTemperature {
@@ -219,6 +233,9 @@ pub struct AppState {
     /// Données Venus OS — SmartShunt.
     pub venus_smartshunt: Arc<RwLock<Option<VenusSmartShunt>>>,
 
+    /// Données Venus OS — Onduleur/Charger (Victron MultiPlus).
+    pub venus_inverter: Arc<RwLock<Option<VenusInverter>>>,
+
     /// Données Venus OS — Capteurs de température (indexés par instance).
     pub venus_temperatures: Arc<RwLock<BTreeMap<u32, VenusTemperature>>>,
 }
@@ -264,6 +281,7 @@ impl AppState {
             house_power_w:  Arc::new(RwLock::new(0.0)),
             venus_mppts: Arc::new(RwLock::new(BTreeMap::new())),
             venus_smartshunt: Arc::new(RwLock::new(None)),
+            venus_inverter: Arc::new(RwLock::new(None)),
             venus_temperatures: Arc::new(RwLock::new(BTreeMap::new())),
         }
     }
@@ -430,5 +448,15 @@ impl AppState {
     pub async fn venus_temperatures_all(&self) -> Vec<VenusTemperature> {
         let temps = self.venus_temperatures.read().await;
         temps.values().cloned().collect()
+    }
+
+    /// Enregistre/met à jour les données de l'onduleur Victron (MultiPlus, cgwacs, etc.).
+    pub async fn on_venus_inverter(&self, inverter: VenusInverter) {
+        *self.venus_inverter.write().await = Some(inverter);
+    }
+
+    /// Retourne les données actuelles de l'onduleur Victron.
+    pub async fn venus_inverter_get(&self) -> Option<VenusInverter> {
+        self.venus_inverter.read().await.clone()
     }
 }
