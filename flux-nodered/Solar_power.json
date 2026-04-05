@@ -134,9 +134,9 @@
         "id": "10911d81284c4bc3",
         "type": "function",
         "z": "414598e48f123ab2",
-        "name": "Formater + POST serveur BMS",
-        "func": "const token  = env.get('INFLUX_TOKEN');\nconst org    = env.get('INFLUX_ORG')    || 'santuario';\nconst bucket = env.get('INFLUX_BUCKET') || 'daly_bms';\n\nconst mppt_273   = flow.get('w_vrm_273')     || 0;\nconst mppt_289   = flow.get('w_vrm_289')     || 0;\nconst pvinverter = flow.get('w_vrm_32')      || 0;\nconst house_pw   = flow.get('house_power_w') || 0;\n\nconst mppt_only   = mppt_273 + mppt_289;\nconst solar_total = mppt_only + pvinverter;\n\nglobal.set('mppt_power_w', mppt_only);\nflow.set('solar_pw', solar_total);\nnode.status({ fill: 'green', shape: 'dot', text: `Sol: ${solar_total}W  Maison: ${house_pw}W` });\n\n// — Output 1 : InfluxDB line protocol —\nlet influxMsg = null;\nif (token) {\n    const now = new Date();\n    const parisISO = now.toLocaleString('sv-SE', { timeZone: 'Europe/Paris' });\n    const day = parisISO.substring(0, 10);\n    const ts  = Math.floor(Date.now() / 1000);\n    const hostname = (env.get('HOSTNAME') || 'pi5').replace(/[^a-zA-Z0-9_-]/g, '_');\n    const line = `solar_power,day=${day},host=${hostname} w_vrm_273=${mppt_273},w_vrm_289=${mppt_289},w_vrm_32=${pvinverter},solar_total=${solar_total},house_power=${house_pw} ${ts}`;\n    influxMsg = {\n        url:     `http://dalybms-influxdb:8086/api/v2/write?org=${org}&bucket=${bucket}&precision=s`,\n        method:  'POST',\n        payload: line,\n        headers: {\n            'Authorization': 'Token ' + token,\n            'Content-Type':  'text/plain; charset=utf-8'\n        }\n    };\n}\n\n// — Output 2 : POST vers daly-bms-server —\nconst serverMsg = {\n    url:     'http://192.168.1.141:8080/api/v1/solar/mppt-yield',\n    method:  'POST',\n    payload: JSON.stringify({ solar_total_w: solar_total, mppt_power_w: mppt_only, house_power_w: house_pw }),\n    headers: { 'Content-Type': 'application/json' }\n};\n\nreturn [influxMsg, serverMsg];",
-        "outputs": 2,
+        "name": "Formater + POST serveur BMS + MQTT",
+        "func": "const token  = env.get('INFLUX_TOKEN');\nconst org    = env.get('INFLUX_ORG')    || 'santuario';\nconst bucket = env.get('INFLUX_BUCKET') || 'daly_bms';\n\nconst mppt_273   = flow.get('w_vrm_273')     || 0;\nconst mppt_289   = flow.get('w_vrm_289')     || 0;\nconst pvinverter = flow.get('w_vrm_32')      || 0;\nconst house_pw   = flow.get('house_power_w') || 0;\n\nconst mppt_only   = mppt_273 + mppt_289;\nconst solar_total = mppt_only + pvinverter;\n\nglobal.set('mppt_power_w', mppt_only);\nflow.set('solar_pw', solar_total);\nnode.status({ fill: 'green', shape: 'dot', text: `Sol: ${solar_total}W  Maison: ${house_pw}W` });\n\n// — Output 1 : InfluxDB line protocol —\nlet influxMsg = null;\nif (token) {\n    const now = new Date();\n    const parisISO = now.toLocaleString('sv-SE', { timeZone: 'Europe/Paris' });\n    const day = parisISO.substring(0, 10);\n    const ts  = Math.floor(Date.now() / 1000);\n    const hostname = (env.get('HOSTNAME') || 'pi5').replace(/[^a-zA-Z0-9_-]/g, '_');\n    const line = `solar_power,day=${day},host=${hostname} w_vrm_273=${mppt_273},w_vrm_289=${mppt_289},w_vrm_32=${pvinverter},solar_total=${solar_total},house_power=${house_pw} ${ts}`;\n    influxMsg = {\n        url:     `http://dalybms-influxdb:8086/api/v2/write?org=${org}&bucket=${bucket}&precision=s`,\n        method:  'POST',\n        payload: line,\n        headers: {\n            'Authorization': 'Token ' + token,\n            'Content-Type':  'text/plain; charset=utf-8'\n        }\n    };\n}\n\n// — Output 2 : POST vers daly-bms-server —\nconst serverMsg = {\n    url:     'http://192.168.1.141:8080/api/v1/solar/mppt-yield',\n    method:  'POST',\n    payload: JSON.stringify({ solar_total_w: solar_total, mppt_power_w: mppt_only, house_power_w: house_pw }),\n    headers: { 'Content-Type': 'application/json' }\n};\n\n// — Output 3 : MQTT pour santuario/meteo/venus (daly-bms-server l'écoute) —\nconst mqttMsg = {\n    topic: 'santuario/meteo/venus',\n    payload: JSON.stringify({\n        Irradiance: global.get('irradiance_wm2') || 0,\n        TodaysYield: Math.round((global.get('total_yield_today') || 0) * 10) / 10,\n        YieldYesterday: global.get('yield_yesterday') || 0,\n        WindSpeed: global.get('outdoor_wind_speed') || 0,\n        WindDirection: global.get('outdoor_wind_dir') || 0,\n        MpptPower: mppt_only,\n        SolarTotal: solar_total\n    }),\n    retain: true\n};\n\nreturn [influxMsg, serverMsg, mqttMsg];",
+        "outputs": 3,
         "timeout": "",
         "noerr": 0,
         "initialize": "",
@@ -150,6 +150,9 @@
             ],
             [
                 "c7e8f9a0b1d2e3f4"
+            ],
+            [
+                "mppt_mqtt_out"
             ]
         ]
     },
@@ -247,6 +250,19 @@
                 "10911d81284c4bc3"
             ]
         ]
+    },
+    {
+        "id": "mppt_mqtt_out",
+        "type": "mqtt out",
+        "z": "414598e48f123ab2",
+        "name": "MQTT out santuario/meteo/venus",
+        "topic": "",
+        "qos": "1",
+        "retain": true,
+        "broker": "pi5_mqtt_broker",
+        "x": 900,
+        "y": 380,
+        "wires": []
     },
     {
         "id": "pi5_mqtt_broker",
