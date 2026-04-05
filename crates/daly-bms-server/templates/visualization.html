@@ -374,6 +374,7 @@ const NODES0 = [
   { id: 'ats',         type: 'hub',         position: { x: 65,   y: 170 }, data: { label: 'ATS',             icon: '🔀', sub: 'CHINT' } },
   { id: 'maison',      type: 'placeholder', position: { x: 1020, y: 170 }, data: { label: 'Maison',          icon: '🏠' } },
   { id: 'micro-ond',   type: 'et112card',   position: { x: -300, y: 272 }, data: { label: 'Micro-onduleurs', address: 7, live: null } },
+  { id: 'onduleur',    type: 'device',      position: { x: 65,   y: 375 }, data: { label: 'Onduleur AC',     icon: '⚡', value: '—', dotClass: '' } },
   { id: 'mppt',        type: 'mppt',        position: { x: 560,  y: 375 }, data: { label: 'MPPT',            icon: '☀️', live: null } },
   { id: 'smartshunt',  type: 'smartshunt',  position: { x: 65,   y: 640 }, data: { label: 'SmartShunt',      icon: '📏', live: null } },
   { id: 'temp-ext',    type: 'temperature', position: { x: 1020, y: 640 }, data: { label: 'Température ext.', icon: '🌡️', live: null } },
@@ -392,9 +393,11 @@ function mkEdge(id, src, tgt, color, opts = {}) {
 const EDGES0 = [
   mkEdge('e-res-ats',  'reseau',    'ats',       COLOR.ac,  { sourceHandle: 'sb', targetHandle: 'tt' }),
   mkEdge('e-ats-mai',  'ats',       'maison',    COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tl' }),
+  mkEdge('e-mic-ond',  'micro-ond', 'onduleur',  COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tl' }),
   mkEdge('e-mic-ats',  'micro-ond', 'ats',       COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tl' }),
-  mkEdge('e-mic-shu',  'micro-ond', 'smartshunt', COLOR.ac, { sourceHandle: 'sb', targetHandle: 'tt' }),
-  mkEdge('e-mppt-shu', 'mppt',      'smartshunt', COLOR.dc,  { sourceHandle: 'sl', targetHandle: 'tr' }),
+  mkEdge('e-ats-ond',  'ats',       'onduleur',  COLOR.ac,  { sourceHandle: 'sb', targetHandle: 'tt' }),
+  mkEdge('e-mppt-ond', 'mppt',      'onduleur',  COLOR.dc,  { sourceHandle: 'sl', targetHandle: 'tr' }),
+  mkEdge('e-ond-shu',  'onduleur',  'smartshunt', COLOR.dc, { sourceHandle: 'sb', targetHandle: 'tt' }),
   mkEdge('e-shu-b1',   'smartshunt','bms1',      COLOR.bat, { sourceHandle: 'sb', targetHandle: 'tt' }),
   mkEdge('e-shu-b2',   'smartshunt','bms2',      COLOR.bat, { sourceHandle: 'sb', targetHandle: 'tt' }),
   mkEdge('e-prod-met', 'production','meteo',     '#d946ef', { sourceHandle: 'sr', targetHandle: 'tl' }),
@@ -411,6 +414,7 @@ function ESSFlow() {
     const irr  = d.irr;
     const mppt = d.mppt;
     const shunt = d.shunt;
+    const inverter = d.inverter;
     const temp = d.temp;
 
     const validBms = [bms1, bms2].filter(Boolean);
@@ -435,9 +439,11 @@ function ESSFlow() {
 
     setEdges(prev => prev.map(e => {
       let animated = false;
+      if (e.id === 'e-mic-ond' && et7?.connected && (microPwr ?? 0) > 50) animated = true;
       if (e.id === 'e-mic-ats' && et7?.connected && (microPwr ?? 0) > 50) animated = true;
-      if (e.id === 'e-mic-shu' && et7?.connected && (microPwr ?? 0) > 50) animated = true;
-      if (e.id === 'e-mppt-shu' && mppt && (mpptPwr ?? 0) > 50) animated = true;
+      if (e.id === 'e-ats-ond' && inverter?.ac_output_power_w && Math.abs(inverter.ac_output_power_w) > 50) animated = true;
+      if (e.id === 'e-mppt-ond' && mppt && (mpptPwr ?? 0) > 50) animated = true;
+      if (e.id === 'e-ond-shu'  && (microPwr > 50 || (inverter?.ac_output_power_w ?? 0) > 50)) animated = true;
       if (e.id === 'e-shu-b1'  && bms1 && Math.abs(bms1.Dc?.Current ?? 0) > 0.5) animated = true;
       if (e.id === 'e-shu-b2'  && bms2 && Math.abs(bms2.Dc?.Current ?? 0) > 0.5) animated = true;
       return animated !== e.animated ? { ...e, animated } : e;
@@ -455,6 +461,7 @@ function ESSFlow() {
         case 'bms1': return { ...n, data: { ...n.data, live: bms1 ?? null } };
         case 'bms2': return { ...n, data: { ...n.data, live: bms2 ?? null } };
         case 'micro-ond':   return { ...n, data: { ...n.data, live: et7  ?? null } };
+        case 'onduleur':    return { ...n, data: { ...n.data, value: inverter ? `${(inverter.ac_output_power_w ?? 0).toFixed(0)}W` : '—', dotClass: inverter ? 'live' : '' } };
         case 'chauffe-eau': return { ...n, data: { ...n.data, live: et8  ?? null } };
         case 'climatisation': return { ...n, data: { ...n.data, live: et9 ?? null } };
         case 'mppt':        return { ...n, data: { ...n.data, live: mppt ?? null } };
@@ -485,10 +492,12 @@ function ESSFlow() {
       const mppt = venusResp?.mppts?.[0] ?? null;
       const shuntResp = await safe(fetch('/api/v1/venus/smartshunt').then(r => r.ok ? r.json() : null));
       const shunt = shuntResp?.shunt ?? null;
+      const inverterResp = await safe(fetch('/api/v1/venus/inverter').then(r => r.ok ? r.json() : null));
+      const inverter = inverterResp?.inverter ?? null;
       const temps = tempResp?.temperatures ?? [];
       const temp = temps.length > 0 ? temps[0] : null;
 
-      applyData({ bms1, bms2, et7, et8, et9, irr, mppt, shunt, temp });
+      applyData({ bms1, bms2, et7, et8, et9, irr, mppt, shunt, inverter, temp });
     }
     fetchAll();
     const timer = setInterval(fetchAll, 2000);

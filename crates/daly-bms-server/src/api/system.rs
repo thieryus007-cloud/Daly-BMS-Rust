@@ -223,6 +223,29 @@ pub async fn get_venus_smartshunt(State(state): State<AppState>) -> impl IntoRes
     }
 }
 
+/// GET /api/v1/venus/inverter
+///
+/// Retourne les données de l'onduleur Victron (MultiPlus, cgwacs, etc.).
+pub async fn get_venus_inverter(State(state): State<AppState>) -> impl IntoResponse {
+    match state.venus_inverter_get().await {
+        Some(inv) => (
+            StatusCode::OK,
+            Json(json!({
+                "connected": true,
+                "inverter": inv,
+            })),
+        ),
+        None => (
+            StatusCode::OK,
+            Json(json!({
+                "connected": false,
+                "inverter": Value::Null,
+                "message": "Onduleur Victron non disponible",
+            })),
+        ),
+    }
+}
+
 /// GET /api/v1/venus/temperatures
 ///
 /// Retourne tous les capteurs de température actuels (depuis D-Bus Venus OS).
