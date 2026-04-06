@@ -540,6 +540,16 @@
         ]
     },
     {
+        "id": "2acfd2d5bc1d7ece",
+        "type": "comment",
+        "z": "inverter_tab",
+        "name": "Path À mettre en place",
+        "info": "N/c0619ab9929a/vebus/275/Ac/State/IgnoreAcIn1\n\n/Ac/State/IgnoreAcIn1\n\n/State\n0=Off;1=Low Power;\n2=Fault;3=Bulk;\n4=Absorption;5=Float;\n6=Storage;7=Equalize;\n8=Passthru;9=Inverting;1\n0=Power assist;11=Power supply;\n244=Sustain;252=External control\n\n/Energy/AcIn1ToAcOut\n/Ac/ActiveIn/L1/I\n/Ac/ActiveIn/L1/F\n/Ac/ActiveIn/L1/P\n/Ac/ActiveIn/L1/V",
+        "x": 620,
+        "y": 280,
+        "wires": []
+    },
+    {
         "id": "pi5_mqtt_broker_inv",
         "type": "mqtt-broker",
         "name": "Pi5 MQTT",
