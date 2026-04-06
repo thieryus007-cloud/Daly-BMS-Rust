@@ -396,7 +396,7 @@ function mkEdge(id, src, tgt, color, opts = {}) {
 
 const EDGES0 = [
   mkEdge('e-res-ats',  'reseau',    'ats',       COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tl' }),
-  mkEdge('e-res-ats',  'reseau',    'onduleur', COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tl' }),
+  mkEdge('e-res-ond',  'reseau',    'onduleur', COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tl' }),
   mkEdge('e-ats-mai',  'ats',       'maison',    COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tl' }),
   mkEdge('e-mic-ond',  'micro-ond', 'onduleur',  COLOR.ac,  { sourceHandle: 'tl', targetHandle: 'tt' }),
   mkEdge('e-ats-ond',  'ats',       'onduleur',  COLOR.ac,  { sourceHandle: 'sb', targetHandle: 'tt' }),
