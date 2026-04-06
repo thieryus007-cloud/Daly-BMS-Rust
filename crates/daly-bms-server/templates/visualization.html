@@ -121,6 +121,7 @@ function mkHandle(type, pos, id, style) {
 function SummaryNode({ data }) {
   return h('div', { className: 'sn' },
     mkHandle('target', Position.Top,    'tt'),
+    mkHandle('source', Position.Top, 'st'),
     mkHandle('source', Position.Bottom, 'sb'),
     mkHandle('target', Position.Left,   'tl'),
     mkHandle('source', Position.Right,  'sr'),
@@ -395,7 +396,7 @@ function mkEdge(id, src, tgt, color, opts = {}) {
 }
 
 const EDGES0 = [
-  mkEdge('e-res-ats',  'reseau',    'ats',       COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tl' }),
+  mkEdge('e-res-ats',  'reseau',    'ats',       COLOR.ac,  { sourceHandle: 'st', targetHandle: 'tl' }),
   mkEdge('e-res-ats',  'reseau',    'onduleur', COLOR.ac,  { sourceHandle: 'sb', targetHandle: 'tl' }),
   mkEdge('e-ats-mai',  'ats',       'maison',    COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tl' }),
   mkEdge('e-mic-ond',  'micro-ond', 'onduleur',  COLOR.ac,  { sourceHandle: 'tl', targetHandle: 'tt' }),
