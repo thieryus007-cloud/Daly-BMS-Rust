@@ -191,7 +191,7 @@ function Et112CardNode({ data }) {
   const imp  = live?.energy_import_wh != null ? live.energy_import_wh / 1000 : null;
   const expW = live?.energy_export_wh != null ? live.energy_export_wh / 1000 : null;
   const addr = data.address ?? 7;
-  const icon = data.icon || '☀'; // Icône par défaut ou personnalisée
+  const icon = data.icon || '☀';
 
   return h('div', { className: 'et112-card-wrapper' },
     mkHandle('target', Position.Left,   'tl'),
@@ -395,15 +395,17 @@ function mkEdge(id, src, tgt, color, opts = {}) {
 }
 
 const EDGES0 = [
-  mkEdge('e-res-ats',  'reseau',    'ats',       COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tl' }),
-  mkEdge('e-res-ond',  'reseau',    'onduleur', COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tl' }),
-  mkEdge('e-ats-mai',  'ats',       'maison',    COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tl' }),
-  mkEdge('e-mic-ond',  'micro-ond', 'onduleur',  COLOR.ac,  { sourceHandle: 'tl', targetHandle: 'tt' }),
-  mkEdge('e-ats-ond',  'ats',       'onduleur',  COLOR.ac,  { sourceHandle: 'sb', targetHandle: 'tt' }),
-  mkEdge('e-mppt-ond', 'mppt',      'smartshunt',  COLOR.dc,  { sourceHandle: 'sl', targetHandle: 'tr' }),
-  mkEdge('e-ond-shu',  'onduleur',  'smartshunt', COLOR.dc, { sourceHandle: 'sb', targetHandle: 'tt' }),
-  mkEdge('e-shu-b1',   'smartshunt','bms1',      COLOR.bat, { sourceHandle: 'sb', targetHandle: 'tt' }),
-  mkEdge('e-shu-b2',   'smartshunt','bms2',      COLOR.bat, { sourceHandle: 'sb', targetHandle: 'tt' }),
+  mkEdge('e-res-ats',  'reseau',    'ats',        COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tl' }),
+  mkEdge('e-res-ond',  'reseau',    'onduleur',   COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tl' }),
+  mkEdge('e-ats-mai',  'ats',       'maison',     COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tl' }),
+  mkEdge('e-mic-ats',  'micro-ond', 'ats',        COLOR.ac,  { sourceHandle: 'tl', targetHandle: 'tl' }),
+  mkEdge('e-mic-ond',  'micro-ond', 'onduleur',   COLOR.ac,  { sourceHandle: 'sb', targetHandle: 'tt' }),
+  mkEdge('e-ats-ond',  'ats',       'onduleur',   COLOR.ac,  { sourceHandle: 'sb', targetHandle: 'tt' }),
+  mkEdge('e-mppt-ond', 'mppt',      'onduleur',   COLOR.dc,  { sourceHandle: 'sl', targetHandle: 'sb' }),
+  mkEdge('e-mppt-shu', 'mppt',      'smartshunt', COLOR.dc,  { sourceHandle: 'sl', targetHandle: 'tr' }),
+  mkEdge('e-ond-shu',  'onduleur',  'smartshunt', COLOR.dc,  { sourceHandle: 'sb', targetHandle: 'tt' }),
+  mkEdge('e-shu-b1',   'smartshunt','bms1',       COLOR.bat, { sourceHandle: 'sb', targetHandle: 'tt' }),
+  mkEdge('e-shu-b2',   'smartshunt','bms2',       COLOR.bat, { sourceHandle: 'sb', targetHandle: 'tt' }),
 ];
 
 function ESSFlow() {
@@ -491,7 +493,6 @@ function ESSFlow() {
         safe(fetch('/api/v1/venus/temperatures').then(r => r.ok ? r.json() : null)),
       ]);
 
-      // Extraire le premier MPPT et le premier capteur de température
       const mppt = venusResp?.mppts?.[0] ?? null;
       const shuntResp = await safe(fetch('/api/v1/venus/smartshunt').then(r => r.ok ? r.json() : null));
       const shunt = shuntResp?.shunt ?? null;
