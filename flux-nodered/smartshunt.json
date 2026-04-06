@@ -1,0 +1,349 @@
+[
+    {
+        "id": "smartshunt_tab",
+        "type": "tab",
+        "label": "SmartShunt → santuario/system/venus",
+        "disabled": false,
+        "info": "SmartShunt 500A → D-Bus NanoPi → MQTT → Pi5 daly-bms-server\nPublie à santuario/system/venus avec format attendu par le serveur",
+        "env": []
+    },
+    {
+        "id": "mqtt_smartshunt_soc",
+        "type": "mqtt in",
+        "z": "smartshunt_tab",
+        "name": "SmartShunt SOC",
+        "topic": "N/c0619ab9929a/system/0/Dc/Battery/Soc",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_ss",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 150,
+        "y": 60,
+        "wires": [
+            [
+                "smartshunt_soc_fn"
+            ]
+        ]
+    },
+    {
+        "id": "mqtt_smartshunt_voltage",
+        "type": "mqtt in",
+        "z": "smartshunt_tab",
+        "name": "SmartShunt Voltage",
+        "topic": "N/c0619ab9929a/system/0/Dc/Battery/Voltage",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_ss",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 150,
+        "y": 120,
+        "wires": [
+            [
+                "smartshunt_voltage_fn"
+            ]
+        ]
+    },
+    {
+        "id": "mqtt_smartshunt_current",
+        "type": "mqtt in",
+        "z": "smartshunt_tab",
+        "name": "SmartShunt Current",
+        "topic": "N/c0619ab9929a/system/0/Dc/Battery/Current",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_ss",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 150,
+        "y": 180,
+        "wires": [
+            [
+                "smartshunt_current_fn"
+            ]
+        ]
+    },
+    {
+        "id": "mqtt_smartshunt_power",
+        "type": "mqtt in",
+        "z": "smartshunt_tab",
+        "name": "SmartShunt Power",
+        "topic": "N/c0619ab9929a/system/0/Dc/Battery/Power",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_ss",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 150,
+        "y": 240,
+        "wires": [
+            [
+                "smartshunt_power_fn"
+            ]
+        ]
+    },
+    {
+        "id": "smartshunt_soc_fn",
+        "type": "function",
+        "z": "smartshunt_tab",
+        "name": "Store SOC",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('soc_percent', v);\nnode.status({fill:'blue', text:`SOC: ${v}%`});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 350,
+        "y": 60,
+        "wires": [
+            [
+                "smartshunt_aggregate_fn"
+            ]
+        ]
+    },
+    {
+        "id": "smartshunt_voltage_fn",
+        "type": "function",
+        "z": "smartshunt_tab",
+        "name": "Store Voltage",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('voltage_v', v);\nnode.status({fill:'blue', text:`V: ${v}V`});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 350,
+        "y": 120,
+        "wires": [
+            [
+                "smartshunt_aggregate_fn"
+            ]
+        ]
+    },
+    {
+        "id": "smartshunt_current_fn",
+        "type": "function",
+        "z": "smartshunt_tab",
+        "name": "Store Current",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('current_a', v);\nnode.status({fill:'blue', text:`I: ${v}A`});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 350,
+        "y": 180,
+        "wires": [
+            [
+                "smartshunt_aggregate_fn"
+            ]
+        ]
+    },
+    {
+        "id": "smartshunt_power_fn",
+        "type": "function",
+        "z": "smartshunt_tab",
+        "name": "Store Power",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('power_w', v);\nnode.status({fill:'blue', text:`P: ${v}W`});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 350,
+        "y": 240,
+        "wires": [
+            [
+                "smartshunt_aggregate_fn"
+            ]
+        ]
+    },
+    {
+        "id": "smartshunt_aggregate_fn",
+        "type": "function",
+        "z": "smartshunt_tab",
+        "name": "Publish to MQTT",
+        "func": "const soc      = flow.get('soc_percent') || 0;\nconst voltage  = flow.get('voltage_v')   || 0;\nconst current  = flow.get('current_a')   || 0;\nconst power    = flow.get('power_w')     || 0;\n\nnode.status({fill:'green', shape:'dot', text:`${soc}% | ${voltage}V | ${current}A | ${power}W`});\n\nconst msg_out = {\n    topic: 'santuario/system/venus',\n    payload: JSON.stringify({\n        Soc: soc,\n        Voltage: voltage,\n        Current: current,\n        Power: power\n    }),\n    retain: true\n};\n\nreturn msg_out;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 550,
+        "y": 150,
+        "wires": [
+            [
+                "smartshunt_mqtt_out"
+            ]
+        ]
+    },
+    {
+        "id": "smartshunt_mqtt_out",
+        "type": "mqtt out",
+        "z": "smartshunt_tab",
+        "name": "MQTT out",
+        "topic": "",
+        "qos": "1",
+        "retain": true,
+        "broker": "pi5_mqtt_broker_ss",
+        "x": 750,
+        "y": 150,
+        "wires": []
+    },
+    {
+        "id": "efa3778e1d50a581",
+        "type": "mqtt in",
+        "z": "smartshunt_tab",
+        "name": "N/c0619ab9929a/vebus/274/Dc/0/Power",
+        "topic": "N/c0619ab9929a/vebus/274/Dc/0/Power",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_ss",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 220,
+        "y": 320,
+        "wires": [
+            [
+                "103e787fa221ca77"
+            ]
+        ]
+    },
+    {
+        "id": "103e787fa221ca77",
+        "type": "debug",
+        "z": "smartshunt_tab",
+        "name": "debug 17",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 520,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "f5dab144268195f6",
+        "type": "mqtt in",
+        "z": "smartshunt_tab",
+        "name": "N/c0619ab9929a/vebus/274/Dc/0/Voltage",
+        "topic": "N/c0619ab9929a/vebus/274/Dc/0/Voltage",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_ss",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 220,
+        "y": 400,
+        "wires": [
+            [
+                "e83f92fbcddfe299"
+            ]
+        ]
+    },
+    {
+        "id": "e83f92fbcddfe299",
+        "type": "debug",
+        "z": "smartshunt_tab",
+        "name": "debug 20",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 520,
+        "y": 400,
+        "wires": []
+    },
+    {
+        "id": "a076aa6c2a1ca328",
+        "type": "mqtt in",
+        "z": "smartshunt_tab",
+        "name": "N/c0619ab9929a/vebus/274/Dc/0/Current",
+        "topic": "N/c0619ab9929a/vebus/274/Dc/0/Current",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_ss",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 220,
+        "y": 480,
+        "wires": [
+            [
+                "e897083eb7251732"
+            ]
+        ]
+    },
+    {
+        "id": "e897083eb7251732",
+        "type": "debug",
+        "z": "smartshunt_tab",
+        "name": "debug 21",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 520,
+        "y": 480,
+        "wires": []
+    },
+    {
+        "id": "pi5_mqtt_broker_ss",
+        "type": "mqtt-broker",
+        "name": "Pi5 MQTT",
+        "broker": "dalybms-mosquitto",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    }
+]
