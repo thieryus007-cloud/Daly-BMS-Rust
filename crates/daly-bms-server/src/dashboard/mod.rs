@@ -707,6 +707,130 @@ pub async fn dashboard_tasmota(
     })
 }
 
+// =============================================================================
+// Dashboard ATS CHINT
+// =============================================================================
+
+#[derive(Template)]
+#[template(path = "ats.html")]
+struct AtsTemplate {
+    name:            String,
+    model:           String,
+    sw_version:      String,
+    // État commutation
+    sw1_closed:      bool,
+    sw2_closed:      bool,
+    sw_mode:         bool,    // true = Auto
+    fault_code:      String,
+    active_source:   String,
+    remote:          bool,    // Télécommande activée
+    // Tensions source 1 (formatées)
+    v1a: String, v1b: String, v1c: String,
+    // Tensions source 2
+    v2a: String, v2b: String, v2c: String,
+    // Statut phases (label: "Normal", "Sous-tension", …)
+    s1a: String, s1b: String, s1c: String,
+    s2a: String, s2b: String, s2c: String,
+    // Compteurs
+    cnt1:      u16,
+    cnt2:      u16,
+    runtime_h: u16,
+    // Mode opératoire (MN), "—" si BN
+    operation_mode: String,
+    // Seuils de tension (MN), "—" si BN
+    uv1: String, uv2: String,
+    ov1: String, ov2: String,
+    // Délais (MN)
+    t1: String, t2: String,
+    // Fréquences (MN)
+    freq1: String, freq2: String,
+    // Config Modbus
+    modbus_addr: String,
+    modbus_baud: String,
+    // Port série (depuis config)
+    port: String,
+}
+
+/// Page de monitoring ATS CHINT.
+pub async fn dashboard_ats(State(state): State<AppState>) -> Response {
+    let port = state.config.ats.as_ref()
+        .map(|c| c.port.clone())
+        .unwrap_or_else(|| "—".to_string());
+
+    let snap_opt = state.ats_latest().await;
+
+    let tmpl = match snap_opt {
+        None => AtsTemplate {
+            name:           state.config.ats.as_ref()
+                                .map(|c| c.name.clone())
+                                .unwrap_or_else(|| "ATS CHINT".to_string()),
+            model:          "—".to_string(),
+            sw_version:     "—".to_string(),
+            sw1_closed:     false,
+            sw2_closed:     false,
+            sw_mode:        false,
+            remote:         false,
+            fault_code:     "—".to_string(),
+            active_source:  "—".to_string(),
+            v1a: "—".to_string(), v1b: "—".to_string(), v1c: "—".to_string(),
+            v2a: "—".to_string(), v2b: "—".to_string(), v2c: "—".to_string(),
+            s1a: "—".to_string(), s1b: "—".to_string(), s1c: "—".to_string(),
+            s2a: "—".to_string(), s2b: "—".to_string(), s2c: "—".to_string(),
+            cnt1: 0, cnt2: 0, runtime_h: 0,
+            operation_mode: "—".to_string(),
+            uv1: "—".to_string(), uv2: "—".to_string(),
+            ov1: "—".to_string(), ov2: "—".to_string(),
+            t1:  "—".to_string(), t2:  "—".to_string(),
+            freq1: "—".to_string(), freq2: "—".to_string(),
+            modbus_addr: "—".to_string(),
+            modbus_baud: "—".to_string(),
+            port,
+        },
+        Some(s) => AtsTemplate {
+            name:          s.name.clone(),
+            model:         s.model.clone(),
+            sw_version:    format!("{:.2}", s.sw_version),
+            sw1_closed:    s.sw1_closed,
+            sw2_closed:    s.sw2_closed,
+            sw_mode:       s.sw_mode,
+            remote:        s.remote,
+            fault_code:    s.fault.label().to_string(),
+            active_source: s.active_source.label().to_string(),
+            v1a: format!("{:.0}", s.v1a),
+            v1b: format!("{:.0}", s.v1b),
+            v1c: format!("{:.0}", s.v1c),
+            v2a: format!("{:.0}", s.v2a),
+            v2b: format!("{:.0}", s.v2b),
+            v2c: format!("{:.0}", s.v2c),
+            s1a: s.s1a.label().to_string(),
+            s1b: s.s1b.label().to_string(),
+            s1c: s.s1c.label().to_string(),
+            s2a: s.s2a.label().to_string(),
+            s2b: s.s2b.label().to_string(),
+            s2c: s.s2c.label().to_string(),
+            cnt1:      s.cnt1,
+            cnt2:      s.cnt2,
+            runtime_h: s.runtime_h,
+            operation_mode: s.operation_mode
+                .map(|m| m.label())
+                .unwrap_or_else(|| "—".to_string()),
+            uv1: s.uv1.map(|v| v.to_string()).unwrap_or_else(|| "—".to_string()),
+            uv2: s.uv2.map(|v| v.to_string()).unwrap_or_else(|| "—".to_string()),
+            ov1: s.ov1.map(|v| v.to_string()).unwrap_or_else(|| "—".to_string()),
+            ov2: s.ov2.map(|v| v.to_string()).unwrap_or_else(|| "—".to_string()),
+            t1:  s.t1_s.map(|v| v.to_string()).unwrap_or_else(|| "—".to_string()),
+            t2:  s.t2_s.map(|v| v.to_string()).unwrap_or_else(|| "—".to_string()),
+            freq1: s.freq1_hz.map(|v| v.to_string()).unwrap_or_else(|| "—".to_string()),
+            freq2: s.freq2_hz.map(|v| v.to_string()).unwrap_or_else(|| "—".to_string()),
+            modbus_addr: s.modbus_addr.map(|v| v.to_string()).unwrap_or_else(|| "—".to_string()),
+            modbus_baud: s.modbus_baud_label().to_string(),
+            port,
+        },
+    };
+
+    render(tmpl)
+}
+
 /// Construit le routeur du dashboard (à fusionner dans le routeur principal).
 pub fn build_dashboard_router() -> Router<AppState> {
     Router::new()
@@ -719,6 +843,7 @@ pub fn build_dashboard_router() -> Router<AppState> {
         .route("/dashboard/et112/:addr",       get(dashboard_et112))
         .route("/dashboard/tasmota",           get(dashboard_tasmota_list))
         .route("/dashboard/tasmota/:id",       get(dashboard_tasmota))
+        .route("/dashboard/ats",               get(dashboard_ats))
         .route("/dashboard/visualization",     get(dashboard_visualization))
-        .route("/visualization",                get(dashboard_visualization))
+        .route("/visualization",               get(dashboard_visualization))
 }

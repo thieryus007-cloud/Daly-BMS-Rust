@@ -3,6 +3,7 @@
 //! [`AppState`] est clonable et partagé via `Arc` entre toutes les tâches Tokio
 //! et les handlers Axum.
 
+use crate::ats::AtsSnapshot;
 use crate::config::AppConfig;
 use crate::et112::Et112Snapshot;
 use crate::irradiance::IrradianceSnapshot;
@@ -238,6 +239,12 @@ pub struct AppState {
 
     /// Données Venus OS — Capteurs de température (indexés par instance).
     pub venus_temperatures: Arc<RwLock<BTreeMap<u32, VenusTemperature>>>,
+
+    /// Dernier snapshot ATS CHINT (None si non configuré ou en attente).
+    pub ats_snapshot: Arc<RwLock<Option<AtsSnapshot>>>,
+
+    /// Bus RS485 dédié à l'ATS (parité Even) — pour les commandes d'écriture via API.
+    pub ats_bus: Arc<RwLock<Option<Arc<rs485_bus::SharedBus>>>>,
 }
 
 impl AppState {
@@ -283,6 +290,8 @@ impl AppState {
             venus_smartshunt: Arc::new(RwLock::new(None)),
             venus_inverter: Arc::new(RwLock::new(None)),
             venus_temperatures: Arc::new(RwLock::new(BTreeMap::new())),
+            ats_snapshot: Arc::new(RwLock::new(None)),
+            ats_bus: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -458,5 +467,24 @@ impl AppState {
     /// Retourne les données actuelles de l'onduleur Victron.
     pub async fn venus_inverter_get(&self) -> Option<VenusInverter> {
         self.venus_inverter.read().await.clone()
+    }
+
+    // ==========================================================================
+    // Méthodes ATS CHINT
+    // ==========================================================================
+
+    /// Enregistre le dernier snapshot ATS.
+    pub async fn on_ats_snapshot(&self, snap: AtsSnapshot) {
+        *self.ats_snapshot.write().await = Some(snap);
+    }
+
+    /// Retourne le dernier snapshot ATS (None si jamais reçu).
+    pub async fn ats_latest(&self) -> Option<AtsSnapshot> {
+        self.ats_snapshot.read().await.clone()
+    }
+
+    /// Enregistre le bus ATS pour les commandes d'écriture.
+    pub async fn set_ats_bus(&self, bus: Arc<rs485_bus::SharedBus>) {
+        *self.ats_bus.write().await = Some(bus);
     }
 }
