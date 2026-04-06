@@ -15,6 +15,7 @@
 
 mod autodetect;
 mod config;
+mod ats;
 mod et112;
 mod irradiance;
 mod tasmota;
@@ -156,6 +157,7 @@ async fn main() -> anyhow::Result<()> {
                 bms:         Vec::new(),
                 et112:       config::Et112Config::default(),
                 irradiance:  None,
+                ats:         None,
                 tasmota:     config::TasmotaConfig::default(),
                 shelly:      config::ShellyConfig::default(),
             }
@@ -259,6 +261,55 @@ async fn main() -> anyhow::Result<()> {
             )
             .await;
         });
+    }
+
+    // ── ATS CHINT — bus RS485 dédié (Even parity 8E1) ──────────────────────────
+    // L'ATS utilise une parité DIFFÉRENTE du bus BMS principal (None/8N1).
+    // Il est donc ouvert sur son propre port série dédié.
+    if let Some(ats_cfg) = config.ats.clone() {
+        if ats_cfg.enabled && !ats_cfg.port.is_empty() {
+            info!(
+                port  = %ats_cfg.port,
+                addr  = ats_cfg.address,
+                "Ouverture bus ATS (9600-8E1)"
+            );
+            let parity = match ats_cfg.parity.to_lowercase().as_str() {
+                "even" => tokio_serial::Parity::Even,
+                "odd"  => tokio_serial::Parity::Odd,
+                _      => tokio_serial::Parity::None,
+            };
+            match rs485_bus::SharedBus::open(
+                &ats_cfg.port,
+                ats_cfg.baud,
+                parity,
+                20,   // inter_frame_ms
+                500,  // timeout_ms
+            ) {
+                Ok(bus) => {
+                    state.set_ats_bus(bus.clone()).await;
+                    info!("Bus ATS ouvert — démarrage polling ATS");
+                    let state_ats = state.clone();
+                    let bus_ats   = bus;
+                    let cfg_ats   = ats_cfg;
+                    tokio::spawn(async move {
+                        ats::run_ats_poll_loop(
+                            bus_ats,
+                            cfg_ats,
+                            move |snap| {
+                                let s = state_ats.clone();
+                                tokio::spawn(async move { s.on_ats_snapshot(snap).await });
+                            },
+                        )
+                        .await;
+                    });
+                }
+                Err(e) => {
+                    warn!(port = %ats_cfg.port, error = %e, "Impossible d'ouvrir le bus ATS — ATS désactivé");
+                }
+            }
+        } else if ats_cfg.enabled {
+            warn!("ATS configuré mais port vide — ATS désactivé");
+        }
     }
 
     // NOTE : ET112 et PRALRAN utilisent désormais le bus RS485 UNIFIÉ.

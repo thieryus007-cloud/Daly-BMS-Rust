@@ -4,6 +4,7 @@
 
 pub mod system;
 pub mod bms;
+pub mod ats;
 pub mod et112;
 pub mod tasmota;
 pub mod chart;
@@ -68,6 +69,14 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/v1/bms/:id/settings/current-alarms",          post(bms::set_current_alarms))
         .route("/api/v1/bms/:id/settings/delta-alarms",            post(bms::set_delta_alarms))
         .route("/api/v1/bms/:id/settings/balancing",               post(bms::set_balancing))
+
+        // ── ATS CHINT ────────────────────────────────────────────────────────
+        .route("/api/v1/ats/status",        get(ats::get_ats_status))
+        .route("/api/v1/ats/remote_on",     post(ats::ats_remote_on))
+        .route("/api/v1/ats/remote_off",    post(ats::ats_remote_off))
+        .route("/api/v1/ats/force_source1", post(ats::ats_force_source1))
+        .route("/api/v1/ats/force_source2", post(ats::ats_force_source2))
+        .route("/api/v1/ats/force_double",  post(ats::ats_force_double))
 
         // ── ET112 ────────────────────────────────────────────────────────────
         .route("/api/v1/et112",                   get(et112::list_et112))

@@ -13,6 +13,7 @@
 //! {prefix}/{bms_id}/venus        → JSON format dbus-mqtt-battery (si activé)
 //! ```
 
+use crate::ats::AtsSnapshot;
 use crate::config::MqttConfig;
 use crate::et112::Et112Snapshot;
 use crate::state::{AppState, VenusMppt, VenusSmartShunt, VenusTemperature};
@@ -103,6 +104,17 @@ pub async fn run_mqtt_bridge(state: AppState, cfg: MqttConfig, addr_map: HashMap
         if let Some(snap) = state.latest_irradiance().await {
             if let Err(e) = publish_irradiance(&client, &cfg, snap.irradiance_wm2).await {
                 error!("MQTT publish irradiance erreur : {:?}", e);
+            }
+        }
+
+        // ── ATS CHINT → santuario/switch/{idx}/venus ──────────────────────
+        if let Some(ats_snap) = state.ats_latest().await {
+            if let Some(ats_cfg) = state.config.ats.as_ref() {
+                if ats_cfg.enabled {
+                    if let Err(e) = publish_ats_snapshot(&client, &cfg, &ats_snap, ats_cfg.mqtt_index).await {
+                        error!("MQTT publish ATS erreur : {:?}", e);
+                    }
+                }
             }
         }
 
@@ -208,6 +220,46 @@ async fn publish_et112_snapshot(
             "CustomName":           snap.name,
         })
     };
+
+    client
+        .publish(&topic, QoS::AtLeastOnce, true, serde_json::to_vec(&payload)?)
+        .await?;
+
+    Ok(())
+}
+
+/// Publie l'état de l'ATS sur `santuario/switch/{idx}/venus` (retain=true).
+///
+/// Format compatible SwitchPayload de dbus-mqtt-venus :
+/// ```json
+/// { "State": 1, "Position": 0, "ProductName": "ATS CHINT", "CustomName": "..." }
+/// ```
+///
+/// Mapping :
+/// - Position : 0=AC1/Réseau, 1=AC2/Onduleur
+/// - State    : 0=inactive, 1=active, 2=alerted (défaut)
+async fn publish_ats_snapshot(
+    client:     &AsyncClient,
+    cfg:        &MqttConfig,
+    snap:       &AtsSnapshot,
+    mqtt_index: u8,
+) -> anyhow::Result<()> {
+    let base = cfg.topic_prefix
+        .rsplit_once('/')
+        .map(|(prefix, _)| prefix)
+        .unwrap_or("santuario");
+
+    let topic = format!("{}/switch/{}/venus", base, mqtt_index);
+
+    let position = snap.active_source.venus_position();
+    let state_val = snap.active_source.venus_state(&snap.fault);
+
+    let payload = json!({
+        "Position":    position,
+        "State":       state_val,
+        "ProductName": snap.name,
+        "CustomName":  snap.name,
+    });
 
     client
         .publish(&topic, QoS::AtLeastOnce, true, serde_json::to_vec(&payload)?)

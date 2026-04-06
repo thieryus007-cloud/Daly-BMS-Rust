@@ -248,6 +248,61 @@ position         = 1
 
 
 # =============================================================================
+# ATS CHINT NXZB / NXZBN (RS485 Modbus RTU — bus DÉDIÉ 8E1)
+# =============================================================================
+# IMPORTANT : L'ATS utilise la parité Even (8E1), différente du bus BMS (8N1).
+# Il DOIT être câblé sur son propre port série USB-RS485 dédié.
+#
+# Registres Modbus ATS :
+#   0x0006–0x000B : tensions phases (V) sources 1 et 2
+#   0x004F        : statut tensions (bitfield)
+#   0x0050        : statut commutation (bitfield)
+#   0x0015–0x0017 : compteurs et runtime
+#   0x2065–0x206D : seuils, délais, mode (modèle MN uniquement)
+#
+# Commandes FC=06 :
+#   0x2800 = 0x0004 → télécommande ON
+#   0x2800 = 0x0000 → télécommande OFF
+#   0x2700 = 0x0000 → forcer source 1 (Onduleur)
+#   0x2700 = 0x00AA → forcer source 2 (Réseau)
+#   0x2700 = 0x00FF → forcer double déclenché
+#
+# Publication MQTT → santuario/switch/{mqtt_index}/venus
+# Venus OS D-Bus → com.victronenergy.switch.mqtt_1 (instance 60)
+
+[ats]
+# Activer le monitoring ATS
+enabled = true
+
+# Port série dédié à l'ATS (séparé du bus BMS /dev/ttyUSB0)
+# Sur Pi5 production : adapter selon l'identifiant USB réel
+# (lister avec : ls -la /dev/serial/by-id/ sur le Pi5)
+port = "/dev/ttyUSB2"
+
+# Vitesse série (CHINT standard = 9600)
+baud = 9600
+
+# Parité OBLIGATOIRE pour ATS CHINT : Even (8E1)
+parity = "Even"
+
+# Adresse Modbus de l'ATS (défaut usine = 6)
+address = 6
+
+# Nom affiché dans le dashboard et les logs
+name = "ATS CHINT NXZB"
+
+# Intervalle de polling en millisecondes
+poll_interval_ms = 5000
+
+# Index MQTT → topic santuario/switch/{mqtt_index}/venus
+# Doit correspondre à [[switches]].mqtt_index dans config-nanopi.toml
+mqtt_index = 1
+
+# Instance D-Bus Venus OS (doit correspondre à [[switches]].device_instance)
+device_instance = 60
+
+
+# =============================================================================
 # Prises connectées Tasmota (MQTT natif Tasmota)
 # =============================================================================
 # Tasmota publie automatiquement via MQTT :

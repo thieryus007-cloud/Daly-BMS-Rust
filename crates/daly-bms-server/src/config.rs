@@ -43,6 +43,9 @@ pub struct AppConfig {
     #[serde(default)]
     pub et112: Et112Config,
 
+    /// Configuration ATS CHINT NXZB/NXZBN (bus RS485 dédié, parité Even)
+    pub ats: Option<AtsConfig>,
+
     /// Capteur d'irradiance PRALRAN RS485 (sur le bus unifié)
     /// Remplace le service Python `irradiance-rs485`.
     pub irradiance: Option<IrradianceConfig>,
@@ -234,6 +237,74 @@ fn default_et112_service_type() -> String { "pvinverter".to_string() }
 fn default_et112_name() -> String {
     "ET112".to_string()
 }
+
+// =============================================================================
+// Configuration ATS CHINT
+// =============================================================================
+
+/// Configuration du commutateur automatique CHINT ATS (NXZB/NXZBN).
+///
+/// L'ATS utilise un bus RS485 **dédié** (parité Even, 9600-8E1).
+/// Il ne peut PAS partager le bus BMS principal (qui est 9600-8N1).
+///
+/// ```toml
+/// [ats]
+/// enabled          = true
+/// port             = "/dev/ttyUSB2"
+/// baud             = 9600
+/// parity           = "Even"      # Obligatoire pour CHINT
+/// address          = 6           # Adresse Modbus configurée sur l'ATS
+/// name             = "ATS CHINT"
+/// poll_interval_ms = 5000
+/// mqtt_index       = 1           # → santuario/switch/1/venus
+/// device_instance  = 60          # Venus OS device instance
+/// ```
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct AtsConfig {
+    /// Activer le polling ATS.
+    #[serde(default = "default_ats_enabled")]
+    pub enabled: bool,
+
+    /// Port série dédié à l'ATS (ex: "/dev/ttyUSB2", "COM5").
+    pub port: String,
+
+    /// Vitesse en bauds (défaut 9600).
+    #[serde(default = "default_ats_baud")]
+    pub baud: u32,
+
+    /// Parité RS485 : "Even" (obligatoire pour CHINT), "None", "Odd".
+    #[serde(default = "default_ats_parity")]
+    pub parity: String,
+
+    /// Adresse Modbus de l'ATS (défaut 6).
+    #[serde(default = "default_ats_address")]
+    pub address: u8,
+
+    /// Nom affiché dans le dashboard.
+    #[serde(default = "default_ats_name")]
+    pub name: String,
+
+    /// Intervalle de polling en ms (défaut 5000).
+    #[serde(default = "default_ats_interval")]
+    pub poll_interval_ms: u64,
+
+    /// Index MQTT → topic `santuario/switch/{mqtt_index}/venus` (défaut 1).
+    #[serde(default = "default_ats_mqtt_index")]
+    pub mqtt_index: u8,
+
+    /// Instance D-Bus Venus OS (défaut 60).
+    #[serde(default = "default_ats_device_instance")]
+    pub device_instance: u16,
+}
+
+fn default_ats_enabled()         -> bool   { true }
+fn default_ats_baud()            -> u32    { 9600 }
+fn default_ats_parity()          -> String { "Even".to_string() }
+fn default_ats_address()         -> u8     { 6 }
+fn default_ats_name()            -> String { "ATS CHINT".to_string() }
+fn default_ats_interval()        -> u64    { 5000 }
+fn default_ats_mqtt_index()      -> u8     { 1 }
+fn default_ats_device_instance() -> u16    { 60 }
 
 impl Et112DeviceConfig {
     /// Parse l'adresse en u8 (supporte "0x03", "3").
