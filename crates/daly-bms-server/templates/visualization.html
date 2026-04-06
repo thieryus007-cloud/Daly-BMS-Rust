@@ -121,7 +121,6 @@ function mkHandle(type, pos, id, style) {
 function SummaryNode({ data }) {
   return h('div', { className: 'sn' },
     mkHandle('target', Position.Top,    'tt'),
-    mkHandle('source', Position.Top, 'st'),
     mkHandle('source', Position.Bottom, 'sb'),
     mkHandle('target', Position.Left,   'tl'),
     mkHandle('source', Position.Right,  'sr'),
