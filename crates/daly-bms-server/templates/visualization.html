@@ -371,7 +371,7 @@ function TemperatureNode({ data }) {
 const nodeTypes = { summary: SummaryNode, bms: BmsNode, et112card: Et112CardNode, device: DeviceNode, hub: HubNode, placeholder: PlaceholderNode, mppt: MPPTNode, smartshunt: SmartShuntNode, temperature: TemperatureNode };
 
 const NODES0 = [
-  { id: 'reseau',      type: 'summary',     position: { x: -300,   y: 170  }, data: { label: 'Réseau',          icon: '🔌', value: '—',   sub: 'Réseau EDF',            dotClass: '' } },
+  { id: 'reseau',      type: 'summary',     position: { x: -300,   y: 270  }, data: { label: 'Réseau',          icon: '🔌', value: '—',   sub: 'Réseau EDF',            dotClass: '' } },
   { id: 'production',  type: 'summary',     position: { x: 265,  y: 20  }, data: { label: 'Production',      icon: '☀️',  value: '—',   sub: 'Micro-onduleurs',        dotClass: '' } },
   { id: 'batteries',   type: 'summary',     position: { x: 500,  y: 20  }, data: { label: 'Batteries',       icon: '🔋', value: '—',   sub: '360 Ah + 320 Ah',       dotClass: '' } },
   { id: 'meteo',       type: 'summary',     position: { x: 765, y: 20  }, data: { label: 'Météo',           icon: '🌤️',  value: '—',   sub: 'Irradiance solaire',     dotClass: '' } },
