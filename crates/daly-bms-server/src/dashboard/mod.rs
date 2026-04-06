@@ -753,9 +753,12 @@ struct AtsTemplate {
 
 /// Page de monitoring ATS CHINT.
 pub async fn dashboard_ats(State(state): State<AppState>) -> Response {
-    let port = state.config.ats.as_ref()
-        .map(|c| c.port.clone())
-        .unwrap_or_else(|| "—".to_string());
+    // Le bus RS485 est unifié — le port est celui du bus principal (serial.port)
+    let port = if state.config.serial.port.is_empty() {
+        "/dev/ttyUSB0 (auto)".to_string()
+    } else {
+        state.config.serial.port.clone()
+    };
 
     let snap_opt = state.ats_latest().await;
 
