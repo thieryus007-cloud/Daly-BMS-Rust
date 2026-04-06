@@ -120,8 +120,12 @@ function mkHandle(type, pos, id, style) {
 
 function SummaryNode({ data }) {
   return h('div', { className: 'sn' },
+    mkHandle('target', Position.Top,    'tt'),
     mkHandle('source', Position.Bottom, 'sb'),
-    mkHandle('target', Position.Bottom, 'tb', { left: '65%' }),
+    mkHandle('target', Position.Left,   'tl'),
+    mkHandle('source', Position.Right,  'sr'),
+    mkHandle('target', Position.Right,  'tr', { top: '68%' }),
+    mkHandle('source', Position.Left,   'sl', { top: '68%' }),
     h('div', { className: 'sn-icon' }, data.icon),
     h('div', { className: 'sn-body' },
       h('div', { className: 'sn-label' }, data.label),
