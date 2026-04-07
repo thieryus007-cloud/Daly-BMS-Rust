@@ -173,8 +173,11 @@ impl OperationMode {
 /// Source actuellement alimentant la charge.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ActiveSource {
+    #[serde(rename = "Onduleur")]
     Source1, // Onduleur / UPS
+    #[serde(rename = "Réseau")]
     Source2, // Réseau / Grid
+    #[serde(rename = "Neutre")]
     Neutral, // Position centrale (double déclenché)
 }
 

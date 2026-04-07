@@ -77,6 +77,9 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/v1/ats/force_source1", post(ats::ats_force_source1))
         .route("/api/v1/ats/force_source2", post(ats::ats_force_source2))
         .route("/api/v1/ats/force_double",  post(ats::ats_force_double))
+        .route("/api/v1/ats/send_raw",      post(ats::ats_send_raw))
+        .route("/api/v1/ats/debug_on",      get(ats::ats_debug_on))
+        .route("/api/v1/ats/debug_off",     get(ats::ats_debug_off))
 
         // ── ET112 ────────────────────────────────────────────────────────────
         .route("/api/v1/et112",                   get(et112::list_et112))
