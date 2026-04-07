@@ -70,6 +70,7 @@ impl PhaseStatus {
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_ok(&self) -> bool {
         *self == Self::Normal
     }
@@ -295,11 +296,13 @@ impl AtsSnapshot {
     }
 
     /// Source 1 OK si phase A est normale.
+    #[allow(dead_code)]
     pub fn source1_ok(&self) -> bool {
         self.s1a.is_ok()
     }
 
     /// Source 2 OK si phase A est normale.
+    #[allow(dead_code)]
     pub fn source2_ok(&self) -> bool {
         self.s2a.is_ok()
     }
