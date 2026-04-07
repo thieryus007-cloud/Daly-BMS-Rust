@@ -244,20 +244,21 @@ fn default_et112_name() -> String {
 
 /// Configuration du commutateur automatique CHINT ATS (NXZB/NXZBN).
 ///
-/// L'ATS utilise un bus RS485 **dédié** (parité Even, 9600-8E1).
-/// Il ne peut PAS partager le bus BMS principal (qui est 9600-8N1).
+/// L'ATS utilise le **bus RS485 unifié** (même port que les BMS Daly, ET112 et irradiance).
+/// Câbler l'ATS sur le même bus RS485 `/dev/ttyUSB0`, adresse Modbus unique.
+///
+/// **IMPORTANT parité** : le bus unifié tourne en 9600-8N1 (aucune parité).
+/// Configurer la parité de l'ATS à "None" via son bouton Setup ou via
+/// le registre Modbus 0x000E (0=None, 1=Odd, 2=Even) depuis l'ancienne connexion.
 ///
 /// ```toml
 /// [ats]
 /// enabled          = true
-/// port             = "/dev/ttyUSB2"
-/// baud             = 9600
-/// parity           = "Even"      # Obligatoire pour CHINT
-/// address          = 6           # Adresse Modbus configurée sur l'ATS
-/// name             = "ATS CHINT"
+/// address          = 6           # Adresse Modbus configurée sur l'ATS (défaut usine = 6)
+/// name             = "ATS CHINT NXZB"
 /// poll_interval_ms = 5000
-/// mqtt_index       = 1           # → santuario/switch/1/venus
-/// device_instance  = 60          # Venus OS device instance
+/// mqtt_index       = 1           # → santuario/switch/1/venus → com.victronenergy.switch.mqtt_1
+/// device_instance  = 60          # Instance D-Bus Venus OS / VRM
 /// ```
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AtsConfig {
@@ -265,26 +266,15 @@ pub struct AtsConfig {
     #[serde(default = "default_ats_enabled")]
     pub enabled: bool,
 
-    /// Port série dédié à l'ATS (ex: "/dev/ttyUSB2", "COM5").
-    pub port: String,
-
-    /// Vitesse en bauds (défaut 9600).
-    #[serde(default = "default_ats_baud")]
-    pub baud: u32,
-
-    /// Parité RS485 : "Even" (obligatoire pour CHINT), "None", "Odd".
-    #[serde(default = "default_ats_parity")]
-    pub parity: String,
-
-    /// Adresse Modbus de l'ATS (défaut 6).
+    /// Adresse Modbus de l'ATS (défaut 6, défaut usine CHINT).
     #[serde(default = "default_ats_address")]
     pub address: u8,
 
-    /// Nom affiché dans le dashboard.
+    /// Nom affiché dans le dashboard et les logs.
     #[serde(default = "default_ats_name")]
     pub name: String,
 
-    /// Intervalle de polling en ms (défaut 5000).
+    /// Intervalle de polling en ms (défaut 5000 = toutes les 5 secondes).
     #[serde(default = "default_ats_interval")]
     pub poll_interval_ms: u64,
 
@@ -298,8 +288,6 @@ pub struct AtsConfig {
 }
 
 fn default_ats_enabled()         -> bool   { true }
-fn default_ats_baud()            -> u32    { 9600 }
-fn default_ats_parity()          -> String { "Even".to_string() }
 fn default_ats_address()         -> u8     { 6 }
 fn default_ats_name()            -> String { "ATS CHINT".to_string() }
 fn default_ats_interval()        -> u64    { 5000 }

@@ -93,10 +93,9 @@ where
     let poll_interval = Duration::from_millis(cfg.poll_interval_ms);
 
     info!(
-        addr  = format!("{:#04x}", addr),
-        port  = %cfg.port,
-        name  = %cfg.name,
-        "ATS CHINT polling démarré"
+        addr = format!("{:#04x}", addr),
+        name = %cfg.name,
+        "ATS CHINT polling démarré (bus RS485 unifié)"
     );
 
     // Détection du modèle au démarrage

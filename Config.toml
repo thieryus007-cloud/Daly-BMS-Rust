@@ -248,57 +248,68 @@ position         = 1
 
 
 # =============================================================================
-# ATS CHINT NXZB / NXZBN (RS485 Modbus RTU — bus DÉDIÉ 8E1)
+# ATS CHINT NXZB / NXZBN (RS485 Modbus RTU — BUS UNIFIÉ /dev/ttyUSB0)
 # =============================================================================
-# IMPORTANT : L'ATS utilise la parité Even (8E1), différente du bus BMS (8N1).
-# Il DOIT être câblé sur son propre port série USB-RS485 dédié.
+# L'ATS est câblé sur le MÊME bus RS485 que les BMS Daly, ET112 et irradiance.
+# Aucun port dédié — il partage le SharedBus ouvert par [serial].
 #
-# Registres Modbus ATS :
+# ⚠ PARITÉ : le bus unifié tourne en 9600-8N1 (parité None).
+#   L'ATS doit être configuré en parité NONE via son bouton Setup physique
+#   ou via le registre Modbus 0x000E = 0x0000 (0=None, 1=Odd, 2=Even).
+#
+# Adresses RS485 sur le bus unifié /dev/ttyUSB0 :
+#   0x01 → BMS-360Ah (Daly)
+#   0x02 → BMS-320Ah (Daly)
+#   0x05 → Irradiance PRALRAN
+#   0x06 → ATS CHINT NXZB  ← ici
+#   0x07 → ET112 Micro-Onduleurs
+#   0x08 → ET112 PAC Chauffe-eau
+#   0x09 → ET112 PAC Climatisation
+#
+# Registres Modbus ATS (FC=03 lecture) :
 #   0x0006–0x000B : tensions phases (V) sources 1 et 2
-#   0x004F        : statut tensions (bitfield)
-#   0x0050        : statut commutation (bitfield)
-#   0x0015–0x0017 : compteurs et runtime
-#   0x2065–0x206D : seuils, délais, mode (modèle MN uniquement)
+#   0x000C        : version logicielle (÷100)
+#   0x000D        : fréquences (MN uniquement)
+#   0x000E        : parité Modbus (0=None, 1=Odd, 2=Even) ← configurer à 0
+#   0x0015–0x0017 : compteurs commutations + runtime (h)
+#   0x004F        : statut tensions (bitfield phases)
+#   0x0050        : statut commutation (SW1/SW2, mode, télécommande, défaut)
+#   0x0100–0x0101 : adresse et baud Modbus configurés
+#   0x2065–0x206D : seuils UV/OV, délais T1-T4, mode (MN uniquement)
 #
-# Commandes FC=06 :
-#   0x2800 = 0x0004 → télécommande ON
-#   0x2800 = 0x0000 → télécommande OFF
-#   0x2700 = 0x0000 → forcer source 1 (Onduleur)
-#   0x2700 = 0x00AA → forcer source 2 (Réseau)
-#   0x2700 = 0x00FF → forcer double déclenché
+# Commandes Modbus (FC=06 écriture) :
+#   0x2800 = 0x0004 → activer télécommande
+#   0x2800 = 0x0000 → désactiver télécommande
+#   0x2700 = 0x0000 → forcer source 1 (Onduleur / AC2)
+#   0x2700 = 0x00AA → forcer source 2 (Réseau / AC1)
+#   0x2700 = 0x00FF → forcer double déclenché (neutre)
 #
-# Publication MQTT → santuario/switch/{mqtt_index}/venus
-# Venus OS D-Bus → com.victronenergy.switch.mqtt_1 (instance 60)
+# Intégration Venus OS :
+#   MQTT topic    : santuario/switch/{mqtt_index}/venus
+#   D-Bus service : com.victronenergy.switch.mqtt_1 (instance 60)
+#   /Position     : 0 = AC1/Réseau, 1 = AC2/Onduleur
+#   /State        : 0 = inactif, 1 = actif, 2 = alerte
 
 [ats]
-# Activer le monitoring ATS
+# Activer le monitoring et les commandes ATS
 enabled = true
 
-# Port série dédié à l'ATS (séparé du bus BMS /dev/ttyUSB0)
-# Sur Pi5 production : adapter selon l'identifiant USB réel
-# (lister avec : ls -la /dev/serial/by-id/ sur le Pi5)
-port = "/dev/ttyUSB2"
-
-# Vitesse série (CHINT standard = 9600)
-baud = 9600
-
-# Parité OBLIGATOIRE pour ATS CHINT : Even (8E1)
-parity = "Even"
-
-# Adresse Modbus de l'ATS (défaut usine = 6)
+# Adresse Modbus de l'ATS (défaut usine CHINT = 6)
+# Vérifier avec : mbpoll -m rtu -a 1:15 -b 9600 -t 3 -r 1 -c 1 /dev/ttyUSB0
 address = 6
 
-# Nom affiché dans le dashboard et les logs
+# Nom affiché dans le dashboard web et les logs
 name = "ATS CHINT NXZB"
 
-# Intervalle de polling en millisecondes
+# Intervalle de polling en millisecondes (5000 = toutes les 5 secondes)
 poll_interval_ms = 5000
 
 # Index MQTT → topic santuario/switch/{mqtt_index}/venus
-# Doit correspondre à [[switches]].mqtt_index dans config-nanopi.toml
+# Doit correspondre à [[switches]].mqtt_index dans nanoPi/config-nanopi.toml
 mqtt_index = 1
 
-# Instance D-Bus Venus OS (doit correspondre à [[switches]].device_instance)
+# Instance D-Bus Venus OS / VRM portal
+# Doit correspondre à [[switches]].device_instance dans config-nanopi.toml
 device_instance = 60
 
 

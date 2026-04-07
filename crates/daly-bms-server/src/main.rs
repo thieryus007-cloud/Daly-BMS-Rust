@@ -157,7 +157,7 @@ async fn main() -> anyhow::Result<()> {
                 bms:         Vec::new(),
                 et112:       config::Et112Config::default(),
                 irradiance:  None,
-                ats:         None,
+                ats:         None, // Option<AtsConfig> — None = ATS non configuré
                 tasmota:     config::TasmotaConfig::default(),
                 shelly:      config::ShellyConfig::default(),
             }
@@ -263,59 +263,10 @@ async fn main() -> anyhow::Result<()> {
         });
     }
 
-    // ── ATS CHINT — bus RS485 dédié (Even parity 8E1) ──────────────────────────
-    // L'ATS utilise une parité DIFFÉRENTE du bus BMS principal (None/8N1).
-    // Il est donc ouvert sur son propre port série dédié.
-    if let Some(ats_cfg) = config.ats.clone() {
-        if ats_cfg.enabled && !ats_cfg.port.is_empty() {
-            info!(
-                port  = %ats_cfg.port,
-                addr  = ats_cfg.address,
-                "Ouverture bus ATS (9600-8E1)"
-            );
-            let parity = match ats_cfg.parity.to_lowercase().as_str() {
-                "even" => tokio_serial::Parity::Even,
-                "odd"  => tokio_serial::Parity::Odd,
-                _      => tokio_serial::Parity::None,
-            };
-            match rs485_bus::SharedBus::open(
-                &ats_cfg.port,
-                ats_cfg.baud,
-                parity,
-                20,   // inter_frame_ms
-                500,  // timeout_ms
-            ) {
-                Ok(bus) => {
-                    state.set_ats_bus(bus.clone()).await;
-                    info!("Bus ATS ouvert — démarrage polling ATS");
-                    let state_ats = state.clone();
-                    let bus_ats   = bus;
-                    let cfg_ats   = ats_cfg;
-                    tokio::spawn(async move {
-                        ats::run_ats_poll_loop(
-                            bus_ats,
-                            cfg_ats,
-                            move |snap| {
-                                let s = state_ats.clone();
-                                tokio::spawn(async move { s.on_ats_snapshot(snap).await });
-                            },
-                        )
-                        .await;
-                    });
-                }
-                Err(e) => {
-                    warn!(port = %ats_cfg.port, error = %e, "Impossible d'ouvrir le bus ATS — ATS désactivé");
-                }
-            }
-        } else if ats_cfg.enabled {
-            warn!("ATS configuré mais port vide — ATS désactivé");
-        }
-    }
-
-    // NOTE : ET112 et PRALRAN utilisent désormais le bus RS485 UNIFIÉ.
-    // Leur lancement est déplacé dans le bloc hardware, après l'ouverture du DalyPort,
+    // NOTE : ET112, PRALRAN et ATS utilisent le bus RS485 UNIFIÉ.
+    // Leur lancement est dans le bloc hardware, après l'ouverture du DalyPort,
     // afin de partager le même Arc<SharedBus>.
-    // En mode simulation, ET112 et PRALRAN ne sont pas lancés (pas de port réel).
+    // En mode simulation, ET112/PRALRAN/ATS ne sont pas lancés (pas de port réel).
 
     // ── Mode SIMULATION ou HARDWARE ────────────────────────────────────────────
     if args.simulate {
@@ -419,6 +370,33 @@ async fn main() -> anyhow::Result<()> {
                             )
                             .await;
                         });
+                    }
+
+                    // ── ATS CHINT sur bus unifié ──────────────────────────────────
+                    // Même bus RS485 que BMS/ET112/PRALRAN — parité None (8N1).
+                    // L'ATS doit être configuré en parité None (reg 0x000E = 0).
+                    if let Some(ats_cfg) = config.ats.clone() {
+                        if ats_cfg.enabled {
+                            info!(
+                                addr = ats_cfg.address,
+                                name = %ats_cfg.name,
+                                "Démarrage polling ATS CHINT (bus RS485 unifié)"
+                            );
+                            let state_ats = state.clone();
+                            let bus_ats   = shared_bus.clone();
+                            state.set_ats_bus(shared_bus.clone()).await;
+                            tokio::spawn(async move {
+                                ats::run_ats_poll_loop(
+                                    bus_ats,
+                                    ats_cfg,
+                                    move |snap| {
+                                        let s = state_ats.clone();
+                                        tokio::spawn(async move { s.on_ats_snapshot(snap).await });
+                                    },
+                                )
+                                .await;
+                            });
+                        }
                     }
 
                     // ── 2. Résoudre les adresses BMS (auto-découverte ou config) ──
