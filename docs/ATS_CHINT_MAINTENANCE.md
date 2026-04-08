@@ -75,7 +75,7 @@
 |-----------|----------------|--------------|
 | Adresse Modbus | 6 | 1 |
 | Baud rate | 9600 | 9600 |
-| **Parité** | **None (8N1)** | **Even (8E1)** |
+### | **Parité** | **None (8N1)** | **Even (8E1)** |      >>>> **None (8N1)** Déja modifié
 
 > ⚠ **CRITIQUE** : La parité DOIT être configurée à **None** sur l'ATS.
 > Le bus unifié Pi5 tourne en 8N1. Si l'ATS reste en Even, il ne répondra pas.

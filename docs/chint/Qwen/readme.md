@@ -384,7 +384,7 @@ Adresse 0x000D (Lecture seule) – 16 bits
 |-----------|------------------|----------------------------|----------|------------------------|
 | Adresse Modbus | 3 | **6** | `0x0100` | Menu A-A (MN/M) ou Modbus écriture (BN/B) |
 | Débit (Baud Rate) | 9.6 kbps | 9.6 kbps | `0x0101` | Menu A-C (MN/M) ou Modbus |
-| Parité | Even (2) | Even (2) | `0x000E` | Menu A-E (MN/M) ou Modbus |
+| Parité | Even (2) | Even (2) | `0x000E` | Menu A-E (MN/M) ou Modbus |                  <<<----------- Parité: None
 | Bits de données | 8 | 8 (fixe) | – | Non modifiable |
 | Bits d'arrêt | 1 | 1 (fixe) | – | Non modifiable |
 | Contrôle de flux | Aucun | Aucun (fixe) | – | Non modifiable |
@@ -480,7 +480,7 @@ def calculate_crc16(data: bytes) -> int:
 |----------|-----------------|-----------------|---------------|-----|----------------|
 | Modifier adresse Modbus → 6 | `0x0100` | `0x0006` | `06 06 01 00 00 06` | `49 00` | `06 06 01 00 00 06 49 00` |
 | Modifier débit → 19.2 kbps | `0x0101` | `0x0002` | `06 06 01 01 00 02` | `B8 00` | `06 06 01 01 00 02 B8 00` |
-| Modifier parité → None | `0x000E` | `0x0000` | `06 06 00 0E 00 00` | `89 04` | `06 06 00 0E 00 00 89 04` |
+###  Modifier parité → None | `0x000E` | `0x0000` | `06 06 00 0E 00 00` | `89 04` | `06 06 00 0E 00 00 89 04` |              <<<----------- Parité: None
 | Seuil sous-tension Src I = 170 V | `0x2065` | `0x00AA` | `06 06 20 65 00 AA` | `D3 8F` | `06 06 20 65 00 AA D3 8F` |
 | Seuil surtension Src II = 260 V | `0x2068` | `0x0104` | `06 06 20 68 01 04` | `42 1C` | `06 06 20 68 01 04 42 1C` |
 | Délai T1 = 10 s | `0x2069` | `0x000A` | `06 06 20 69 00 0A` | `72 5D` | `06 06 20 69 00 0A 72 5D` |
