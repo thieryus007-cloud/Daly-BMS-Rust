@@ -259,21 +259,23 @@ async fn poll_ats(
     let modbus_addr     = read_reg(bus, addr, 0x0100).await;
     let modbus_baud_code = read_reg(bus, addr, 0x0101).await;
 
+    // ── T1 et T2 — tous modèles (Qwen reference : toujours lus, BN et MN) ──
+    let t1_s = read_reg(bus, addr, 0x2069).await;
+    let t2_s = read_reg(bus, addr, 0x206A).await;
+
     // ── Registres MN uniquement ───────────────────────────────────────────
-    let (operation_mode, uv1, uv2, ov1, ov2, t1_s, t2_s, t3_s, t4_s) = if model == "MN" {
+    let (operation_mode, uv1, uv2, ov1, ov2, t3_s, t4_s) = if model == "MN" {
         (
             read_reg(bus, addr, 0x206D).await.map(OperationMode::from_u16),
             read_reg(bus, addr, 0x2065).await,
             read_reg(bus, addr, 0x2066).await,
             read_reg(bus, addr, 0x2067).await,
             read_reg(bus, addr, 0x2068).await,
-            read_reg(bus, addr, 0x2069).await,
-            read_reg(bus, addr, 0x206A).await,
             read_reg(bus, addr, 0x206B).await,
             read_reg(bus, addr, 0x206C).await,
         )
     } else {
-        (None, None, None, None, None, None, None, None, None)
+        (None, None, None, None, None, None, None)
     };
 
     Ok(AtsSnapshot {
