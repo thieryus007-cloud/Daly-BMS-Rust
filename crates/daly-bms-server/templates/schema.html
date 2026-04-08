@@ -1,1 +1,716 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ATS Nodes - Module Compact</title>
+    
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/reactflow@11.10.1/dist/umd/index.js"></script>
+    <link href="https://unpkg.com/reactflow@11.10.1/dist/style.css" rel="stylesheet" />
+    
+    <style>
+        /* Variables cohérentes avec votre thème existant */
+        :root {
+            --bg-card: #ffffff;
+            --bg-card-subtle: #f8fafc;
+            --bg-card-hover: #f1f5f9;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #94a3b8;
+            --border-color: #e2e8f0;
+            --border-focus: #3b82f6;
+            --color-primary: #2563eb;
+            --color-primary-hover: #1d4ed8;
+            --color-success: #10b981;
+            --color-success-bg: rgba(16, 185, 129, 0.12);
+            --color-warning: #f59e0b;
+            --color-warning-bg: rgba(245, 158, 11, 0.12);
+            --color-danger: #ef4444;
+            --color-danger-bg: rgba(239, 68, 68, 0.12);
+            --color-ats: #6366f1;
+            --icon-reseau: linear-gradient(135deg, #0ea5e9, #38bdf8);
+            --icon-onduleur: linear-gradient(135deg, #7c3aed, #a78bfa);
+            --icon-ats: linear-gradient(135deg, #2563eb, #60a5fa);
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.06);
+            --radius-sm: 4px;
+            --radius-md: 6px;
+            --radius-lg: 10px;
+        }
+        
+        [data-theme="dark"] {
+            --bg-card: #1e293b;
+            --bg-card-subtle: #334155;
+            --bg-card-hover: #475569;
+            --text-primary: #f1f5f9;
+            --text-secondary: #cbd5e1;
+            --text-muted: #64748b;
+            --border-color: #334155;
+            --border-focus: #60a5fa;
+            --color-primary: #3b82f6;
+            --color-success: #34d399;
+            --color-warning: #fbbf24;
+            --color-danger: #f87171;
+        }
 
+        /* Styles compacts pour intégration */
+        .ats-module-container {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: transparent;
+            min-width: 700px;
+        }
+        
+        /* Version ultra-compacte des nodes */
+        .compact-node {
+            width: 200px;
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+            font-size: 7px;
+            transition: all 0.2s ease;
+        }
+        
+        .compact-node:hover {
+            box-shadow: var(--shadow-md);
+            border-color: var(--border-focus);
+        }
+        
+        .compact-node.active-source {
+            border: 2px solid var(--color-success);
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
+        }
+        
+        /* Header compact */
+        .node-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 8px;
+            background: var(--bg-card-subtle);
+            border-bottom: 1px solid var(--border-color);
+            gap: 6px;
+        }
+        
+        .node-title {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-weight: 600;
+            font-size: 8px;
+        }
+        
+        .node-icon {
+            width: 18px;
+            height: 18px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            color: white;
+        }
+        
+        .node-icon.reseau { background: var(--icon-reseau); }
+        .node-icon.onduleur { background: var(--icon-onduleur); }
+        .node-icon.ats { background: var(--icon-ats); }
+        
+        .voltage-value {
+            font-size: 9px;
+            font-weight: 700;
+            font-family: monospace;
+        }
+        
+        .status-badge {
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 7px;
+            font-weight: 600;
+        }
+        
+        .status-badge.ok { background: var(--color-success-bg); color: var(--color-success); }
+        .status-badge.warn { background: var(--color-warning-bg); color: var(--color-warning); }
+        .status-badge.err { background: var(--color-danger-bg); color: var(--color-danger); }
+        
+        /* Barre de tension compacte */
+        .volt-bar {
+            height: 2px;
+            background: var(--border-color);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        
+        .volt-fill {
+            height: 100%;
+            transition: width 0.2s;
+        }
+        
+        .volt-fill.ok { background: var(--color-success); }
+        .volt-fill.warn { background: var(--color-warning); }
+        .volt-fill.err { background: var(--color-danger); }
+        
+        /* Grille de données compacte */
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 3px;
+            padding: 5px 8px;
+            background: var(--bg-card-subtle);
+        }
+        
+        .data-cell {
+            background: var(--bg-card);
+            padding: 3px 2px;
+            border-radius: var(--radius-sm);
+            text-align: center;
+            border: 1px solid var(--border-color);
+        }
+        
+        .data-label {
+            font-size: 6px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            display: block;
+            letter-spacing: 0.3px;
+        }
+        
+        .data-value {
+            font-size: 7px;
+            font-weight: 600;
+            font-family: monospace;
+        }
+        
+        /* Boutons compacts */
+        .compact-btn {
+            width: 100%;
+            padding: 4px;
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 7px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+        
+        .compact-btn:active { transform: scale(0.97); }
+        .compact-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .btn-warning { background: var(--color-warning); color: white; }
+        .btn-primary { background: var(--color-primary); color: white; }
+        .btn-danger { background: var(--color-danger); color: white; }
+        
+        /* Section ATS spécifique */
+        .ats-switches {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+            padding: 0 8px 5px;
+        }
+        
+        .switch-card {
+            background: var(--bg-card-subtle);
+            border-radius: var(--radius-md);
+            padding: 3px 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid var(--border-color);
+        }
+        
+        .switch-label {
+            font-size: 6px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+        
+        .switch-value {
+            font-size: 8px;
+            font-weight: 700;
+        }
+        
+        .switch-value.closed { color: var(--color-success); }
+        .switch-value.open { color: var(--text-muted); }
+        
+        /* Lignes d'info compactes */
+        .info-lines {
+            padding: 4px 8px;
+            border-top: 1px solid var(--border-color);
+        }
+        
+        .info-line {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            font-size: 7px;
+        }
+        
+        .info-key {
+            color: var(--text-muted);
+        }
+        
+        .info-value {
+            font-weight: 600;
+        }
+        
+        .info-value.err { color: var(--color-danger); }
+        .info-value.ok { color: var(--color-success); }
+        
+        /* Toggle compact */
+        .toggle-switch {
+            position: relative;
+            width: 24px;
+            height: 12px;
+            background: var(--border-color);
+            border-radius: 12px;
+            transition: 0.2s;
+            cursor: pointer;
+        }
+        
+        .toggle-switch.active {
+            background: var(--color-success);
+        }
+        
+        .toggle-switch::after {
+            content: "";
+            position: absolute;
+            width: 9px;
+            height: 9px;
+            background: white;
+            border-radius: 50%;
+            top: 1.5px;
+            left: 2px;
+            transition: 0.2s;
+        }
+        
+        .toggle-switch.active::after {
+            transform: translateX(11px);
+        }
+        
+        /* React Flow overrides pour compatibilité */
+        .react-flow__node {
+            padding: 0;
+            border: none;
+            background: transparent;
+        }
+        
+        .react-flow__handle {
+            width: 8px !important;
+            height: 8px !important;
+            opacity: 0.7;
+        }
+        
+        .react-flow__edge-path {
+            stroke-width: 2;
+            stroke-dasharray: 4 3;
+        }
+        
+        /* Animation pour source active */
+        @keyframes soft-pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.2); }
+            50% { box-shadow: 0 0 0 3px rgba(16, 185, 129, 0); }
+        }
+        
+        .pulse-active {
+            animation: soft-pulse 2s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div id="ats-module"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useCallback, useMemo } = React;
+        const { ReactFlow, Controls, Background, MarkerType, Handle, Position } = window.ReactFlow;
+
+        // Helper functions
+        const getVoltagePercent = (voltage, max) => Math.min(100, Math.max(0, ((parseInt(voltage) || 0) / (parseInt(max) || 400)) * 100));
+        
+        const getStatusClass = (status) => {
+            if (!status) return { cls: "ok", text: "✓ OK" };
+            const lower = status.toLowerCase();
+            if (lower.includes("normal") || lower.includes("ok")) return { cls: "ok", text: "✓ OK" };
+            if (lower.includes("sous") || lower.includes("attention")) return { cls: "warn", text: "⚠" };
+            if (lower.includes("surtension") || lower.includes("erreur")) return { cls: "err", text: "✗" };
+            return { cls: "ok", text: "✓" };
+        };
+
+        // Node: Réseau (compact)
+        const ReseauNodeCompact = ({ data }) => {
+            const isActive = data.sw2 === 'Fermé' || data.sw2 === '✅ Fermé';
+            const statusInfo = getStatusClass(data.s2a);
+            const voltagePercent = getVoltagePercent(data.v2a, data.max2);
+            const isConnected = (parseInt(data.v2a) || 0) > 50;
+            const voltageClass = data.s2a?.toLowerCase().includes("normal") ? "ok" : 
+                                 data.s2a?.toLowerCase().includes("sous") ? "warn" : "err";
+
+            return (
+                <div className={`compact-node ${isActive ? 'active-source pulse-active' : ''}`}>
+                    <Handle type="source" position={Position.Right} id="reseau-out" className="react-flow__handle" />
+                    <div className="node-header">
+                        <div className="node-title">
+                            <div className="node-icon reseau">⚡</div>
+                            <span>Réseau</span>
+                        </div>
+                        <div>
+                            <span className="voltage-value">{data.v2a || '--'}V</span>
+                        </div>
+                        <span className={`status-badge ${statusInfo.cls}`}>{statusInfo.text}</span>
+                    </div>
+                    <div className="volt-bar">
+                        <div className={`volt-fill ${voltageClass}`} style={{ width: `${voltagePercent}%` }}></div>
+                    </div>
+                    <div className="data-grid">
+                        <div className="data-cell"><span className="data-label">SW2</span><span className="data-value">{data.sw2 || '--'}</span></div>
+                        <div className="data-cell"><span className="data-label">Max</span><span className="data-value">{data.max2 || '--'}V</span></div>
+                        <div className="data-cell"><span className="data-label">Nb</span><span className="data-value">{data.cnt2 || 0}</span></div>
+                        <div className="data-cell"><span className="data-label">T2</span><span className="data-value">{data.t2 || 0}s</span></div>
+                    </div>
+                    <div style={{ padding: '4px 8px 6px' }}>
+                        <button className="compact-btn btn-warning" onClick={() => data.onForce?.(2)} disabled={data.disabled}>
+                            ⚡ Forcer
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        // Node: Onduleur (compact)
+        const OnduleurNodeCompact = ({ data }) => {
+            const isActive = data.sw1 === 'Fermé' || data.sw1 === '✅ Fermé';
+            const statusInfo = getStatusClass(data.s1a);
+            const voltagePercent = getVoltagePercent(data.v1a, data.max1);
+            const voltageClass = data.s1a?.toLowerCase().includes("normal") ? "ok" : 
+                                 data.s1a?.toLowerCase().includes("sous") ? "warn" : "err";
+
+            return (
+                <div className={`compact-node ${isActive ? 'active-source pulse-active' : ''}`}>
+                    <Handle type="source" position={Position.Top} id="onduleur-out" className="react-flow__handle" />
+                    <div className="node-header">
+                        <div className="node-title">
+                            <div className="node-icon onduleur">🔋</div>
+                            <span>Onduleur</span>
+                        </div>
+                        <div>
+                            <span className="voltage-value">{data.v1a || '--'}V</span>
+                        </div>
+                        <span className={`status-badge ${statusInfo.cls}`}>{statusInfo.text}</span>
+                    </div>
+                    <div className="volt-bar">
+                        <div className={`volt-fill ${voltageClass}`} style={{ width: `${voltagePercent}%` }}></div>
+                    </div>
+                    <div className="data-grid">
+                        <div className="data-cell"><span className="data-label">SW1</span><span className="data-value">{data.sw1 || '--'}</span></div>
+                        <div className="data-cell"><span className="data-label">Max</span><span className="data-value">{data.max1 || '--'}V</span></div>
+                        <div className="data-cell"><span className="data-label">Nb</span><span className="data-value">{data.cnt1 || 0}</span></div>
+                        <div className="data-cell"><span className="data-label">T1</span><span className="data-value">{data.t1 || 0}s</span></div>
+                    </div>
+                    <div style={{ padding: '4px 8px 6px' }}>
+                        <button className="compact-btn btn-primary" onClick={() => data.onForce?.(1)} disabled={data.disabled}>
+                            🔋 Forcer
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        // Node: ATS (compact)
+        const ATSNodeCompact = ({ data }) => {
+            const remoteEnabled = data.swRemote === "📡 Activé" || data.swRemote === "Activé";
+            const hasFault = data.swFault && data.swFault !== "Aucun" && data.swFault !== "None";
+            const isCenterOff = data.middleOFF?.includes('Activé');
+
+            return (
+                <div className="compact-node">
+                    <Handle type="target" position={Position.Left} id="ats-in-reseau" className="react-flow__handle" />
+                    <Handle type="target" position={Position.Bottom} id="ats-in-onduleur" className="react-flow__handle" />
+                    
+                    <div className="node-header" style={{ borderBottom: '2px solid var(--color-ats)' }}>
+                        <div className="node-title">
+                            <div className="node-icon ats">🔀</div>
+                            <span>ATS</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ fontSize: '6px' }}>Télécmd</span>
+                            <div 
+                                className={`toggle-switch ${remoteEnabled ? 'active' : ''}`}
+                                onClick={!data.disabled ? data.onToggleRemote : undefined}
+                                style={{ cursor: data.disabled ? 'default' : 'pointer', opacity: data.disabled ? 0.5 : 1 }}
+                            ></div>
+                        </div>
+                        <span className={`status-badge ${remoteEnabled ? 'ok' : 'warn'}`}>{remoteEnabled ? "📡" : "🔒"}</span>
+                    </div>
+                    
+                    <div className="ats-switches">
+                        <div className="switch-card">
+                            <span className="switch-label">SW1</span>
+                            <span className={`switch-value ${data.sw1 === 'Fermé' || data.sw1 === '✅ Fermé' ? 'closed' : 'open'}`}>
+                                {data.sw1 || 'Ouvert'}
+                            </span>
+                        </div>
+                        <div className="switch-card">
+                            <span className="switch-label">SW2</span>
+                            <span className={`switch-value ${data.sw2 === 'Fermé' || data.sw2 === '✅ Fermé' ? 'closed' : 'open'}`}>
+                                {data.sw2 || 'Ouvert'}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div className="info-lines">
+                        <div className="info-line">
+                            <span className="info-key">Mode</span>
+                            <span className="info-value">{data.swMode || 'Auto'}</span>
+                        </div>
+                        <div className="info-line">
+                            <span className="info-key">Défaut</span>
+                            <span className={`info-value ${hasFault ? 'err' : 'ok'}`}>
+                                {hasFault ? `⚠ ${data.swFault}` : "✓"}
+                            </span>
+                        </div>
+                        <div className="info-line">
+                            <span className="info-key">Centre OFF</span>
+                            <span className={`info-value ${isCenterOff ? 'err' : 'ok'}`}>
+                                {isCenterOff ? "Activé" : "Désactivé"}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div style={{ padding: '0 8px 6px' }}>
+                        <button className="compact-btn btn-danger" onClick={data.onForceOff} disabled={data.disabled}>
+                            ⏹️ OFF Central
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        const nodeTypes = { reseau: ReseauNodeCompact, onduleur: OnduleurNodeCompact, ats: ATSNodeCompact };
+
+        // Composant principal du module ATS
+        function ATSModule() {
+            const [theme, setTheme] = useState(() => localStorage.getItem('ats-theme') || 'light');
+            const [isProcessing, setIsProcessing] = useState(false);
+            const [apiData, setApiData] = useState({ 
+                v1a: '0', v2a: '0', sw1: 'Ouvert', sw2: 'Ouvert', s1a: 'Normal', s2a: 'Normal',
+                swRemote: 'Désactivé', swMode: 'Auto', swFault: 'Aucun', middleOFF: 'Désactivé',
+                cnt1: '0', cnt2: '0', t1: '0', t2: '0', max1: '400', max2: '400'
+            });
+
+            // Thème
+            useEffect(() => {
+                document.documentElement.setAttribute('data-theme', theme);
+                localStorage.setItem('ats-theme', theme);
+            }, [theme]);
+
+            const toggleTheme = () => setTheme(t => t === 'light' ? 'dark' : 'light');
+
+            // Fetch data
+            const fetchData = useCallback(async () => {
+                try {
+                    const response = await fetch('/api/read_all', { cache: 'no-cache' });
+                    const data = await response.json();
+                    if (data.success && data.values) {
+                        setApiData(prev => ({ ...prev, ...data.values }));
+                    }
+                } catch (error) {
+                    console.error("Fetch error:", error);
+                }
+            }, []);
+
+            // Exécution de commande
+            const executeCommand = async (steps) => {
+                if (isProcessing) return;
+                setIsProcessing(true);
+                try {
+                    for (const step of steps) {
+                        if (typeof step === 'string') {
+                            await fetch('/api/' + step, { method: 'POST', cache: 'no-cache' });
+                        } else if (typeof step === 'number') {
+                            await new Promise(r => setTimeout(r, step));
+                        }
+                    }
+                    await new Promise(r => setTimeout(r, 500));
+                    await fetchData();
+                } catch (error) {
+                    console.error("Command failed:", error);
+                } finally {
+                    setIsProcessing(false);
+                }
+            };
+
+            const handleForceSource = async (sourceId) => {
+                const command = sourceId === 1 ? 'force_source1' : 'force_source2';
+                await executeCommand(['remote_on', 200, command, 'remote_off']);
+            };
+
+            const handleToggleRemote = async () => {
+                const isOn = apiData.swRemote === "📡 Activé" || apiData.swRemote === "Activé";
+                const command = isOn ? 'remote_off' : 'remote_on';
+                await executeCommand([command, 300]);
+            };
+
+            const handleForceOff = async () => {
+                if (window.confirm("⚠️ Confirmer l'arrêt complet (Double OFF) ?")) {
+                    await executeCommand(['remote_on', 200, 'force_double', 'remote_off']);
+                }
+            };
+
+            // Nodes configuration - positions optimisées pour intégration
+            const baseNodes = useMemo(() => [
+                { id: 'reseau', type: 'reseau', position: { x: -280, y: 80 }, draggable: false },
+                { id: 'ats', type: 'ats', position: { x: 0, y: 80 }, draggable: false },
+                { id: 'onduleur', type: 'onduleur', position: { x: 0, y: 260 }, draggable: false }
+            ], []);
+
+            useEffect(() => {
+                fetchData();
+                const interval = setInterval(fetchData, 5000);
+                return () => clearInterval(interval);
+            }, [fetchData]);
+
+            // Construction des nodes avec données
+            const nodesWithData = useMemo(() => {
+                return baseNodes.map(node => {
+                    const nodeData = { ...apiData, disabled: isProcessing };
+                    
+                    if (node.id === 'reseau') nodeData.onForce = handleForceSource;
+                    else if (node.id === 'onduleur') nodeData.onForce = handleForceSource;
+                    else if (node.id === 'ats') {
+                        nodeData.onToggleRemote = handleToggleRemote;
+                        nodeData.onForceOff = handleForceOff;
+                    }
+                    
+                    return {
+                        id: node.id,
+                        type: node.type,
+                        position: node.position,
+                        draggable: node.draggable,
+                        data: nodeData
+                    };
+                });
+            }, [apiData, baseNodes, isProcessing]);
+
+            // Edges dynamiques
+            const sw1Closed = apiData.sw1?.includes("Fermé");
+            const sw2Closed = apiData.sw2?.includes("Fermé");
+            const isCenterOff = apiData.middleOFF?.includes("Activé");
+
+            const edges = useMemo(() => {
+                if (isCenterOff) return [];
+                
+                const edgeList = [];
+                const activeColor = 'var(--color-success)';
+                
+                if (sw1Closed && !sw2Closed) {
+                    edgeList.push({
+                        id: 'e1',
+                        source: 'onduleur',
+                        target: 'ats',
+                        sourceHandle: 'onduleur-out',
+                        targetHandle: 'ats-in-onduleur',
+                        animated: true,
+                        style: { stroke: activeColor, strokeWidth: 2 },
+                        markerEnd: { type: MarkerType.ArrowClosed, color: activeColor, width: 12, height: 12 }
+                    });
+                } else if (sw2Closed && !sw1Closed) {
+                    edgeList.push({
+                        id: 'e2',
+                        source: 'reseau',
+                        target: 'ats',
+                        sourceHandle: 'reseau-out',
+                        targetHandle: 'ats-in-reseau',
+                        animated: true,
+                        style: { stroke: activeColor, strokeWidth: 2 },
+                        markerEnd: { type: MarkerType.ArrowClosed, color: activeColor, width: 12, height: 12 }
+                    });
+                } else if (sw1Closed && sw2Closed) {
+                    edgeList.push(
+                        {
+                            id: 'e1',
+                            source: 'onduleur',
+                            target: 'ats',
+                            sourceHandle: 'onduleur-out',
+                            targetHandle: 'ats-in-onduleur',
+                            animated: true,
+                            style: { stroke: activeColor, strokeWidth: 2 },
+                            markerEnd: { type: MarkerType.ArrowClosed, color: activeColor, width: 12, height: 12 }
+                        },
+                        {
+                            id: 'e2',
+                            source: 'reseau',
+                            target: 'ats',
+                            sourceHandle: 'reseau-out',
+                            targetHandle: 'ats-in-reseau',
+                            animated: true,
+                            style: { stroke: 'var(--color-ats)', strokeWidth: 1.5, opacity: 0.6 },
+                            markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--color-ats)', width: 10, height: 10 }
+                        }
+                    );
+                }
+                return edgeList;
+            }, [sw1Closed, sw2Closed, isCenterOff]);
+
+            return (
+                <div className="ats-module-container">
+                    <div style={{ position: 'absolute', top: '8px', left: '8px', zIndex: 1000, display: 'flex', gap: '8px' }}>
+                        <button 
+                            onClick={toggleTheme}
+                            style={{
+                                background: 'var(--bg-card)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '6px',
+                                padding: '4px 8px',
+                                fontSize: '8px',
+                                cursor: 'pointer',
+                                color: 'var(--text-primary)'
+                            }}
+                        >
+                            {theme === 'light' ? '🌙' : '☀️'}
+                        </button>
+                        <span style={{ fontSize: '8px', color: 'var(--text-muted)', background: 'var(--bg-card)', padding: '4px 8px', borderRadius: '6px' }}>
+                            🔄 Auto-refresh 5s
+                        </span>
+                    </div>
+                    
+                    <ReactFlow 
+                        nodes={nodesWithData} 
+                        edges={edges} 
+                        nodeTypes={nodeTypes} 
+                        fitView 
+                        fitViewOptions={{ padding: 0.2 }}
+                        defaultViewport={{ x: 0, y: 0, zoom: 0.85 }}
+                        nodesConnectable={false}
+                        nodesDraggable={false}
+                        panOnDrag={true}
+                        zoomOnScroll={true}
+                        minZoom={0.4}
+                        maxZoom={1.5}
+                        edgesConnectable={false}
+                    >
+                        <Background color="var(--border-color)" gap={16} size={0.8} />
+                        <Controls 
+                            showInteractive={false} 
+                            style={{
+                                boxShadow: 'var(--shadow-sm)',
+                                borderRadius: 'var(--radius-md)',
+                                background: 'var(--bg-card)',
+                                border: '1px solid var(--border-color)'
+                            }} 
+                        />
+                    </ReactFlow>
+                </div>
+            );
+        }
+
+        // Rendu du module
+        ReactDOM.createRoot(document.getElementById('ats-module')).render(<ATSModule />);
+    </script>
+</body>
+</html>
