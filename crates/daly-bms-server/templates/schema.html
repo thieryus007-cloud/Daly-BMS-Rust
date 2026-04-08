@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ATS - Supervision Compacte</title>
+    <title>Supervision Globale + ATS (Container)</title>
     
-    <!-- 1. Chargement des dépendances dans l'ordre strict -->
+    <!-- Dépendances -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -13,6 +13,7 @@
     <link href="https://unpkg.com/reactflow@11.10.1/dist/style.css" rel="stylesheet" />
     
     <style>
+        /* Styles identiques à l'original (conservés) */
         :root {
             --bg-page: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
             --bg-card: #ffffff; --bg-card-subtle: #f8fafc;
@@ -48,7 +49,6 @@
         body { margin: 0; font-family: 'Inter', system-ui, sans-serif; background: var(--bg-page); color: var(--text-primary); }
         #root { width: 100vw; height: 100vh; position: relative; }
         #loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--text-secondary); }
-        #error-panel { display: none; position: fixed; inset: 0; background: #fee2e2; color: #991b1b; padding: 20px; font-family: monospace; z-index: 9999; overflow: auto; white-space: pre-wrap; }
         
         .pro-node { width: 195px; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-color); box-shadow: var(--shadow-md); display: flex; flex-direction: column; overflow: hidden; font-size: 9px; line-height: 1.25; position: relative; }
         .pro-node.active-source { border: 2px solid var(--color-success); box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15), var(--shadow-md); }
@@ -75,27 +75,11 @@
         .data-chip-value { font-size: 9px; font-weight: 600; font-family: monospace; }
         .data-chip-value.ok { color: var(--color-success); }
         .node-footer { padding: 5px 8px 6px; border-top: 1px solid var(--border-color); background: var(--bg-card); }
-        
-        /* === BOUTONS RÉDUITS À 42% === */
-        .btn-force { 
-            width: 42%; 
-            margin: 0 auto; 
-            padding: 3px 6px; 
-            border: none; 
-            border-radius: var(--radius-md); 
-            font-size: 8px; 
-            font-weight: 600; 
-            cursor: pointer; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            gap: 3px; 
-        }
+        .btn-force { width: 42%; margin: 0 auto; padding: 3px 6px; border: none; border-radius: var(--radius-md); font-size: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 3px; }
         .btn-force:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-warn { background: var(--color-warning); color: white; }
         .btn-prim { background: var(--color-primary); color: white; }
         .btn-danger { background: var(--color-danger); color: white; }
-
         .ats-node .node-head { border-bottom: 2px solid var(--color-ats); }
         .ats-sw { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 0 8px 4px; }
         .sw-card { background: var(--bg-card-subtle); border-radius: var(--radius-md); padding: 3px 5px; display: flex; align-items: center; justify-content: space-between; gap: 3px; border: 1px solid var(--border-color); }
@@ -112,7 +96,6 @@
         .toggle-compact::after { content: ""; position: absolute; width: 10px; height: 10px; background: white; border-radius: 50%; top: 1px; left: 1px; transition: 0.2s; }
         .toggle-compact.on::after { transform: translateX(12px); }
         .node-foot { padding: 5px 8px 6px; border-top: 1px solid var(--border-color); background: var(--bg-card-subtle); display: flex; flex-direction: column; gap: 4px; }
-        
         .react-flow__handle { opacity: 0; transition: 0.2s; width: 8px !important; height: 8px !important; background: var(--color-success) !important; border: 1px solid var(--bg-card) !important; }
         .pro-node:hover .react-flow__handle { opacity: 0.8; }
         .handle-right { right: -4px !important; } .handle-top { top: -4px !important; } .handle-left { left: -4px !important; } .handle-bottom { bottom: -4px !important; }
@@ -123,22 +106,22 @@
         .top-bar a { text-decoration: none; color: var(--color-primary); font-weight: 500; font-size: 9px; }
         .bar-sep { width: 1px; height: 12px; background: var(--border-color); }
         .theme-toggle { background: var(--bg-card-subtle); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 3px 6px; font-size: 8px; cursor: pointer; }
+        /* Style pour les nodes globaux (exemple) */
+        .global-node { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 8px; width: 150px; text-align: center; font-size: 11px; box-shadow: var(--shadow-md); }
     </style>
 </head>
 <body>
     <div id="root">
-        <div id="loading">⏳ Chargement des librairies ATS...</div>
+        <div id="loading">⏳ Chargement de la supervision globale...</div>
     </div>
-    <div id="error-panel"></div>
 
     <script type="text/babel">
-        // 1. Vérification stricte du chargement
+        // ==================== Vérification des librairies ====================
         if (!window.React || !window.ReactDOM || !window.ReactFlow) {
-            document.getElementById('loading').innerHTML = '<span style="color:red">❌ Échec du chargement des librairies (React/ReactFlow). Vérifiez votre connexion.</span>';
+            document.getElementById('loading').innerHTML = '<span style="color:red">❌ Échec du chargement des librairies.</span>';
             throw new Error("Libraries missing");
         }
 
-        // 2. Extraction sécurisée
         const { useState, useEffect, useCallback, useMemo } = React;
         const RF = window.ReactFlow;
         const ReactFlow = RF.ReactFlow || RF.default || RF;
@@ -147,8 +130,9 @@
         const MarkerType = RF.MarkerType || {};
         const Handle = RF.Handle || RF;
         const Position = RF.Position || {};
+        const ReactFlowProvider = RF.ReactFlowProvider || (({children}) => children); // fallback
 
-        // 3. Composants Nodes (Syntaxe dépliée pour Babel)
+        // ==================== Node Components (identiques à l'original) ====================
         const ReseauNode = ({ data }) => {
             const active = data.sw2 === 'Fermé' || data.sw2 === '✅ Fermé';
             const connected = (parseInt(data.v2a)||0) > 50;
@@ -267,9 +251,12 @@
 
         const nodeTypes = { reseau: ReseauNode, onduleur: OnduleurNode, ats: ATSNode };
 
-        // 4. Application Principale
-        function App() {
-            const [theme, setTheme] = useState(() => localStorage.getItem('ats-theme') || 'light');
+        // ==================== Composant Container ATS ====================
+        // Ce composant encapsule toute la logique ATS et expose les nodes/edges via des props.
+        // Il peut être placé n'importe où, il ne rend rien visuellement (return null),
+        // il transmet simplement les données calculées à un composant parent via render props ou context.
+        // Ici nous utilisons une fonction "children" pour plus de flexibilité.
+        const ATSContainer = ({ children, basePositions = { reseau: {x: -250, y: 60}, ats: {x: 0, y: 60}, onduleur: {x: 0, y: 240} } }) => {
             const [isProcessing, setIsProcessing] = useState(false);
             const [apiData, setApiData] = useState({ 
                 v1a:'0',v2a:'0',sw1:'Ouvert',sw2:'Ouvert',s1a:'Normal',s2a:'Normal',
@@ -277,11 +264,7 @@
                 cnt1:'0',cnt2:'0',t1:'0',t2:'0',max1:'400',max2:'400'
             });
 
-            useEffect(() => { 
-                document.documentElement.setAttribute('data-theme', theme); 
-                localStorage.setItem('ats-theme', theme); 
-            }, [theme]);
-
+            // Fetch API
             const fetchData = useCallback(async () => {
                 try { 
                     const r = await fetch('/api/read_all', { cache: 'no-cache' }); 
@@ -290,6 +273,7 @@
                 } catch(e) {} 
             }, []);
 
+            // Commandes
             const executeCommand = async (steps) => {
                 if (isProcessing) return;
                 setIsProcessing(true);
@@ -314,16 +298,20 @@
                 if(window.confirm("⚠️ Confirmer Double OFF ?")) await executeCommand(['remote_on', 200, 'force_double', 'remote_off']); 
             };
 
-            const baseNodes = useMemo(()=>[
-                {id:'reseau', type:'reseau', position:{x:-250, y:60}, draggable:true},
-                {id:'ats', type:'ats', position:{x:0, y:60}, draggable:true},
-                {id:'onduleur', type:'onduleur', position:{x:0, y:240}, draggable:true}
-            ],[]);
+            // Polling
+            useEffect(() => { 
+                fetchData(); 
+                const id = setInterval(fetchData, 5000); 
+                return () => clearInterval(id); 
+            }, [fetchData]);
 
-            useEffect(()=>{ fetchData(); const id=setInterval(fetchData,5000); return()=>clearInterval(id); },[fetchData]);
-
-            // ✅ CONSTRUCTION SÉCURISÉE DES NODES
-            const nodesWithData = useMemo(() => {
+            // Construction des nodes ATS avec données et callbacks
+            const atsNodes = useMemo(() => {
+                const baseNodes = [
+                    { id: 'reseau', type: 'reseau', position: basePositions.reseau },
+                    { id: 'ats', type: 'ats', position: basePositions.ats },
+                    { id: 'onduleur', type: 'onduleur', position: basePositions.onduleur }
+                ];
                 return baseNodes.map(n => {
                     const nodeData = { ...apiData, disabled: isProcessing };
                     if (n.id === 'reseau') nodeData.onForce = () => handleForceSource(2);
@@ -332,24 +320,17 @@
                         nodeData.onToggleRemote = handleToggleRemote;
                         nodeData.onForceOff = handleForceOff;
                     }
-                    
-                    return {
-                        id: n.id,
-                        type: n.type,
-                        position: n.position,
-                        draggable: n.draggable,
-                        data: nodeData // <--- CLÉ EXPLICITE ET OBLIGATOIRE
-                    };
+                    return { ...n, data: nodeData };
                 });
-            }, [apiData, baseNodes, isProcessing]);
+            }, [apiData, isProcessing, basePositions]);
 
+            // Edges ATS (dynamiques)
             const sw1C = (apiData.sw1||"").includes("Fermé");
             const sw2C = (apiData.sw2||"").includes("Fermé");
             const midOff = (apiData.middleOFF||"").includes("Activé");
-
-            const edges = useMemo(()=>{
+            const atsEdges = useMemo(() => {
                 if(midOff) return [];
-                const e=[];
+                const e = [];
                 if(sw1C && !sw2C) e.push({id:'e1',source:'onduleur',target:'ats',sourceHandle:'onduleur-out',targetHandle:'ats-in-onduleur',animated:true,style:{stroke:'var(--edge-active)',strokeWidth:2,strokeDasharray:'4 4'},markerEnd:{type:MarkerType.ArrowClosed,color:'var(--edge-active)',width:12,height:12},type:'smoothstep'});
                 else if(sw2C && !sw1C) e.push({id:'e2',source:'reseau',target:'ats',sourceHandle:'reseau-out',targetHandle:'ats-in-reseau',animated:true,style:{stroke:'var(--edge-active)',strokeWidth:2,strokeDasharray:'4 4'},markerEnd:{type:MarkerType.ArrowClosed,color:'var(--edge-active)',width:12,height:12},type:'smoothstep'});
                 else if(sw1C && sw2C) e.push(
@@ -357,25 +338,102 @@
                     {id:'e2',source:'reseau',target:'ats',sourceHandle:'reseau-out',targetHandle:'ats-in-reseau',animated:true,style:{stroke:'var(--edge-ats)',strokeWidth:2,strokeDasharray:'4 4'},markerEnd:{type:MarkerType.ArrowClosed,color:'var(--edge-ats)',width:12,height:12},type:'smoothstep'}
                 );
                 return e;
-            },[sw1C,sw2C,midOff]);
+            }, [sw1C, sw2C, midOff]);
+
+            // Expose via children function
+            return children({ atsNodes, atsEdges, apiData, isProcessing });
+        };
+
+        // ==================== Page Globale ====================
+        function GlobalVisualization() {
+            const [theme, setTheme] = useState(() => localStorage.getItem('ats-theme') || 'light');
+            useEffect(() => { 
+                document.documentElement.setAttribute('data-theme', theme); 
+                localStorage.setItem('ats-theme', theme); 
+            }, [theme]);
+
+            // ----- 14 nœuds existants (exemple) -----
+            const globalNodes = useMemo(() => {
+                const nodes = [];
+                // Création de 14 nodes factices disposés en grille
+                for (let i = 0; i < 14; i++) {
+                    const row = Math.floor(i / 5);
+                    const col = i % 5;
+                    nodes.push({
+                        id: `global-${i}`,
+                        type: 'default', // type par défaut de React Flow
+                        position: { x: 300 + col * 200, y: 100 + row * 150 },
+                        data: { label: `Équipement ${i+1}` },
+                        style: { width: 150, padding: 10, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }
+                    });
+                }
+                return nodes;
+            }, []);
+
+            // Exemple d'edges animés entre certains nœuds globaux
+            const globalEdges = useMemo(() => {
+                const edges = [];
+                // Quelques connections pour illustrer
+                for (let i = 0; i < 13; i+=3) {
+                    edges.push({
+                        id: `global-e-${i}`,
+                        source: `global-${i}`,
+                        target: `global-${i+1}`,
+                        animated: true,
+                        style: { stroke: '#94a3b8', strokeWidth: 2, strokeDasharray: '4 4' },
+                        markerEnd: { type: MarkerType.ArrowClosed, color: '#94a3b8' }
+                    });
+                }
+                return edges;
+            }, []);
 
             return (
-                <div style={{width:'100%',height:'100%'}}>
-                    <div className="top-bar">
-                        <a href="index.html">← Retour</a><div className="bar-sep"></div>
-                        <span style={{color:'var(--text-secondary)',fontSize:9}}>📊 ATS • 5s</span>
-                        <button className="theme-toggle" onClick={()=>setTheme(t=>t==='light'?'dark':'light')}>{theme==='light'?'🌙':'☀️'}</button>
+                <ReactFlowProvider>
+                    <div style={{ width: '100%', height: '100%' }}>
+                        <div className="top-bar">
+                            <span style={{color:'var(--text-secondary)',fontSize:9}}>📊 Supervision Globale (14 + ATS)</span>
+                            <div className="bar-sep"></div>
+                            <button className="theme-toggle" onClick={()=>setTheme(t=>t==='light'?'dark':'light')}>
+                                {theme==='light'?'🌙':'☀️'}
+                            </button>
+                        </div>
+
+                        {/* Le conteneur ATS fournit ses nodes/edges */}
+                        <ATSContainer>
+                            {({ atsNodes, atsEdges }) => {
+                                // Fusion des nodes et edges
+                                const allNodes = [...globalNodes, ...atsNodes];
+                                const allEdges = [...globalEdges, ...atsEdges];
+                                
+                                return (
+                                    <ReactFlow
+                                        nodes={allNodes}
+                                        edges={allEdges}
+                                        nodeTypes={nodeTypes}
+                                        fitView
+                                        fitViewOptions={{ padding: 0.2 }}
+                                        defaultViewport={{ x: 0, y: 0, zoom: 0.7 }}
+                                        nodesConnectable={false}
+                                        nodesDraggable={true}
+                                        panOnDrag
+                                        zoomOnScroll
+                                        minZoom={0.3}
+                                        maxZoom={2}
+                                        edgesConnectable={false}
+                                    >
+                                        <Background color="var(--border-color)" gap="12" size="0.5" />
+                                        <Controls showInteractive={false} style={{boxShadow:'var(--shadow-md)',borderRadius:'var(--radius-md)',background:'var(--bg-card)',border:'1px solid var(--border-color)'}} />
+                                    </ReactFlow>
+                                );
+                            }}
+                        </ATSContainer>
                     </div>
-                    <ReactFlow nodes={nodesWithData} edges={edges} nodeTypes={nodeTypes} fitView fitViewOptions={{padding:0.2}} defaultViewport={{x:0,y:0,zoom:0.85}} nodesConnectable={false} nodesDraggable={true} panOnDrag zoomOnScroll minZoom={0.4} maxZoom={2} edgesConnectable={false}>
-                        <Background color="var(--border-color)" gap="12" size="0.5"/>
-                        <Controls showInteractive={false} style={{boxShadow:'var(--shadow-md)',borderRadius:'var(--radius-md)',background:'var(--bg-card)',border:'1px solid var(--border-color)'}}/>
-                    </ReactFlow>
-                </div>
+                </ReactFlowProvider>
             );
         }
 
-        // 5. Rendu final
-        ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+        // Rendu
+        ReactDOM.createRoot(document.getElementById('root')).render(<GlobalVisualization />);
     </script>
 </body>
 </html>
