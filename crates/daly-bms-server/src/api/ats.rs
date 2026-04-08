@@ -70,10 +70,10 @@ pub async fn get_ats_status(State(state): State<AppState>) -> impl IntoResponse 
                 // Commutation
                 "sw1": if snap.sw1_closed { "Fermé" } else { "Ouvert" },
                 "sw2": if snap.sw2_closed { "Fermé" } else { "Ouvert" },
-                "middleOFF": snap.middle_off,
+                "middleOFF": if snap.middle_off { "Activé" } else { "Désactivé" },
                 "swMode": if snap.sw_mode { "Auto" } else { "Manuel" },
                 "swFault": snap.fault.label(),
-                "swRemote": snap.remote,
+                "swRemote": if snap.remote { "📡 Activé" } else { "🔒 Désactivé" },
                 // Source active (label FR)
                 "active_source": snap.active_source.label(),
                 // Compteurs & runtime
