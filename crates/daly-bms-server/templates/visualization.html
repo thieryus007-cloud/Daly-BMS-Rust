@@ -95,6 +95,59 @@
   .bms-card-in-viz .card-footer { padding: 0.4rem 0.75rem; display: flex; justify-content: flex-end; border-top: 1px solid var(--border); }
   .bms-card-in-viz .btn-link { font-size: 0.72rem; padding: 0.25rem 0.65rem; background: transparent; border: 1px solid var(--border2); color: var(--text2); border-radius: 6px; text-decoration: none; cursor: pointer; transition: all 0.15s; }
   .bms-card-in-viz .btn-link:hover { background: var(--surface2); text-decoration: none; color: var(--text); }
+
+  /* ATS Pro-Nodes */
+  .pro-node { width: 180px; background: #fff; border-radius: 9px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px -1px rgb(0 0 0 / 0.05); display: flex; flex-direction: column; overflow: hidden; font-size: 9px; line-height: 1.25; position: relative; }
+  .pro-node.active-source { border: 2px solid #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,.15); }
+  .pn-banner { display: flex; align-items: center; justify-content: space-between; padding: 5px 8px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; gap: 6px; }
+  .pn-banner-left { display: flex; align-items: center; gap: 5px; font-weight: 600; font-size: 10px; }
+  .pn-bicon { width: 18px; height: 18px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: white; }
+  .pn-bicon.pn-bicon-res { background: linear-gradient(135deg, #0ea5e9, #38bdf8); }
+  .pn-bicon.pn-bicon-inv { background: linear-gradient(135deg, #7c3aed, #a78bfa); }
+  .pn-bicon.pn-bicon-ats { background: linear-gradient(135deg, #2563eb, #60a5fa); }
+  .pn-banner-center { display: flex; flex-direction: column; align-items: center; gap: 1px; flex: 1; }
+  .pn-volt { font-size: 12px; font-weight: 700; font-family: monospace; color: #0f172a; }
+  .pn-volt-unit { font-size: 9px; color: #94a3b8; margin-left: 1px; }
+  .pn-status { display: flex; align-items: center; gap: 3px; font-size: 8px; font-weight: 500; }
+  .pn-status.online { color: #10b981; }
+  .pn-status.offline { color: #94a3b8; }
+  .pn-dot { width: 6px; height: 6px; border-radius: 50%; background: #10b981; flex-shrink: 0; }
+  .pn-dot.off { background: #94a3b8; }
+  .pn-badge { padding: 2px 5px; border-radius: 10px; font-size: 8px; font-weight: 600; }
+  .pn-badge.ok { background: rgba(16,185,129,.12); color: #10b981; }
+  .pn-badge.warn { background: rgba(245,158,11,.12); color: #f59e0b; }
+  .pn-bar-row { height: 3px; background: #e2e8f0; margin: 0; }
+  .pn-bar-fill { height: 100%; transition: width 0.2s; }
+  .pn-bar-fill.ok { background: #10b981; }
+  .pn-bar-fill.warn { background: #f59e0b; }
+  .pn-strip { display: grid; grid-template-columns: repeat(4, 1fr); padding: 4px 6px; gap: 3px; background: #f8fafc; }
+  .pn-chip { background: #fff; padding: 3px 2px; border-radius: 4px; text-align: center; border: 1px solid #e2e8f0; }
+  .pn-chip-lbl { font-size: 7px; color: #94a3b8; text-transform: uppercase; display: block; margin-bottom: 1px; }
+  .pn-chip-val { font-size: 9px; font-weight: 600; font-family: monospace; }
+  .pn-chip-val.ok { color: #10b981; }
+  .pn-foot { padding: 5px 8px 6px; border-top: 1px solid #e2e8f0; background: #fff; display: flex; justify-content: center; }
+  .pn-btn { padding: 3px 10px; border: none; border-radius: 6px; font-size: 8px; font-weight: 600; cursor: pointer; }
+  .pn-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .pn-btn.pn-btn-warn { background: #f59e0b; color: white; }
+  .pn-btn.pn-btn-prim { background: #2563eb; color: white; }
+  .pn-btn.pn-btn-danger { background: #ef4444; color: white; }
+  .pn-ats-sw { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 0 8px 4px; }
+  .pn-sw-card { background: #f8fafc; border-radius: 6px; padding: 3px 5px; display: flex; align-items: center; justify-content: space-between; gap: 3px; border: 1px solid #e2e8f0; }
+  .pn-sw-label { font-size: 7px; color: #94a3b8; text-transform: uppercase; }
+  .pn-sw-val { font-size: 9px; font-weight: 700; }
+  .pn-sw-val.closed { color: #10b981; }
+  .pn-sw-val.open { color: #94a3b8; }
+  .pn-info-row { display: flex; justify-content: space-between; padding: 3px 8px; border-bottom: 1px dashed #e2e8f0; font-size: 8px; }
+  .pn-info-row:last-child { border-bottom: none; }
+  .pn-info-key { color: #94a3b8; }
+  .pn-info-val { font-weight: 600; }
+  .pn-info-val.err { color: #ef4444; }
+  .pn-info-val.ok { color: #10b981; }
+  .pn-info-combined { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 3px 8px; border-bottom: 1px dashed #e2e8f0; }
+  .pn-toggle { position: relative; width: 24px; height: 12px; background: #e2e8f0; border-radius: 12px; cursor: pointer; flex-shrink: 0; }
+  .pn-toggle.on { background: #10b981; }
+  .pn-toggle::after { content: ""; position: absolute; width: 10px; height: 10px; background: white; border-radius: 50%; top: 1px; left: 1px; transition: 0.2s; }
+  .pn-toggle.on::after { transform: translateX(12px); }
 </style>
 {% endblock %}
 
@@ -293,8 +346,6 @@ function PlaceholderNode({ data }) {
   );
 }
 
-// ── Nouveaux composants Venus OS ───────────────────────────────────────────
-
 function MPPTNode({ data }) {
   const live = data.live;
   const power = live?.power_w ?? null;
@@ -368,15 +419,133 @@ function TemperatureNode({ data }) {
   );
 }
 
-const nodeTypes = { summary: SummaryNode, bms: BmsNode, et112card: Et112CardNode, device: DeviceNode, hub: HubNode, placeholder: PlaceholderNode, mppt: MPPTNode, smartshunt: SmartShuntNode, temperature: TemperatureNode };
+// ── ATS Pro-Nodes ──────────────────────────────────────────────────────────
+function AtsReseauNode({ data }) {
+  const active = (data.sw2 || '').includes('Fermé');
+  const connected = (parseInt(data.v2a) || 0) > 50;
+  const status = (data.s2a || '').toLowerCase();
+  const isOk = status.includes('normal');
+  const vLevel = Math.min(100, Math.max(0, ((parseInt(data.v2a) || 0) / 400) * 100));
+
+  return h('div', { className: `pro-node${active ? ' active-source' : ''}` },
+    mkHandle('source', Position.Right, 'reseau-out'),
+    h('div', { className: 'pn-banner' },
+      h('div', { className: 'pn-banner-left' },
+        h('div', { className: 'pn-bicon pn-bicon-res' }, '⚡'),
+        h('span', null, 'Réseau')
+      ),
+      h('div', { className: 'pn-banner-center' },
+        h('span', { className: 'pn-volt' }, data.v2a || '--', h('span', { className: 'pn-volt-unit' }, ' V')),
+        h('span', { className: `pn-status${connected ? ' online' : ' offline'}` },
+          h('span', { className: `pn-dot${connected ? '' : ' off'}` }),
+          connected ? 'En ligne' : 'Hors ligne'
+        )
+      ),
+      h('span', { className: `pn-badge${isOk ? ' ok' : ' warn'}` }, isOk ? '✓ OK' : '⚠')
+    ),
+    h('div', { className: 'pn-bar-row' },
+      h('div', { className: `pn-bar-fill${isOk ? ' ok' : ' warn'}`, style: { width: `${vLevel}%` } })
+    ),
+    h('div', { className: 'pn-strip' },
+      h('div', { className: 'pn-chip' }, h('span', { className: 'pn-chip-lbl' }, 'SW2'), h('span', { className: `pn-chip-val${active ? ' ok' : ''}` }, data.sw2 || '--')),
+      h('div', { className: 'pn-chip' }, h('span', { className: 'pn-chip-lbl' }, 'Max'), h('span', { className: 'pn-chip-val' }, data.max2 || '--')),
+      h('div', { className: 'pn-chip' }, h('span', { className: 'pn-chip-lbl' }, 'Nbr'), h('span', { className: 'pn-chip-val' }, data.cnt2 || 0)),
+      h('div', { className: 'pn-chip' }, h('span', { className: 'pn-chip-lbl' }, 'T2'), h('span', { className: 'pn-chip-val' }, data.t2 || '—'))
+    ),
+    h('div', { className: 'pn-foot' },
+      h('button', { className: 'pn-btn pn-btn-warn', onClick: () => data.onForce?.(), disabled: data.disabled },
+        '⚡ ', data.disabled ? '...' : 'ACTIVER'
+      )
+    )
+  );
+}
+
+function AtsOnduleurNode({ data }) {
+  const active = (data.sw1 || '').includes('Fermé');
+  const connected = (parseInt(data.v1a) || 0) > 50;
+  const status = (data.s1a || '').toLowerCase();
+  const isOk = status.includes('normal');
+  const vLevel = Math.min(100, Math.max(0, ((parseInt(data.v1a) || 0) / 400) * 100));
+
+  return h('div', { className: `pro-node${active ? ' active-source' : ''}` },
+    mkHandle('source', Position.Right, 'onduleur-out'),
+    h('div', { className: 'pn-banner' },
+      h('div', { className: 'pn-banner-left' },
+        h('div', { className: 'pn-bicon pn-bicon-inv' }, '🔋'),
+        h('span', null, 'Onduleur')
+      ),
+      h('div', { className: 'pn-banner-center' },
+        h('span', { className: 'pn-volt' }, data.v1a || '--', h('span', { className: 'pn-volt-unit' }, ' V')),
+        h('span', { className: `pn-status${connected ? ' online' : ' offline'}` },
+          h('span', { className: `pn-dot${connected ? '' : ' off'}` }),
+          connected ? 'En ligne' : 'Hors ligne'
+        )
+      ),
+      h('span', { className: `pn-badge${isOk ? ' ok' : ' warn'}` }, isOk ? '✓ OK' : '⚠')
+    ),
+    h('div', { className: 'pn-bar-row' },
+      h('div', { className: `pn-bar-fill${isOk ? ' ok' : ' warn'}`, style: { width: `${vLevel}%` } })
+    ),
+    h('div', { className: 'pn-strip' },
+      h('div', { className: 'pn-chip' }, h('span', { className: 'pn-chip-lbl' }, 'SW1'), h('span', { className: `pn-chip-val${active ? ' ok' : ''}` }, data.sw1 || '--')),
+      h('div', { className: 'pn-chip' }, h('span', { className: 'pn-chip-lbl' }, 'Max'), h('span', { className: 'pn-chip-val' }, data.max1 || '--')),
+      h('div', { className: 'pn-chip' }, h('span', { className: 'pn-chip-lbl' }, 'Nbr'), h('span', { className: 'pn-chip-val' }, data.cnt1 || 0)),
+      h('div', { className: 'pn-chip' }, h('span', { className: 'pn-chip-lbl' }, 'T1'), h('span', { className: 'pn-chip-val' }, data.t1 || '—'))
+    ),
+    h('div', { className: 'pn-foot' },
+      h('button', { className: 'pn-btn pn-btn-prim', onClick: () => data.onForce?.(), disabled: data.disabled },
+        '🔋 ', data.disabled ? '...' : 'ACTIVER'
+      )
+    )
+  );
+}
+
+function AtsMainNode({ data }) {
+  const remoteOn = (data.swRemote || '').includes('Activé');
+  const hasFault = (data.swFault || 'Aucun') !== 'Aucun';
+  const centerOff = (data.middleOFF || '').includes('Activé');
+
+  return h('div', { className: 'pro-node' },
+    mkHandle('target', Position.Left, 'ats-in-reseau'),
+    mkHandle('target', Position.Right, 'ats-in-onduleur', { top: '65%' }),
+    h('div', { style: { display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 8px', background:'#f8fafc', borderBottom:'2px solid #6366f1', gap:5 } },
+      h('div', { style: { display:'flex', alignItems:'center', gap:4, fontWeight:600, fontSize:10 } },
+        h('div', { className: 'pn-bicon pn-bicon-ats' }, '🔀'),
+        h('span', null, 'ATS')
+      ),
+      h('div', {
+        style: { display:'flex', alignItems:'center', gap:4, cursor: data.disabled ? 'default' : 'pointer', opacity: data.disabled ? 0.5 : 1 },
+        onClick: !data.disabled ? data.onToggleRemote : undefined
+      },
+        h('span', { style: { fontSize:8, color:'#475569' } }, 'Télécommande'),
+        h('div', { className: `pn-toggle${remoteOn ? ' on' : ''}` })
+      ),
+      h('span', { className: `pn-badge${remoteOn ? ' ok' : ' warn'}` }, remoteOn ? '📡 ON' : 'OFF')
+    ),
+    h('div', { className: 'pn-ats-sw' },
+      h('div', { className: 'pn-sw-card' }, h('span', { className: 'pn-sw-label' }, 'SW1'), h('span', { className: `pn-sw-val${(data.sw1||'').includes('Fermé') ? ' closed' : ' open'}` }, data.sw1 || 'Ouvert')),
+      h('div', { className: 'pn-sw-card' }, h('span', { className: 'pn-sw-label' }, 'SW2'), h('span', { className: `pn-sw-val${(data.sw2||'').includes('Fermé') ? ' closed' : ' open'}` }, data.sw2 || 'Ouvert'))
+    ),
+    h('div', { className: 'pn-info-combined' },
+      h('div', { className: 'pn-info-row' }, h('span', { className: 'pn-info-key' }, 'Mode'), h('span', { className: 'pn-info-val' }, data.swMode || '—')),
+      h('div', { className: 'pn-info-row' }, h('span', { className: 'pn-info-key' }, 'Défaut'), h('span', { className: `pn-info-val${hasFault ? ' err' : ' ok'}` }, hasFault ? '⚠ Erreur' : '✓ Aucun'))
+    ),
+    h('div', { className: 'pn-info-row' }, h('span', { className: 'pn-info-key' }, 'Source'), h('span', { className: `pn-info-val${centerOff ? ' err' : ''}` }, centerOff ? '⚠ DOUBLE OFF' : data.active_source || '—')),
+    h('div', { className: 'pn-foot' },
+      h('button', { className: 'pn-btn pn-btn-danger', onClick: data.onForceOff, disabled: data.disabled },
+        '⏹️ ', data.disabled ? '...' : 'Double OFF'
+      )
+    )
+  );
+}
+
+const nodeTypes = { summary: SummaryNode, bms: BmsNode, et112card: Et112CardNode, device: DeviceNode, hub: HubNode, placeholder: PlaceholderNode, mppt: MPPTNode, smartshunt: SmartShuntNode, temperature: TemperatureNode, atsreseau: AtsReseauNode, atsonduleur: AtsOnduleurNode, atsmain: AtsMainNode };
 
 const NODES0 = [
-  { id: 'reseau',      type: 'summary',     position: { x: -300,   y: 270  }, data: { label: 'Réseau',          icon: '🔌', value: '—',   sub: 'Réseau EDF',            dotClass: '' } },
   { id: 'production',  type: 'summary',     position: { x: -300,  y: 20  }, data: { label: 'Production',      icon: '☀️',  value: '—',   sub: 'Micro-onduleurs',        dotClass: '' } },
   { id: 'batteries',   type: 'summary',     position: { x: 0,  y: 20  }, data: { label: 'Batteries',       icon: '🔋', value: '—',   sub: '360 Ah + 320 Ah',       dotClass: '' } },
   { id: 'meteo',       type: 'summary',     position: { x: 250, y: 20  }, data: { label: 'Météo',           icon: '🌤️',  value: '—',   sub: 'Irradiance solaire',     dotClass: '' } },
   { id: 'temp-ext',    type: 'temperature', position: { x: 500, y: 20 }, data: { label: 'Température ext.', icon: '🌡️', live: null } },
-  { id: 'ats',         type: 'hub',         position: { x: 65,   y: 170 }, data: { label: 'ATS',             icon: '🔀', sub: 'CHINT' } },
   { id: 'maison',      type: 'placeholder', position: { x: 800, y: 170 }, data: { label: 'Maison',          icon: '🏠' } },
   { id: 'micro-ond',   type: 'et112card',   position: { x: 500, y: 270 }, data: { label: 'Micro-onduleurs', address: 7, live: null } },
   { id: 'onduleur',    type: 'device',      position: { x: 65,   y: 375 }, data: { label: 'Onduleur AC',     icon: '⚡', value: '—', dotClass: '' } },
@@ -386,6 +555,9 @@ const NODES0 = [
   { id: 'bms2',        type: 'bms',         position: { x: 165,  y: 790 }, data: { label: 'BMS-320Ah',       live: null } },
   { id: 'chauffe-eau',    type: 'device',      position: { x: 1020, y: 270 }, data: { label: 'Chauffe-eau',   icon: '🚿', live: null } },
   { id: 'climatisation',  type: 'device',      position: { x: 1020, y: 370 }, data: { label: 'Climatisation', icon: '❄️',  live: null } },
+  { id: 'ats-reseau',   type: 'atsreseau',  position: { x: -450, y: 215 }, data: { v2a:'—', sw2:'Ouvert', s2a:'—', cnt2:'0', max2:'—', t2:'—', onForce: null, disabled: false } },
+  { id: 'ats-main',     type: 'atsmain',    position: { x: -200, y: 190 }, data: { swRemote:'—', swMode:'—', swFault:'—', middleOFF:'—', sw1:'—', sw2:'—', active_source:'—', onToggleRemote: null, onForceOff: null, disabled: false } },
+  { id: 'ats-onduleur', type: 'atsonduleur', position: { x: -200, y: 355 }, data: { v1a:'—', sw1:'Ouvert', s1a:'—', cnt1:'0', max1:'—', t1:'—', onForce: null, disabled: false } },
 ];
 
 const COLOR = { ac: '#2563eb', dc: '#ea580c', bat: '#16a34a', gray: '#94a3b8' };
@@ -395,12 +567,6 @@ function mkEdge(id, src, tgt, color, opts = {}) {
 }
 
 const EDGES0 = [
-  mkEdge('e-res-ats',  'reseau',    'ats',        COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tl' }),
-  mkEdge('e-res-ond',  'reseau',    'onduleur',   COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tl' }),
-  mkEdge('e-ats-mai',  'ats',       'maison',     COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tl' }),
-  mkEdge('e-mic-ats',  'micro-ond', 'ats',        COLOR.ac,  { sourceHandle: 'tl', targetHandle: 'tl' }),
-  mkEdge('e-mic-ond',  'micro-ond', 'onduleur',   COLOR.ac,  { sourceHandle: 'sl', targetHandle: 'tt' }),
-  mkEdge('e-ats-ond',  'ats',       'onduleur',   COLOR.ac,  { sourceHandle: 'sb', targetHandle: 'tt' }),
   mkEdge('e-mppt-ond', 'mppt',      'onduleur',   COLOR.dc,  { sourceHandle: 'sl', targetHandle: 'sb' }),
   mkEdge('e-mppt-shu', 'mppt',      'smartshunt', COLOR.dc,  { sourceHandle: 'sl', targetHandle: 'tr' }),
   mkEdge('e-ond-shu',  'onduleur',  'smartshunt', COLOR.dc,  { sourceHandle: 'sb', targetHandle: 'tt' }),
@@ -412,6 +578,18 @@ function ESSFlow() {
   const [nodes, setNodes, onNodesChange] = useNodesState(NODES0);
   const [edges, setEdges, onEdgesChange] = useEdgesState(EDGES0);
   const [lastUpdate, setLastUpdate] = useState('—');
+  const [atsProcessing, setAtsProcessing] = useState(false);
+
+  const executeAtsCommand = useCallback(async function(steps) {
+    if (atsProcessing) return;
+    setAtsProcessing(true);
+    try {
+      for (const step of steps) {
+        if (typeof step === 'string') await fetch('/api/v1/ats/' + step, { method: 'POST', cache: 'no-cache' });
+        else if (typeof step === 'number') await new Promise(r => setTimeout(r, step));
+      }
+    } finally { setAtsProcessing(false); }
+  }, [atsProcessing]);
 
   const applyData = useCallback(function(d) {
     const bms1 = d.bms1, bms2 = d.bms2;
@@ -421,6 +599,7 @@ function ESSFlow() {
     const shunt = d.shunt;
     const inverter = d.inverter;
     const temp = d.temp;
+    const ats = d.ats;
 
     const validBms = [bms1, bms2].filter(Boolean);
     const avgSoc   = validBms.length
@@ -431,7 +610,6 @@ function ESSFlow() {
     const batSub   = totalPwr ? `${totalPwr > 0 ? '+' : ''}${(totalPwr / 1000).toFixed(2)} kW` : '360 Ah + 320 Ah';
     const batDot   = avgSoc == null ? '' : avgSoc > 50 ? 'live' : avgSoc > 20 ? 'warn' : 'alarm';
 
-    // Production : ET112 PVInverter (0x07) + MPPT
     const microPwr = et7?.power_w ?? 0;
     const mpptPwr = mppt?.power_w ?? 0;
     const totalProdPwr = microPwr + mpptPwr;
@@ -442,17 +620,30 @@ function ESSFlow() {
     const irrSub  = irr?.total_yield_kwh != null ? `☀ ${irr.total_yield_kwh.toFixed(1)} kWh` : 'Irradiance solaire';
     const irrDot  = irr ? 'live' : '';
 
-    setEdges(prev => prev.map(e => {
-      let animated = false;
-      if (e.id === 'e-mic-ond' && et7?.connected && (microPwr ?? 0) > 50) animated = true;
-      if (e.id === 'e-mic-ats' && et7?.connected && (microPwr ?? 0) > 50) animated = true;
-      if (e.id === 'e-ats-ond' && inverter?.ac_output_power_w && Math.abs(inverter.ac_output_power_w) > 50) animated = true;
-      if (e.id === 'e-mppt-ond' && mppt && (mpptPwr ?? 0) > 50) animated = true;
-      if (e.id === 'e-ond-shu'  && (microPwr > 50 || (inverter?.ac_output_power_w ?? 0) > 50)) animated = true;
-      if (e.id === 'e-shu-b1'  && bms1 && Math.abs(bms1.Dc?.Current ?? 0) > 0.5) animated = true;
-      if (e.id === 'e-shu-b2'  && bms2 && Math.abs(bms2.Dc?.Current ?? 0) > 0.5) animated = true;
-      return animated !== e.animated ? { ...e, animated } : e;
-    }));
+    // ATS internal edges
+    if (ats) {
+      const sw1C = (ats.sw1 || '').includes('Fermé');
+      const sw2C = (ats.sw2 || '').includes('Fermé');
+      const midOff = (ats.middleOFF || '').includes('Activé');
+
+      const atsEdges = [];
+      if (!midOff) {
+        if (sw2C) atsEdges.push({
+          id: 'ats-e2', source: 'ats-reseau', target: 'ats-main',
+          sourceHandle: 'reseau-out', targetHandle: 'ats-in-reseau',
+          animated: true, type: 'smoothstep',
+          style: { stroke: sw1C ? '#6366f1' : '#10b981', strokeWidth: 2, strokeDasharray: '4 4' }
+        });
+        if (sw1C) atsEdges.push({
+          id: 'ats-e1', source: 'ats-onduleur', target: 'ats-main',
+          sourceHandle: 'onduleur-out', targetHandle: 'ats-in-onduleur',
+          animated: true, type: 'smoothstep',
+          style: { stroke: '#10b981', strokeWidth: 2, strokeDasharray: '4 4' }
+        });
+      }
+
+      setEdges(prev => [...prev.filter(e => !e.id.startsWith('ats-e')), ...atsEdges]);
+    }
 
     setNodes(prev => prev.map(n => {
       switch (n.id) {
@@ -472,17 +663,26 @@ function ESSFlow() {
         case 'mppt':        return { ...n, data: { ...n.data, live: mppt ?? null } };
         case 'smartshunt':  return { ...n, data: { ...n.data, live: shunt ?? null } };
         case 'temp-ext':    return { ...n, data: { ...n.data, live: temp ?? null } };
+        case 'ats-reseau':
+          if (!ats) return n;
+          return { ...n, data: { ...ats, disabled: atsProcessing, onForce: () => executeAtsCommand(['remote_on', 200, 'force_source2', 200, 'remote_off']) } };
+        case 'ats-onduleur':
+          if (!ats) return n;
+          return { ...n, data: { ...ats, disabled: atsProcessing, onForce: () => executeAtsCommand(['remote_on', 200, 'force_source1', 200, 'remote_off']) } };
+        case 'ats-main':
+          if (!ats) return n;
+          return { ...n, data: { ...ats, disabled: atsProcessing, onToggleRemote: () => { const isOn = (ats.swRemote || '').includes('Activé'); executeAtsCommand([isOn ? 'remote_off' : 'remote_on', 300]); }, onForceOff: () => { if(window.confirm('⚠️ Confirmer Double OFF ?')) executeAtsCommand(['remote_on', 200, 'force_double', 200, 'remote_off']); } } };
         default: return n;
       }
     }));
 
     setLastUpdate(new Date().toLocaleTimeString('fr-FR'));
-  }, []);
+  }, [atsProcessing, executeAtsCommand]);
 
   useEffect(function() {
     const safe = p => p.catch(() => null);
     async function fetchAll() {
-      const [bms1, bms2, et7, et8, et9, irr, venusResp, tempResp] = await Promise.all([
+      const [bms1, bms2, et7, et8, et9, irr, venusResp, tempResp, atsResp] = await Promise.all([
         safe(fetch('/api/v1/bms/1/status').then(r => r.ok ? r.json() : null)),
         safe(fetch('/api/v1/bms/2/status').then(r => r.ok ? r.json() : null)),
         safe(fetch('/api/v1/et112/7/status').then(r => r.ok ? r.json() : null)),
@@ -491,6 +691,7 @@ function ESSFlow() {
         safe(fetch('/api/v1/irradiance/status').then(r => r.ok ? r.json() : null)),
         safe(fetch('/api/v1/venus/mppt').then(r => r.ok ? r.json() : null)),
         safe(fetch('/api/v1/venus/temperatures').then(r => r.ok ? r.json() : null)),
+        safe(fetch('/api/v1/ats/status').then(r => r.ok ? r.json() : null)),
       ]);
 
       const mppt = venusResp?.mppts?.[0] ?? null;
@@ -500,8 +701,9 @@ function ESSFlow() {
       const inverter = inverterResp?.inverter ?? null;
       const temps = tempResp?.temperatures ?? [];
       const temp = temps.length > 0 ? temps[0] : null;
+      const ats = atsResp?.values ?? null;
 
-      applyData({ bms1, bms2, et7, et8, et9, irr, mppt, shunt, inverter, temp });
+      applyData({ bms1, bms2, et7, et8, et9, irr, mppt, shunt, inverter, temp, ats });
     }
     fetchAll();
     const timer = setInterval(fetchAll, 2000);
