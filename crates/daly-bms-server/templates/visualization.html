@@ -302,10 +302,8 @@ function Et112CardNode({ data }) {
           h('span', { className: 'i-lbl' }, '⬆ Exportée'),
           h('span', { className: 'i-val blue' }, expW != null ? `${expW.toFixed(2)} kWh` : '—')
         )
-      ) : null,
-      h('div', { className: 'card-footer' },
-        h('a', { href: `/dashboard/et112/${addr}`, className: 'btn-link' }, 'Détails →')
-      )
+      ) : null
+      
     )
   );
 }
