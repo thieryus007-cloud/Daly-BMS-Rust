@@ -148,6 +148,11 @@
   .pn-toggle.on { background: #10b981; }
   .pn-toggle::after { content: ""; position: absolute; width: 10px; height: 10px; background: white; border-radius: 50%; top: 1px; left: 1px; transition: 0.2s; }
   .pn-toggle.on::after { transform: translateX(12px); }
+  
+  /* ✅ CORRECTION : Règles CSS pour .nodrag */
+  .nodrag { pointer-events: auto !important; }
+  .react-flow__node .nodrag * { user-select: text !important; }
+  .pn-btn.nodrag { cursor: pointer !important; }
 </style>
 {% endblock %}
 
@@ -419,7 +424,7 @@ function TemperatureNode({ data }) {
   );
 }
 
-// ── ATS Pro-Nodes ──────────────────────────────────────────────────────────
+// ── ATS Pro-Nodes (CORRIGÉS) ──────────────────────────────────────────────
 function AtsReseauNode({ data }) {
   const active = (data.sw2 || '').includes('Fermé');
   const connected = (parseInt(data.v2a) || 0) > 50;
@@ -453,9 +458,14 @@ function AtsReseauNode({ data }) {
       h('div', { className: 'pn-chip' }, h('span', { className: 'pn-chip-lbl' }, 'T2'), h('span', { className: 'pn-chip-val' }, data.t2 || '—'))
     ),
     h('div', { className: 'pn-foot' },
-      h('button', { className: 'pn-btn pn-btn-warn nodrag',
+      // ✅ CORRECTION : data-nodrag + onMouseDown pour empêcher le drag
+      h('button', { 
+        className: 'pn-btn pn-btn-warn nodrag',
+        'data-nodrag': true,
         onClick: () => data.onForce?.(),
-        disabled: data.disabled },
+        onMouseDown: (e) => e.stopPropagation(),
+        disabled: data.disabled 
+      },
         '⚡ ', data.disabled ? '...' : 'ACTIVER'
       )
     )
@@ -495,9 +505,14 @@ function AtsOnduleurNode({ data }) {
       h('div', { className: 'pn-chip' }, h('span', { className: 'pn-chip-lbl' }, 'T1'), h('span', { className: 'pn-chip-val' }, data.t1 || '—'))
     ),
     h('div', { className: 'pn-foot' },
-      h('button', { className: 'pn-btn pn-btn-prim nodrag',
+      // ✅ CORRECTION : data-nodrag + onMouseDown pour empêcher le drag
+      h('button', { 
+        className: 'pn-btn pn-btn-prim nodrag',
+        'data-nodrag': true,
         onClick: () => data.onForce?.(),
-        disabled: data.disabled },
+        onMouseDown: (e) => e.stopPropagation(),
+        disabled: data.disabled 
+      },
         '🔋 ', data.disabled ? '...' : 'ACTIVER'
       )
     )
@@ -517,10 +532,13 @@ function AtsMainNode({ data }) {
         h('div', { className: 'pn-bicon pn-bicon-ats' }, '🔀'),
         h('span', null, 'ATS')
       ),
+      // ✅ CORRECTION : data-nodrag + onMouseDown sur le toggle
       h('div', {
         className: 'nodrag',
+        'data-nodrag': true,
         style: { display:'flex', alignItems:'center', gap:4, cursor: data.disabled ? 'default' : 'pointer', opacity: data.disabled ? 0.5 : 1 },
-        onClick: () => !data.disabled && data.onToggleRemote?.()
+        onClick: () => !data.disabled && data.onToggleRemote?.(),
+        onMouseDown: (e) => e.stopPropagation()
       },
         h('span', { style: { fontSize:8, color:'#475569' } }, 'Télécommande'),
         h('div', { className: `pn-toggle${remoteOn ? ' on' : ''}` })
@@ -537,9 +555,14 @@ function AtsMainNode({ data }) {
     ),
     h('div', { className: 'pn-info-row' }, h('span', { className: 'pn-info-key' }, 'Source'), h('span', { className: `pn-info-val${centerOff ? ' err' : ''}` }, centerOff ? '⚠ DOUBLE OFF' : data.active_source || '—')),
     h('div', { className: 'pn-foot' },
-      h('button', { className: 'pn-btn pn-btn-danger nodrag',
+      // ✅ CORRECTION : data-nodrag + onMouseDown pour le bouton Double OFF
+      h('button', { 
+        className: 'pn-btn pn-btn-danger nodrag',
+        'data-nodrag': true,
         onClick: () => !data.disabled && data.onForceOff?.(),
-        disabled: data.disabled },
+        onMouseDown: (e) => e.stopPropagation(),
+        disabled: data.disabled 
+      },
         '⏹️ ', data.disabled ? '...' : 'Double OFF'
       )
     )
