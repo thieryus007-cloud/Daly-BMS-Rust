@@ -62,6 +62,161 @@
   .ph-lbl { font-size: 0.78rem; font-weight: 600; color: #4b5563; }
   .ph-badge { display: inline-block; font-size: 0.57rem; color: #94a3b8; font-style: italic; background: #e2e8f0; border-radius: 4px; padding: 1px 6px; margin-top: 4px; }
 
+   /* ── Switch Node ───────────────────────────────────────────────────── */
+.sw-nd {
+  width: 220px;
+  background: #fff;
+  border: 1px solid #d6dce5;
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 1px 3px rgba(15,23,42,.06), 0 2px 8px rgba(15,23,42,.04);
+  cursor: default;
+  font-size: 0.75rem;
+}
+.sw-nd.alarm { border-color: #fca5a5; background: #fff9f9; }
+.sw-nd.offline { opacity: 0.7; }
+
+.sw-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #f0f4f8;
+}
+.sw-name {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: 1;
+}
+.sw-toggle {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  background: #e2e8f0;
+  border-radius: 20px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s;
+  pointer-events: auto !important;
+}
+.sw-toggle.on { background: #16a34a; }
+.sw-toggle::after {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  background: white;
+  border-radius: 50%;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+.sw-toggle.on::after { transform: translateX(16px); }
+
+.sw-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px 8px;
+  margin-bottom: 8px;
+}
+.sw-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 2px;
+  background: #f8fafc;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+.sw-metric-val {
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  color: #0f172a;
+  line-height: 1;
+}
+.sw-metric-lbl {
+  font-size: 0.55rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 2px;
+}
+
+.sw-energy {
+  display: flex;
+  justify-content: space-around;
+  padding: 6px 0;
+  border-top: 1px solid #f0f4f8;
+  border-bottom: 1px solid #f0f4f8;
+  margin: 6px 0;
+}
+.sw-energy-item {
+  text-align: center;
+  flex: 1;
+}
+.sw-energy-val {
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--accent, #2563eb);
+}
+.sw-energy-lbl {
+  font-size: 0.53rem;
+  color: #94a3b8;
+  margin-top: 1px;
+}
+
+.sw-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed #e2e8f0;
+  font-size: 0.65rem;
+}
+.sw-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #6b7280;
+}
+.sw-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #94a3b8;
+}
+.sw-status-dot.on { background: #16a34a; box-shadow: 0 0 4px rgba(22,163,74,.6); }
+.sw-status-dot.off { background: #dc2626; }
+.sw-rssi {
+  color: #94a3b8;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.sw-wait {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  font-style: italic;
+  text-align: center;
+  padding: 8px 0;
+}
+
+/* ✅ Forcer pointer-events sur le toggle interactif */
+.sw-toggle[data-is-interactive="true"] {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  z-index: 10 !important;
+}
+  
   @keyframes nd-blink { 0%,100%{opacity:1}50%{opacity:0.35} }
 
   .viz-panel { background: rgba(255,255,255,0.92); border: 1px solid #d6dce5; border-radius: 8px; margin-left: 30px; padding: 6px 11px; font-size: 0.7rem; color: #4b5563; backdrop-filter: blur(6px); box-shadow: 0 1px 4px rgba(15,23,42,.08); }
@@ -429,6 +584,127 @@ function TemperatureNode({ data }) {
       h('div', { className: 'dev-pwr' }, temp != null ? `${temp.toFixed(1)}°C` : '—'),
       h('div', { className: 'dev-nrj' }, humidity != null ? `${humidity.toFixed(0)}% HR` : '—')
     ) : h('div', { className: 'dev-wait' }, 'En attente…')
+  );
+}
+
+  // ── 🔌 Switch Node (Tasmota-style) ─────────────────────────────────────
+function SwitchNode({ data }) {
+  const live = data.live;
+  const connected = live?.connected ?? false;
+  const powerOn = live?.power_on ?? false;
+  
+  const powerW = live?.power_w ?? null;
+  const voltageV = live?.voltage_v ?? null;
+  const currentA = live?.current_a ?? null;
+  const pf = live?.power_factor ?? null;
+  const rssi = live?.rssi ?? null;
+  
+  const energyToday = live?.energy_today_kwh ?? null;
+  const energyTotal = live?.energy_total_kwh ?? null;
+  
+  const hasAlarm = data.hasAlarm ?? false;
+
+  // ✅ Handler pour le toggle avec protection événementielle
+  const handleToggle = useCallback((e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    console.log('[SWITCH] Toggle cliqué, onToggle:', typeof data.onToggle);
+    if (typeof data.onToggle === 'function' && !data.disabled && connected) {
+      console.log('[SWITCH] Exécution onToggle(), nouvel état:', !powerOn);
+      data.onToggle(!powerOn);
+    }
+  }, [data.onToggle, data.disabled, connected, powerOn]);
+
+  // Couleurs dynamiques selon l'état
+  const powerColor = powerW != null 
+    ? (powerW > 10 ? '#ca8a04' : powerW > 0 ? '#16a34a' : '#94a3b8')
+    : '#94a3b8';
+    
+  const statusClass = connected 
+    ? (powerOn ? 'on' : 'off') 
+    : 'off';
+
+  return h('div', { 
+    className: `sw-nd${hasAlarm ? ' alarm' : ''}${!connected ? ' offline' : ''}` 
+  },
+    // Handles ReactFlow
+    mkHandle('target', Position.Top,    'tt'),
+    mkHandle('source', Position.Bottom, 'sb'),
+    mkHandle('target', Position.Left,   'tl'),
+    mkHandle('source', Position.Right,  'sr'),
+    
+    // Header avec nom et toggle
+    h('div', { className: 'sw-hdr' },
+      h('span', { className: 'sw-name' },
+        data.icon ?? '🔌',
+        h('span', null, data.label)
+      ),
+      h('div', {
+        className: `sw-toggle${powerOn ? ' on' : ''}`,
+        'data-is-interactive': 'true',
+        'data-rev': data._rev,
+        onClick: handleToggle,
+        onMouseDown: (e) => { e.stopPropagation(); e.preventDefault(); },
+        onTouchStart: (e) => { e.stopPropagation(); e.preventDefault(); },
+        title: connected ? (powerOn ? 'Cliquez pour ÉTEINDRE' : 'Cliquez pour ALLUMER') : 'Hors ligne',
+        style: { 
+          pointerEvents: 'auto', 
+          cursor: (connected && !data.disabled) ? 'pointer' : 'not-allowed',
+          opacity: connected ? 1 : 0.5 
+        }
+      })
+    ),
+    
+    // Métriques principales
+    connected && live ? h('div', { className: 'sw-metrics' },
+      h('div', { className: 'sw-metric' },
+        h('span', { className: 'sw-metric-val', style: { color: powerColor } },
+          powerW != null ? `${powerW.toFixed(1)} W` : '—'
+        ),
+        h('span', { className: 'sw-metric-lbl' }, 'Puissance')
+      ),
+      h('div', { className: 'sw-metric' },
+        h('span', { className: 'sw-metric-val' },
+          voltageV != null ? `${voltageV.toFixed(1)} V` : '—'
+        ),
+        h('span', { className: 'sw-metric-lbl' }, 'Tension')
+      ),
+      h('div', { className: 'sw-metric' },
+        h('span', { className: 'sw-metric-val' },
+          currentA != null ? `${currentA.toFixed(2)} A` : '—'
+        ),
+        h('span', { className: 'sw-metric-lbl' }, 'Courant')
+      ),
+      h('div', { className: 'sw-metric' },
+        h('span', { className: 'sw-metric-val' },
+          pf != null ? pf.toFixed(2) : '—'
+        ),
+        h('span', { className: 'sw-metric-lbl' }, 'FP')
+      )
+    ) : h('div', { className: 'sw-wait' }, 
+      connected ? 'En attente de données…' : 'Hors ligne'
+    ),
+    
+    // Énergie cumulée
+    connected && live && (energyToday != null || energyTotal != null) ? h('div', { className: 'sw-energy' },
+      energyToday != null ? h('div', { className: 'sw-energy-item' },
+        h('div', { className: 'sw-energy-val' }, `${energyToday.toFixed(3)} kWh`),
+        h('div', { className: 'sw-energy-lbl' }, 'Aujourd\'hui')
+      ) : null,
+      energyTotal != null ? h('div', { className: 'sw-energy-item' },
+        h('div', { className: 'sw-energy-val' }, `${energyTotal.toFixed(1)} kWh`),
+        h('div', { className: 'sw-energy-lbl' }, 'Total')
+      ) : null
+    ) : null,
+    
+    // Footer : statut + WiFi
+    h('div', { className: 'sw-footer' },
+      h('div', { className: 'sw-status' },
+        h('div', { className: `sw-status-dot ${statusClass}` }),
+        h('span', null, connected ? (powerOn ? 'ON' : 'OFF') : 'Hors ligne')
+      ),
+      rssi != null ? h('span', { className: 'sw-rssi' }, `📶 ${rssi} dBm`) : null
+    )
   );
 }
 
