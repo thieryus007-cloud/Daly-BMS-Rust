@@ -160,6 +160,28 @@
     z-index: 10 !important;
     position: relative;
   }
+
+  /* 🔌 Switch Tasmota Node */
+  .sw-nd { width: 185px; background: #fff; border: 1px solid #d6dce5; border-radius: 10px; padding: 10px 12px; box-shadow: 0 1px 3px rgba(15,23,42,.06),0 2px 8px rgba(15,23,42,.04); cursor: default; }
+  .sw-nd .react-flow__handle { opacity: 0; }
+  .sw-nd:hover .react-flow__handle { opacity: 1; }
+  .sw-hdr { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+  .sw-lbl { font-size: 0.78rem; font-weight: 700; color: #0f172a; flex: 1; }
+  .sw-id { font-size: 0.62rem; color: #94a3b8; font-family: 'JetBrains Mono', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sw-dot { width: 7px; height: 7px; border-radius: 50%; background: #94a3b8; flex-shrink: 0; transition: background 0.3s, box-shadow 0.3s; }
+  .sw-dot.on { background: #16a34a; box-shadow: 0 0 6px rgba(22,163,74,.5); animation: nd-blink 2.5s infinite; }
+  .sw-banner { padding: 6px 8px; border-radius: 6px; margin-bottom: 8px; color: white; font-size: 0.72rem; font-weight: 600; text-align: center; transition: background 0.3s, color 0.3s; }
+  .sw-banner.on { background: #86efac; color: #15803d; }
+  .sw-banner.off { background: #f87171; color: #7f1d1d; }
+  .sw-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 8px; }
+  .sw-stat { background: #f8fafc; border-radius: 6px; padding: 4px 5px; text-align: center; border: 1px solid #e2e8f0; }
+  .sw-stat-v { font-size: 0.78rem; font-weight: 700; color: #0f172a; font-family: 'JetBrains Mono', monospace; }
+  .sw-stat-l { font-size: 0.53rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 1px; }
+  .sw-btn { width: 100%; padding: 5px 8px; background: #2563eb; color: white; border: none; border-radius: 6px; font-size: 0.72rem; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+  .sw-btn:hover:not(:disabled) { background: #1d4ed8; box-shadow: 0 2px 4px rgba(37,99,235,.25); }
+  .sw-btn:active:not(:disabled) { transform: scale(0.98); }
+  .sw-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .sw-offline { font-size: 0.68rem; color: #94a3b8; font-style: italic; text-align: center; padding: 8px 0; }
 </style>
 {% endblock %}
 
@@ -432,6 +454,66 @@ function TemperatureNode({ data }) {
   );
 }
 
+// ── 🔌 SWITCH TASMOTA NODE ──────────────────────────────────────────────────
+
+function SwitchNode({ data }) {
+  const live = data.live;
+  const connected = live?.connected ?? false;
+  const powerOn = live?.power_on ?? false;
+  const powerW = live?.power_w ?? null;
+  const voltage = live?.voltage_v ?? null;
+  const current = live?.current_a ?? null;
+  const tasmotaId = data.tasmota_id ?? '—';
+
+  return h('div', { className: 'sw-nd' },
+    mkHandle('target', Position.Top,    'tt'),
+    mkHandle('source', Position.Bottom, 'sb'),
+    mkHandle('target', Position.Left,   'tl'),
+    mkHandle('source', Position.Right,  'sr'),
+    h('div', { className: 'sw-hdr' },
+      h('span', null, data.icon ?? '⚡'),
+      h('span', { className: 'sw-lbl' }, data.label),
+      h('div', { className: `sw-dot${connected && powerOn ? ' on' : ''}` })
+    ),
+    connected && live ? h('div', null,
+      h('div', { className: `sw-banner ${powerOn ? 'on' : 'off'}` },
+        powerOn ? '🟢 ON' : '🔴 OFF'
+      ),
+      h('div', { className: 'sw-stats' },
+        h('div', { className: 'sw-stat' },
+          h('div', { className: 'sw-stat-v' }, powerW != null ? `${powerW.toFixed(0)} W` : '—'),
+          h('div', { className: 'sw-stat-l' }, 'Puissance')
+        ),
+        h('div', { className: 'sw-stat' },
+          h('div', { className: 'sw-stat-v' }, voltage != null ? `${voltage.toFixed(1)} V` : '—'),
+          h('div', { className: 'sw-stat-l' }, 'Tension')
+        )
+      ),
+      h('div', { className: 'sw-stats' },
+        h('div', { className: 'sw-stat' },
+          h('div', { className: 'sw-stat-v' }, current != null ? `${current.toFixed(2)} A` : '—'),
+          h('div', { className: 'sw-stat-l' }, 'Courant')
+        ),
+        h('div', { className: 'sw-stat' },
+          h('div', { className: 'sw-stat-v' }, (live?.energy_today_kwh ?? 0).toFixed(2)),
+          h('div', { className: 'sw-stat-l' }, 'Auj.')
+        )
+      ),
+      h('button', {
+        className: 'sw-btn',
+        disabled: data.disabled,
+        onClick: (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          if (typeof data.onToggle === 'function' && !data.disabled) {
+            data.onToggle(tasmotaId, !powerOn);
+          }
+        }
+      }, powerOn ? 'Éteindre' : 'Allumer')
+    ) : h('div', { className: 'sw-offline' }, '⏳ Hors ligne')
+  );
+}
+
 // ── ✅ ATS Pro-Nodes CORRIGÉS (VERSION FINALE ROBUSTE) ─────────────────────
 
 function AtsReseauNode({ data }) {
@@ -631,11 +713,11 @@ function AtsMainNode({ data }) {
 }
 
 // ✅ Enregistrement des nodeTypes
-const nodeTypes = { 
-  summary: SummaryNode, bms: BmsNode, et112card: Et112CardNode, device: DeviceNode, 
-  hub: HubNode, placeholder: PlaceholderNode, mppt: MPPTNode, smartshunt: SmartShuntNode, 
-  temperature: TemperatureNode, 
-  atsreseau: AtsReseauNode, atsonduleur: AtsOnduleurNode, atsmain: AtsMainNode 
+const nodeTypes = {
+  summary: SummaryNode, bms: BmsNode, et112card: Et112CardNode, device: DeviceNode,
+  hub: HubNode, placeholder: PlaceholderNode, mppt: MPPTNode, smartshunt: SmartShuntNode,
+  temperature: TemperatureNode, switch: SwitchNode,
+  atsreseau: AtsReseauNode, atsonduleur: AtsOnduleurNode, atsmain: AtsMainNode
 };
 
 const NODES0 = [
@@ -654,6 +736,7 @@ const NODES0 = [
   { id: 'bms2',        type: 'bms',         position: { x: 165,  y: 790 }, data: { label: 'BMS-320Ah',       live: null } },
   { id: 'chauffe-eau',    type: 'device',      position: { x: 800, y: 270 }, data: { label: 'Chauffe-eau',   icon: '🚿', live: null } },
   { id: 'climatisation',  type: 'device',      position: { x: 800, y: 370 }, data: { label: 'Climatisation', icon: '❄️',  live: null } },
+  { id: 'tongou-sw',      type: 'switch',      position: { x: 800, y: 450 }, data: { label: 'Tongou Switch', tasmota_id: 'tongou_3BC764', icon: '🔌', live: null, onToggle: null, disabled: false } },
   { id: 'ats-reseau',   type: 'atsreseau',  position: { x: -350, y: 160 }, data: { v2a:'—', sw2:'Ouvert', s2a:'—', cnt2:'0', max2:'—', t2:'—', onForce: null, disabled: false, _rev: 0 } },
   { id: 'ats-main',     type: 'atsmain',    position: { x: 65, y: 145 }, data: { swRemote:'—', swMode:'—', swFault:'—', middleOFF:'—', sw1:'—', sw2:'—', active_source:'—', onToggleRemote: null, onForceOff: null, disabled: false, _rev: 0 } },
   { id: 'ats-onduleur', type: 'atsonduleur', position: { x: 65, y: 315 }, data: { v1a:'—', sw1:'Ouvert', s1a:'—', cnt1:'0', max1:'—', t1:'—', onForce: null, disabled: false, _rev: 0 } },
@@ -722,6 +805,17 @@ function ESSFlow() {
     }
   }, []);
 
+  // 🔌 Callback pour le toggle du switch Tasmota
+  const handleSwitchToggle = useCallback((tasmotaId, state) => {
+    console.log('[CALLBACK] Switch toggle pour ID:', tasmotaId, 'state:', state);
+    fetch(`/api/v1/tasmota/${tasmotaId}/control`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state: state ? 'on' : 'off' }),
+      cache: 'no-cache'
+    }).catch(err => console.error('[SWITCH] Erreur:', err));
+  }, []);
+
   const applyData = useCallback(function(d) {
     const bms1 = d.bms1, bms2 = d.bms2;
     const et7  = d.et7,  et8  = d.et8, et9 = d.et9;
@@ -731,6 +825,7 @@ function ESSFlow() {
     const inverter = d.inverter;
     const temp = d.temp;
     const ats = d.ats;
+    const tasmota = d.tasmota;
 
     const validBms = [bms1, bms2].filter(Boolean);
     const avgSoc   = validBms.length
@@ -797,6 +892,7 @@ function ESSFlow() {
         case 'onduleur':    return { ...n, data: { ...n.data, value: inverter ? `${(inverter.ac_output_power_w ?? 0).toFixed(0)}W` : '—', dotClass: inverter ? 'live' : '' } };
         case 'chauffe-eau': return { ...n, data: { ...n.data, live: et8  ?? null } };
         case 'climatisation': return { ...n, data: { ...n.data, live: et9 ?? null } };
+        case 'tongou-sw':   return { ...n, data: { ...n.data, live: tasmota ?? null, onToggle: handleSwitchToggle, disabled: atsProcessing } };
         case 'mppt':        return { ...n, data: { ...n.data, live: mppt ?? null } };
         case 'smartshunt':  return { ...n, data: { ...n.data, live: shunt ?? null } };
         case 'temp-ext':    return { ...n, data: { ...n.data, live: temp ?? null } };
@@ -841,12 +937,12 @@ function ESSFlow() {
     }));
 
     setLastUpdate(new Date().toLocaleTimeString('fr-FR'));
-  }, [atsProcessing, atsRev, handleAtsReseauForce, handleAtsOnduleurForce, handleAtsToggleRemote, handleAtsForceOff]);
+  }, [atsProcessing, atsRev, handleAtsReseauForce, handleAtsOnduleurForce, handleAtsToggleRemote, handleAtsForceOff, handleSwitchToggle]);
 
   useEffect(function() {
     const safe = p => p.catch(() => null);
     async function fetchAll() {
-      const [bms1, bms2, et7, et8, et9, irr, venusResp, tempResp, atsResp] = await Promise.all([
+      const [bms1, bms2, et7, et8, et9, irr, venusResp, tempResp, atsResp, tasmotaResp] = await Promise.all([
         safe(fetch('/api/v1/bms/1/status').then(r => r.ok ? r.json() : null)),
         safe(fetch('/api/v1/bms/2/status').then(r => r.ok ? r.json() : null)),
         safe(fetch('/api/v1/et112/7/status').then(r => r.ok ? r.json() : null)),
@@ -856,6 +952,7 @@ function ESSFlow() {
         safe(fetch('/api/v1/venus/mppt').then(r => r.ok ? r.json() : null)),
         safe(fetch('/api/v1/venus/temperatures').then(r => r.ok ? r.json() : null)),
         safe(fetch('/api/v1/ats/status').then(r => r.ok ? r.json() : null)),
+        safe(fetch('/api/v1/tasmota/1/status').then(r => r.ok ? r.json() : null)),
       ]);
 
       const mppt = venusResp?.mppts?.[0] ?? null;
@@ -867,7 +964,17 @@ function ESSFlow() {
       const temp = temps.length > 0 ? temps[0] : null;
       const ats = atsResp?.values ?? null;
 
-      applyData({ bms1, bms2, et7, et8, et9, irr, mppt, shunt, inverter, temp, ats });
+      // 🔌 Traiter la réponse Tasmota pour le switch
+      const tasmota = tasmotaResp ? {
+        connected: true,
+        power_on: tasmotaResp.power_on ?? false,
+        power_w: tasmotaResp.power_w ?? 0,
+        voltage_v: tasmotaResp.voltage_v ?? 0,
+        current_a: tasmotaResp.current_a ?? 0,
+        energy_today_kwh: tasmotaResp.energy_today_kwh ?? 0
+      } : null;
+
+      applyData({ bms1, bms2, et7, et8, et9, irr, mppt, shunt, inverter, temp, ats, tasmota });
     }
     fetchAll();
     const timer = setInterval(fetchAll, 2000);

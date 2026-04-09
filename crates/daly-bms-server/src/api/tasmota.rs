@@ -5,6 +5,7 @@
 //! GET /api/v1/tasmota                  → liste des prises configurées + dernier snapshot
 //! GET /api/v1/tasmota/:id/status       → dernier snapshot d'une prise
 //! GET /api/v1/tasmota/:id/history      → historique (ring buffer)
+//! POST /api/v1/tasmota/:id/control     → contrôler l'état du relais (on/off)
 //! ```
 
 use crate::state::AppState;
@@ -13,7 +14,7 @@ use axum::{
     http::StatusCode,
     Json,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// GET /api/v1/tasmota — liste de toutes les prises + dernier snapshot
 pub async fn list_tasmota(State(state): State<AppState>) -> Json<serde_json::Value> {
@@ -58,4 +59,55 @@ pub async fn get_tasmota_history(
     let limit = params.limit.unwrap_or(360).min(1440);
     let snaps = state.tasmota_history_for(id, limit).await;
     Ok(Json(serde_json::json!({ "id": id, "count": snaps.len(), "history": snaps })))
+}
+
+#[derive(Deserialize)]
+pub struct ControlPayload {
+    pub state: String,  // "on" ou "off"
+}
+
+#[derive(Serialize)]
+pub struct ControlResponse {
+    pub id: u8,
+    pub state: bool,
+    pub command: String,
+}
+
+/// POST /api/v1/tasmota/:id/control — contrôler l'état du relais (on/off)
+pub async fn control_tasmota(
+    State(state): State<AppState>,
+    Path(id_str): Path<String>,
+    Json(payload): Json<ControlPayload>,
+) -> Result<Json<ControlResponse>, StatusCode> {
+    let id = id_str.trim().parse::<u8>().map_err(|_| StatusCode::BAD_REQUEST)?;
+
+    // Trouver la configuration du device Tasmota
+    let device = state
+        .config
+        .tasmota
+        .devices
+        .iter()
+        .find(|d| d.id == id)
+        .ok_or(StatusCode::NOT_FOUND)?;
+
+    // Parser l'état désiré
+    let power_on = matches!(payload.state.to_lowercase().as_str(), "on" | "1" | "true");
+    let cmd = if power_on { "ON" } else { "OFF" };
+
+    // Envoyer la commande MQTT : cmnd/{tasmota_id}/POWER → ON ou OFF
+    let mqtt_topic = format!("cmnd/{}/POWER", device.tasmota_id);
+    if state.mqtt_sender.send((mqtt_topic.clone(), cmd.to_string())).is_ok() {
+        tracing::info!(
+            "[Tasmota] Envoyé commande {} → {} : {}",
+            device.tasmota_id,
+            mqtt_topic,
+            cmd
+        );
+    }
+
+    Ok(Json(ControlResponse {
+        id,
+        state: power_on,
+        command: format!("{}:{}", mqtt_topic, cmd),
+    }))
 }
