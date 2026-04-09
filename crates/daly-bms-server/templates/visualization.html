@@ -164,7 +164,13 @@
   /* 🔌 Switch Tasmota Node — styles complémentaires */
   .bms-card-in-viz .bms-hdr.sw-on { background: linear-gradient(135deg, #86efac 0%, #4ade80 100%); }
   .bms-card-in-viz .bms-hdr.sw-off { background: linear-gradient(135deg, #f87171 0%, #ef4444 100%); }
-  .btn-toggle { width: 100%; padding: 6px 8px; border: none; border-radius: 6px; font-size: 0.72rem; font-weight: 600; cursor: pointer; color: white; transition: all 0.2s; pointer-events: auto !important; }
+  .btn-toggle {
+    width: 100%; padding: 6px 8px; border: none; border-radius: 6px;
+    font-size: 0.72rem; font-weight: 600; color: white;
+    transition: all 0.2s; pointer-events: auto !important;
+    cursor: pointer; z-index: 10; position: relative;
+  }
+  .btn-toggle[data-is-interactive="true"] { cursor: pointer !important; }
   .btn-toggle:hover:not(:disabled) { opacity: 0.9; box-shadow: 0 2px 6px rgba(0,0,0,.15); }
   .btn-toggle:active:not(:disabled) { transform: scale(0.98); }
   .btn-toggle:disabled { opacity: 0.6; cursor: not-allowed; }
@@ -496,14 +502,32 @@ function SwitchNode({ data }) {
       connected && live ? h('div', { className: 'card-footer' },
         h('button', {
           className: 'btn-toggle',
+          'data-is-interactive': 'true',
+          'data-rev': data._rev,
           disabled: data.disabled,
           onClick: (e) => {
             e.stopPropagation();
             e.preventDefault();
-            if (typeof data.onToggle === 'function' && !data.disabled) {
-              data.onToggle(tasmotaId, !powerOn);
+            if (!data.disabled) {
+              const newState = !powerOn;
+              const cmd = newState ? 'on' : 'off';
+              console.log('[SWITCH] Envoi commande:', tasmotaId, cmd);
+              fetch(`/api/v1/tasmota/${tasmotaId}/control`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ state: cmd }),
+                cache: 'no-cache'
+              })
+              .then(r => {
+                console.log('[SWITCH] Réponse:', r.status);
+                return r.json();
+              })
+              .then(d => console.log('[SWITCH] OK:', d))
+              .catch(err => console.error('[SWITCH] Erreur:', err));
             }
           },
+          onMouseDown: (e) => { e.stopPropagation(); e.preventDefault(); },
+          onTouchStart: (e) => { e.stopPropagation(); e.preventDefault(); },
           style: {
             background: data.disabled ? '#cbd5e1' : (powerOn ? '#ef4444' : '#2563eb'),
             cursor: data.disabled ? 'not-allowed' : 'pointer'
@@ -805,17 +829,6 @@ function ESSFlow() {
     }
   }, []);
 
-  // 🔌 Callback pour le toggle du switch Tasmota
-  const handleSwitchToggle = useCallback((tasmotaId, state) => {
-    console.log('[CALLBACK] Switch toggle pour ID:', tasmotaId, 'state:', state);
-    fetch(`/api/v1/tasmota/${tasmotaId}/control`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ state: state ? 'on' : 'off' }),
-      cache: 'no-cache'
-    }).catch(err => console.error('[SWITCH] Erreur:', err));
-  }, []);
-
   const applyData = useCallback(function(d) {
     const bms1 = d.bms1, bms2 = d.bms2;
     const et7  = d.et7,  et8  = d.et8, et9 = d.et9;
@@ -892,7 +905,7 @@ function ESSFlow() {
         case 'onduleur':    return { ...n, data: { ...n.data, value: inverter ? `${(inverter.ac_output_power_w ?? 0).toFixed(0)}W` : '—', dotClass: inverter ? 'live' : '' } };
         case 'chauffe-eau': return { ...n, data: { ...n.data, live: et8  ?? null } };
         case 'climatisation': return { ...n, data: { ...n.data, live: et9 ?? null } };
-        case 'tongou-sw':   return { ...n, data: { ...n.data, live: tasmota ?? null, onToggle: handleSwitchToggle, disabled: atsProcessing } };
+        case 'tongou-sw':   return { ...n, data: { ...n.data, live: tasmota ?? null, disabled: atsProcessing } };
         case 'mppt':        return { ...n, data: { ...n.data, live: mppt ?? null } };
         case 'smartshunt':  return { ...n, data: { ...n.data, live: shunt ?? null } };
         case 'temp-ext':    return { ...n, data: { ...n.data, live: temp ?? null } };
@@ -937,7 +950,7 @@ function ESSFlow() {
     }));
 
     setLastUpdate(new Date().toLocaleTimeString('fr-FR'));
-  }, [atsProcessing, atsRev, handleAtsReseauForce, handleAtsOnduleurForce, handleAtsToggleRemote, handleAtsForceOff, handleSwitchToggle]);
+  }, [atsProcessing, atsRev, handleAtsReseauForce, handleAtsOnduleurForce, handleAtsToggleRemote, handleAtsForceOff]);
 
   useEffect(function() {
     const safe = p => p.catch(() => null);
