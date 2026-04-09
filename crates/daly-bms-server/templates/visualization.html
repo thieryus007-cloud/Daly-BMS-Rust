@@ -454,7 +454,7 @@ function AtsReseauNode({ data }) {
     ),
     h('div', { className: 'pn-foot' },
       h('button', { className: 'pn-btn pn-btn-warn',
-        onMouseDown: e => e.stopPropagation(),
+        onPointerDown: e => e.stopPropagation(),
         onClick: e => { e.stopPropagation(); _ats.exec?.(['remote_on', 200, 'force_source2', 200, 'remote_off']); },
         disabled: data.disabled },
         '⚡ ', data.disabled ? '...' : 'ACTIVER'
@@ -497,7 +497,7 @@ function AtsOnduleurNode({ data }) {
     ),
     h('div', { className: 'pn-foot' },
       h('button', { className: 'pn-btn pn-btn-prim',
-        onMouseDown: e => e.stopPropagation(),
+        onPointerDown: e => e.stopPropagation(),
         onClick: e => { e.stopPropagation(); _ats.exec?.(['remote_on', 200, 'force_source1', 200, 'remote_off']); },
         disabled: data.disabled },
         '🔋 ', data.disabled ? '...' : 'ACTIVER'
@@ -521,7 +521,7 @@ function AtsMainNode({ data }) {
       ),
       h('div', {
         style: { display:'flex', alignItems:'center', gap:4, cursor: data.disabled ? 'default' : 'pointer', opacity: data.disabled ? 0.5 : 1 },
-        onMouseDown: e => e.stopPropagation(),
+        onPointerDown: e => e.stopPropagation(),
         onClick: e => { e.stopPropagation(); if (!data.disabled) _ats.exec?.([data.swRemote && data.swRemote.includes('Activé') ? 'remote_off' : 'remote_on', 300]); }
       },
         h('span', { style: { fontSize:8, color:'#475569' } }, 'Télécommande'),
@@ -540,7 +540,7 @@ function AtsMainNode({ data }) {
     h('div', { className: 'pn-info-row' }, h('span', { className: 'pn-info-key' }, 'Source'), h('span', { className: `pn-info-val${centerOff ? ' err' : ''}` }, centerOff ? '⚠ DOUBLE OFF' : data.active_source || '—')),
     h('div', { className: 'pn-foot' },
       h('button', { className: 'pn-btn pn-btn-danger',
-        onMouseDown: e => e.stopPropagation(),
+        onPointerDown: e => e.stopPropagation(),
         onClick: e => { e.stopPropagation(); if (!data.disabled && window.confirm('⚠️ Confirmer Double OFF ?')) _ats.exec?.(['remote_on', 200, 'force_double', 200, 'remote_off']); },
         disabled: data.disabled },
         '⏹️ ', data.disabled ? '...' : 'Double OFF'
