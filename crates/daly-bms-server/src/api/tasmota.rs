@@ -94,16 +94,44 @@ pub async fn control_tasmota(
     let power_on = matches!(payload.state.to_lowercase().as_str(), "on" | "1" | "true");
     let cmd = if power_on { "ON" } else { "OFF" };
 
-    // Envoyer la commande MQTT : cmnd/{tasmota_id}/POWER → ON ou OFF
+    // Créer un client MQTT temporaire pour envoyer la commande
+    let mqtt_cfg = &state.config.mqtt;
     let mqtt_topic = format!("cmnd/{}/POWER", device.tasmota_id);
-    if state.mqtt_sender.send((mqtt_topic.clone(), cmd.to_string())).is_ok() {
-        tracing::info!(
-            "[Tasmota] Envoyé commande {} → {} : {}",
-            device.tasmota_id,
-            mqtt_topic,
-            cmd
-        );
-    }
+
+    use rumqttc::{AsyncClient, MqttOptions, QoS};
+    let mut mqtt_opts = MqttOptions::new(
+        format!("daly-bms-control-{}", id),
+        &mqtt_cfg.host,
+        mqtt_cfg.port,
+    );
+    mqtt_opts.set_keep_alive(std::time::Duration::from_secs(30));
+
+    // Créer le client et la boucle d'événements
+    let (client, mut eventloop) = AsyncClient::new(mqtt_opts, 16);
+
+    // Lancer la boucle d'événements en background
+    tokio::spawn(async move {
+        loop {
+            match eventloop.poll().await {
+                Ok(_) => continue,
+                Err(_) => break,
+            }
+        }
+    });
+
+    // Publier le message de contrôle (ne pas attendre la confirmation)
+    let cmd_str = cmd.to_string();
+    let topic_clone = mqtt_topic.clone();
+    tokio::spawn(async move {
+        let _ = client.publish(&topic_clone, QoS::AtLeastOnce, false, cmd_str.as_bytes()).await;
+    });
+
+    tracing::info!(
+        "[Tasmota] Commande envoyée {} → {} : {}",
+        device.tasmota_id,
+        mqtt_topic,
+        cmd
+    );
 
     Ok(Json(ControlResponse {
         id,
