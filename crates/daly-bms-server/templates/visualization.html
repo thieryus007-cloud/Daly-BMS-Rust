@@ -161,7 +161,7 @@
 'use strict';
 
 const h = React.createElement;
-const { useState, useEffect, useCallback } = React;
+const { useState, useEffect, useCallback, useRef } = React;
 const { ReactFlow, Background, Controls, Panel, Handle, Position, useNodesState, useEdgesState } = window.ReactFlow;
 
 const fmtKw  = w  => w  != null ? `${(w / 1000).toFixed(2)} kW` : '—';
@@ -453,9 +453,8 @@ function AtsReseauNode({ data }) {
       h('div', { className: 'pn-chip' }, h('span', { className: 'pn-chip-lbl' }, 'T2'), h('span', { className: 'pn-chip-val' }, data.t2 || '—'))
     ),
     h('div', { className: 'pn-foot' },
-      h('button', { className: 'pn-btn pn-btn-warn',
-        onPointerDown: e => e.stopPropagation(),
-        onClick: e => { e.stopPropagation(); _ats.exec?.(['remote_on', 200, 'force_source2', 200, 'remote_off']); },
+      h('button', { className: 'pn-btn pn-btn-warn nodrag',
+        onClick: () => data.onForce?.(),
         disabled: data.disabled },
         '⚡ ', data.disabled ? '...' : 'ACTIVER'
       )
@@ -496,9 +495,8 @@ function AtsOnduleurNode({ data }) {
       h('div', { className: 'pn-chip' }, h('span', { className: 'pn-chip-lbl' }, 'T1'), h('span', { className: 'pn-chip-val' }, data.t1 || '—'))
     ),
     h('div', { className: 'pn-foot' },
-      h('button', { className: 'pn-btn pn-btn-prim',
-        onPointerDown: e => e.stopPropagation(),
-        onClick: e => { e.stopPropagation(); _ats.exec?.(['remote_on', 200, 'force_source1', 200, 'remote_off']); },
+      h('button', { className: 'pn-btn pn-btn-prim nodrag',
+        onClick: () => data.onForce?.(),
         disabled: data.disabled },
         '🔋 ', data.disabled ? '...' : 'ACTIVER'
       )
@@ -520,9 +518,9 @@ function AtsMainNode({ data }) {
         h('span', null, 'ATS')
       ),
       h('div', {
+        className: 'nodrag',
         style: { display:'flex', alignItems:'center', gap:4, cursor: data.disabled ? 'default' : 'pointer', opacity: data.disabled ? 0.5 : 1 },
-        onPointerDown: e => e.stopPropagation(),
-        onClick: e => { e.stopPropagation(); if (!data.disabled) _ats.exec?.([data.swRemote && data.swRemote.includes('Activé') ? 'remote_off' : 'remote_on', 300]); }
+        onClick: () => !data.disabled && data.onToggleRemote?.()
       },
         h('span', { style: { fontSize:8, color:'#475569' } }, 'Télécommande'),
         h('div', { className: `pn-toggle${remoteOn ? ' on' : ''}` })
@@ -539,9 +537,8 @@ function AtsMainNode({ data }) {
     ),
     h('div', { className: 'pn-info-row' }, h('span', { className: 'pn-info-key' }, 'Source'), h('span', { className: `pn-info-val${centerOff ? ' err' : ''}` }, centerOff ? '⚠ DOUBLE OFF' : data.active_source || '—')),
     h('div', { className: 'pn-foot' },
-      h('button', { className: 'pn-btn pn-btn-danger',
-        onPointerDown: e => e.stopPropagation(),
-        onClick: e => { e.stopPropagation(); if (!data.disabled && window.confirm('⚠️ Confirmer Double OFF ?')) _ats.exec?.(['remote_on', 200, 'force_double', 200, 'remote_off']); },
+      h('button', { className: 'pn-btn pn-btn-danger nodrag',
+        onClick: () => !data.disabled && data.onForceOff?.(),
         disabled: data.disabled },
         '⏹️ ', data.disabled ? '...' : 'Double OFF'
       )
@@ -550,8 +547,6 @@ function AtsMainNode({ data }) {
 }
 
 // Module-level ATS command executor — évite les stale closures React
-const _ats = { processing: false, exec: null };
-
 const nodeTypes = { summary: SummaryNode, bms: BmsNode, et112card: Et112CardNode, device: DeviceNode, hub: HubNode, placeholder: PlaceholderNode, mppt: MPPTNode, smartshunt: SmartShuntNode, temperature: TemperatureNode, atsreseau: AtsReseauNode, atsonduleur: AtsOnduleurNode, atsmain: AtsMainNode };
 
 const NODES0 = [
@@ -592,18 +587,18 @@ function ESSFlow() {
   const [edges, setEdges, onEdgesChange] = useEdgesState(EDGES0);
   const [lastUpdate, setLastUpdate] = useState('—');
   const [atsProcessing, setAtsProcessing] = useState(false);
-
-  // Bind executor into module-level ref — aucun stale closure possible
-  _ats.exec = async function(steps) {
-    if (_ats.processing) return;
-    _ats.processing = true;
+  const atsExecRef = useRef(null);
+  const atsBusyRef = useRef(false);
+  atsExecRef.current = async function(steps) {
+    if (atsBusyRef.current) return;
+    atsBusyRef.current = true;
     setAtsProcessing(true);
     try {
       for (const step of steps) {
         if (typeof step === 'string') await fetch('/api/v1/ats/' + step, { method: 'POST', cache: 'no-cache' });
         else if (typeof step === 'number') await new Promise(r => setTimeout(r, step));
       }
-    } finally { _ats.processing = false; setAtsProcessing(false); }
+    } finally { atsBusyRef.current = false; setAtsProcessing(false); }
   };
 
   const applyData = useCallback(function(d) { // eslint-disable-line
@@ -680,13 +675,13 @@ function ESSFlow() {
         case 'temp-ext':    return { ...n, data: { ...n.data, live: temp ?? null } };
         case 'ats-reseau':
           if (!ats) return n;
-          return { ...n, data: { ...ats, disabled: atsProcessing } };
+          return { ...n, data: { ...ats, disabled: atsProcessing, onForce: () => atsExecRef.current?.(['remote_on', 200, 'force_source2', 200, 'remote_off']) } };
         case 'ats-onduleur':
           if (!ats) return n;
-          return { ...n, data: { ...ats, disabled: atsProcessing } };
+          return { ...n, data: { ...ats, disabled: atsProcessing, onForce: () => atsExecRef.current?.(['remote_on', 200, 'force_source1', 200, 'remote_off']) } };
         case 'ats-main':
           if (!ats) return n;
-          return { ...n, data: { ...ats, disabled: atsProcessing } };
+          return { ...n, data: { ...ats, disabled: atsProcessing, onToggleRemote: () => atsExecRef.current?.([(ats.swRemote||'').includes('Activé') ? 'remote_off' : 'remote_on', 300]), onForceOff: () => { if (window.confirm('⚠️ Confirmer Double OFF ?')) atsExecRef.current?.(['remote_on', 200, 'force_double', 200, 'remote_off']); } } };
         default: return n;
       }
     }));
