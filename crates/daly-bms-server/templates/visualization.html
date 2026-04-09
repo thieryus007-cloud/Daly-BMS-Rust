@@ -161,27 +161,13 @@
     position: relative;
   }
 
-  /* 🔌 Switch Tasmota Node */
-  .sw-nd { width: 185px; background: #fff; border: 1px solid #d6dce5; border-radius: 10px; padding: 10px 12px; box-shadow: 0 1px 3px rgba(15,23,42,.06),0 2px 8px rgba(15,23,42,.04); cursor: default; }
-  .sw-nd .react-flow__handle { opacity: 0; }
-  .sw-nd:hover .react-flow__handle { opacity: 1; }
-  .sw-hdr { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
-  .sw-lbl { font-size: 0.78rem; font-weight: 700; color: #0f172a; flex: 1; }
-  .sw-id { font-size: 0.62rem; color: #94a3b8; font-family: 'JetBrains Mono', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .sw-dot { width: 7px; height: 7px; border-radius: 50%; background: #94a3b8; flex-shrink: 0; transition: background 0.3s, box-shadow 0.3s; }
-  .sw-dot.on { background: #16a34a; box-shadow: 0 0 6px rgba(22,163,74,.5); animation: nd-blink 2.5s infinite; }
-  .sw-banner { padding: 6px 8px; border-radius: 6px; margin-bottom: 8px; color: white; font-size: 0.72rem; font-weight: 600; text-align: center; transition: background 0.3s, color 0.3s; }
-  .sw-banner.on { background: #86efac; color: #15803d; }
-  .sw-banner.off { background: #f87171; color: #7f1d1d; }
-  .sw-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 8px; }
-  .sw-stat { background: #f8fafc; border-radius: 6px; padding: 4px 5px; text-align: center; border: 1px solid #e2e8f0; }
-  .sw-stat-v { font-size: 0.78rem; font-weight: 700; color: #0f172a; font-family: 'JetBrains Mono', monospace; }
-  .sw-stat-l { font-size: 0.53rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 1px; }
-  .sw-btn { width: 100%; padding: 5px 8px; background: #2563eb; color: white; border: none; border-radius: 6px; font-size: 0.72rem; font-weight: 600; cursor: pointer; transition: all 0.15s; }
-  .sw-btn:hover:not(:disabled) { background: #1d4ed8; box-shadow: 0 2px 4px rgba(37,99,235,.25); }
-  .sw-btn:active:not(:disabled) { transform: scale(0.98); }
-  .sw-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .sw-offline { font-size: 0.68rem; color: #94a3b8; font-style: italic; text-align: center; padding: 8px 0; }
+  /* 🔌 Switch Tasmota Node — styles complémentaires */
+  .bms-card-in-viz .bms-hdr.sw-on { background: linear-gradient(135deg, #86efac 0%, #4ade80 100%); }
+  .bms-card-in-viz .bms-hdr.sw-off { background: linear-gradient(135deg, #f87171 0%, #ef4444 100%); }
+  .btn-toggle { width: 100%; padding: 6px 8px; border: none; border-radius: 6px; font-size: 0.72rem; font-weight: 600; cursor: pointer; color: white; transition: all 0.2s; pointer-events: auto !important; }
+  .btn-toggle:hover:not(:disabled) { opacity: 0.9; box-shadow: 0 2px 6px rgba(0,0,0,.15); }
+  .btn-toggle:active:not(:disabled) { transform: scale(0.98); }
+  .btn-toggle:disabled { opacity: 0.6; cursor: not-allowed; }
 </style>
 {% endblock %}
 
@@ -463,54 +449,68 @@ function SwitchNode({ data }) {
   const powerW = live?.power_w ?? null;
   const voltage = live?.voltage_v ?? null;
   const current = live?.current_a ?? null;
+  const energy = live?.energy_today_kwh ?? null;
   const tasmotaId = data.tasmota_id ?? '—';
 
-  return h('div', { className: 'sw-nd' },
+  return h('div', { className: 'et112-card-wrapper' },
+    mkHandle('target', Position.Left,   'tl'),
+    mkHandle('source', Position.Left,   'sl', { top: '50%' }),
     mkHandle('target', Position.Top,    'tt'),
     mkHandle('source', Position.Bottom, 'sb'),
-    mkHandle('target', Position.Left,   'tl'),
     mkHandle('source', Position.Right,  'sr'),
-    h('div', { className: 'sw-hdr' },
-      h('span', null, data.icon ?? '⚡'),
-      h('span', { className: 'sw-lbl' }, data.label),
-      h('div', { className: `sw-dot${connected && powerOn ? ' on' : ''}` })
-    ),
-    connected && live ? h('div', null,
-      h('div', { className: `sw-banner ${powerOn ? 'on' : 'off'}` },
-        powerOn ? '🟢 ON' : '🔴 OFF'
-      ),
-      h('div', { className: 'sw-stats' },
-        h('div', { className: 'sw-stat' },
-          h('div', { className: 'sw-stat-v' }, powerW != null ? `${powerW.toFixed(0)} W` : '—'),
-          h('div', { className: 'sw-stat-l' }, 'Puissance')
+    mkHandle('target', Position.Right,  'tr', { top: '50%' }),
+    h('div', { className: `bms-card-in-viz ${connected ? '' : 'offline-card'}`, style: { opacity: connected ? 1 : 0.7 } },
+      h('div', { className: `bms-hdr ${powerOn && connected ? 'sw-on' : powerOn ? 'sw-off' : 'offline'}`,
+        style: {
+          background: connected ? (powerOn ? 'linear-gradient(135deg, #86efac 0%, #4ade80 100%)' : 'linear-gradient(135deg, #f87171 0%, #ef4444 100%)') : 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)'
+        }},
+        h('div', { className: 'bms-hdr-left' },
+          connected ? h('div', { className: 'bms-live' }, h('div', { className: 'live-dot' }), powerOn ? 'ON' : 'OFF') : h('span', { style: { fontSize: '0.62rem', color: 'var(--muted2)' } }, 'Hors ligne'),
+          h('span', { className: 'bms-hdr-name' }, `${data.icon ?? '🔌'} `, data.label)
         ),
-        h('div', { className: 'sw-stat' },
-          h('div', { className: 'sw-stat-v' }, voltage != null ? `${voltage.toFixed(1)} V` : '—'),
-          h('div', { className: 'sw-stat-l' }, 'Tension')
-        )
+        h('div', { className: 'bms-hdr-right' }, h('span', { className: 'bms-badge' }, tasmotaId.substring(tasmotaId.length - 6)))
       ),
-      h('div', { className: 'sw-stats' },
-        h('div', { className: 'sw-stat' },
-          h('div', { className: 'sw-stat-v' }, current != null ? `${current.toFixed(2)} A` : '—'),
-          h('div', { className: 'sw-stat-l' }, 'Courant')
+      connected && live ? h('div', { className: 'kpi4' },
+        h('div', { className: 'kpi4-cell t-yellow' },
+          h('div', { className: 'kpi4-lbl' }, 'Puissance'),
+          h('div', { className: `kpi4-val ${(powerW ?? 0) >= 0 ? 'chg' : 'dch'}` }, powerW != null ? `${powerW.toFixed(0)} W` : '—')
         ),
-        h('div', { className: 'sw-stat' },
-          h('div', { className: 'sw-stat-v' }, (live?.energy_today_kwh ?? 0).toFixed(2)),
-          h('div', { className: 'sw-stat-l' }, 'Auj.')
+        h('div', { className: 'kpi4-cell t-blue' },
+          h('div', { className: 'kpi4-lbl' }, 'Tension'),
+          h('div', { className: 'kpi4-val' }, voltage != null ? `${voltage.toFixed(1)} V` : '—')
+        ),
+        h('div', { className: 'kpi4-cell t-orange' },
+          h('div', { className: 'kpi4-lbl' }, 'Courant'),
+          h('div', { className: 'kpi4-val' }, current != null ? `${current.toFixed(2)} A` : '—')
         )
+      ) : h('div', { className: 'empty-state' },
+        h('div', { className: 'empty-icon' }, '⏳'),
+        h('div', { className: 'empty-title' }, 'En attente de données')
       ),
-      h('button', {
-        className: 'sw-btn',
-        disabled: data.disabled,
-        onClick: (e) => {
-          e.stopPropagation();
-          e.preventDefault();
-          if (typeof data.onToggle === 'function' && !data.disabled) {
-            data.onToggle(tasmotaId, !powerOn);
+      connected && live && energy != null ? h('div', { className: 'istrip' },
+        h('div', { className: 'icell' },
+          h('span', { className: 'i-lbl' }, '☀ Aujourd\'hui'),
+          h('span', { className: 'i-val ok' }, `${energy.toFixed(2)} kWh`)
+        )
+      ) : null,
+      connected && live ? h('div', { className: 'card-footer' },
+        h('button', {
+          className: 'btn-toggle',
+          disabled: data.disabled,
+          onClick: (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            if (typeof data.onToggle === 'function' && !data.disabled) {
+              data.onToggle(tasmotaId, !powerOn);
+            }
+          },
+          style: {
+            background: data.disabled ? '#cbd5e1' : (powerOn ? '#ef4444' : '#2563eb'),
+            cursor: data.disabled ? 'not-allowed' : 'pointer'
           }
-        }
-      }, powerOn ? 'Éteindre' : 'Allumer')
-    ) : h('div', { className: 'sw-offline' }, '⏳ Hors ligne')
+        }, data.disabled ? '...' : (powerOn ? 'Éteindre' : 'Allumer'))
+      ) : null
+    )
   );
 }
 
