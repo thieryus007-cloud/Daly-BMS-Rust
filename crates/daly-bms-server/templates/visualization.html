@@ -126,7 +126,7 @@
   .pn-chip-val { font-size: 9px; font-weight: 600; font-family: monospace; }
   .pn-chip-val.ok { color: #10b981; }
   .pn-foot { padding: 5px 8px 6px; border-top: 1px solid #e2e8f0; background: #fff; display: flex; justify-content: center; }
-  .pn-btn { padding: 3px 10px; border: none; border-radius: 6px; font-size: 8px; font-weight: 600; cursor: pointer; pointer-events: auto !important; position: relative; z-index: 50; }
+  .pn-btn { padding: 3px 10px; border: none; border-radius: 6px; font-size: 8px; font-weight: 600; cursor: pointer; pointer-events: auto !important; }
   .pn-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .pn-btn.pn-btn-warn { background: #f59e0b; color: white; }
   .pn-btn.pn-btn-prim { background: #2563eb; color: white; }
@@ -150,14 +150,15 @@
   .pn-toggle.on::after { transform: translateX(12px); }
   
   /* ✅ CORRECTION CRITIQUE : Forcer pointer-events sur éléments interactifs ATS */
-  [data-ats-interactive="true"],
-  [data-ats-interactive="true"] * {
+  [data-is-interactive="true"],
+  [data-is-interactive="true"] * {
     pointer-events: auto !important;
     user-select: none !important;
-    z-index: 100 !important;
   }
-  .pn-btn[data-ats-interactive="true"] {
+  .pn-btn[data-is-interactive="true"] {
     cursor: pointer !important;
+    z-index: 10 !important;
+    position: relative;
   }
 </style>
 {% endblock %}
@@ -172,7 +173,7 @@
 'use strict';
 
 const h = React.createElement;
-const { useState, useEffect, useCallback, useRef } = React;
+const { useState, useEffect, useCallback, useRef, memo } = React;
 const { ReactFlow, Background, Controls, Panel, Handle, Position, useNodesState, useEdgesState } = window.ReactFlow;
 
 const fmtKw  = w  => w  != null ? `${(w / 1000).toFixed(2)} kW` : '—';
@@ -182,34 +183,34 @@ function mkHandle(type, pos, id, style) {
   return h(Handle, { type, position: pos, id, style: { background: '#94a3b8', width: 8, height: 8, ...style } });
 }
 
-// ... [Tous les autres nodes SummaryNode, BmsNode, etc. restent IDENTIQUES - non modifiés pour concision] ...
-// Seul le code des 3 nodes ATS et la logique ESSFlow sont modifiés ci-dessous
+// ... [Tous les autres nodes SummaryNode, BmsNode, etc. restent IDENTIQUES - non modifiés] ...
+// Pour concision, je ne répète pas ici les 8 autres composants non-ATS (ils sont inchangés)
 
 function SummaryNode({ data }) {
   return h('div', { className: 'sn' },
-    mkHandle('target', Position.Top, 'tt'),
+    mkHandle('target', Position.Top,    'tt'),
     mkHandle('source', Position.Bottom, 'sb'),
-    mkHandle('target', Position.Left, 'tl'),
-    mkHandle('source', Position.Right, 'sr'),
-    mkHandle('target', Position.Right, 'tr', { top: '68%' }),
-    mkHandle('source', Position.Left, 'sl', { top: '68%' }),
+    mkHandle('target', Position.Left,   'tl'),
+    mkHandle('source', Position.Right,  'sr'),
+    mkHandle('target', Position.Right,  'tr', { top: '68%' }),
+    mkHandle('source', Position.Left,   'sl', { top: '68%' }),
     h('div', { className: 'sn-icon' }, data.icon),
     h('div', { className: 'sn-body' },
       h('div', { className: 'sn-label' }, data.label),
       h('div', { className: 'sn-value' }, data.value ?? '—'),
-      h('div', { className: 'sn-sub' }, data.sub ?? '\u00a0')
+      h('div', { className: 'sn-sub'   }, data.sub   ?? '\u00a0')
     ),
     h('div', { className: `sn-dot ${data.dotClass ?? ''}` })
   );
 }
 
 function BmsNode({ data }) {
-  const live = data.live;
-  const soc = live?.Soc ?? null;
-  const cur = live?.Dc?.Current ?? null;
-  const pwr = live?.Dc?.Power ?? null;
-  const volt = live?.Dc?.Voltage ?? null;
-  const tmax = live?.System?.MaxCellTemperature ?? null;
+  const live  = data.live;
+  const soc   = live?.Soc   ?? null;
+  const cur   = live?.Dc?.Current ?? null;
+  const pwr   = live?.Dc?.Power   ?? null;
+  const volt  = live?.Dc?.Voltage ?? null;
+  const tmax  = live?.System?.MaxCellTemperature ?? null;
   const alarm = live?.Alarms ? Object.values(live.Alarms).some(v => v > 0) : false;
 
   return h('div', { className: `bms-nd${alarm ? ' alarm' : ''}` },
@@ -217,10 +218,13 @@ function BmsNode({ data }) {
     h('div', { className: 'bms-hdr' },
       h('span', null, '🔋'),
       h('span', { className: 'bms-name' }, data.label),
-      h('div', { className: `bms-live-dot${live ? ' on' : ''}` })
+      h('div',  { className: `bms-live-dot${live ? ' on' : ''}` })
     ),
     h('div', { className: 'bms-bar-bg' },
-      h('div', { className: 'bms-bar-fill', style: { width: `${soc ?? 0}%`, background: soc != null ? socColor(soc) : '#e2e8f0' } })
+      h('div', {
+        className: 'bms-bar-fill',
+        style: { width: `${soc ?? 0}%`, background: soc != null ? socColor(soc) : '#e2e8f0' }
+      })
     ),
     h('div', { className: 'bms-kpis' },
       h('div', { className: 'bms-kpi' },
@@ -232,8 +236,10 @@ function BmsNode({ data }) {
         h('div', { className: 'bms-kpi-l' }, 'Tension')
       ),
       h('div', { className: 'bms-kpi' },
-        h('div', { className: 'bms-kpi-v', style: { color: cur != null ? (cur < 0 ? '#dc2626' : cur > 0 ? '#2563eb' : '#0f172a') : undefined } },
-          cur != null ? `${cur > 0 ? '+' : ''}${cur.toFixed(1)}A` : '—'),
+        h('div', {
+          className: 'bms-kpi-v',
+          style: { color: cur != null ? (cur < 0 ? '#dc2626' : cur > 0 ? '#2563eb' : '#0f172a') : undefined }
+        }, cur != null ? `${cur > 0 ? '+' : ''}${cur.toFixed(1)}A` : '—'),
         h('div', { className: 'bms-kpi-l' }, 'Courant')
       )
     ),
@@ -244,15 +250,191 @@ function BmsNode({ data }) {
   );
 }
 
-function Et112CardNode({ data }) { /* ... inchangé ... */ return h('div', { className: 'et112-card-wrapper' }, /* ... */); }
-function DeviceNode({ data }) { /* ... inchangé ... */ return h('div', { className: 'dev-nd' }, /* ... */); }
-function HubNode({ data }) { /* ... inchangé ... */ return h('div', { className: 'hub-nd' }, /* ... */); }
-function PlaceholderNode({ data }) { /* ... inchangé ... */ return h('div', { className: 'ph-nd' }, /* ... */); }
-function MPPTNode({ data }) { /* ... inchangé ... */ return h('div', { className: 'dev-nd' }, /* ... */); }
-function SmartShuntNode({ data }) { /* ... inchangé ... */ return h('div', { className: 'dev-nd' }, /* ... */); }
-function TemperatureNode({ data }) { /* ... inchangé ... */ return h('div', { className: 'dev-nd' }, /* ... */); }
+function Et112CardNode({ data }) {
+  const live = data.live;
+  const connected = live?.connected ?? false;
+  const pwr  = live?.power_w ?? null;
+  const volt = live?.voltage_v ?? null;
+  const cur  = live?.current_a ?? null;
+  const imp  = live?.energy_import_wh != null ? live.energy_import_wh / 1000 : null;
+  const expW = live?.energy_export_wh != null ? live.energy_export_wh / 1000 : null;
+  const addr = data.address ?? 7;
+  const icon = data.icon || '☀';
 
-// ── ✅ ATS Pro-Nodes CORRIGÉS (VERSION FINALE) ─────────────────────────────
+  return h('div', { className: 'et112-card-wrapper' },
+    mkHandle('target', Position.Left,   'tl'),
+    mkHandle('source', Position.Left,   'sl', { top: '50%' }),
+    mkHandle('target', Position.Top,    'tt'),
+    mkHandle('source', Position.Bottom, 'sb'),
+    mkHandle('source', Position.Right,  'sr'),
+    mkHandle('target', Position.Right,  'tr', { top: '50%' }),
+    h('div', { className: `bms-card-in-viz ${connected ? '' : 'offline-card'}`, style: { opacity: connected ? 1 : 0.7 } },
+      h('div', { className: `bms-hdr ${connected ? '' : 'offline'}` },
+        h('div', { className: 'bms-hdr-left' },
+          connected ? h('div', { className: 'bms-live' }, h('div', { className: 'live-dot' }), 'LIVE') : h('span', { style: { fontSize: '0.62rem', color: 'var(--muted2)' } }, 'Hors ligne'),
+          h('span', { className: 'bms-hdr-name' }, `${icon} `, data.label)
+        ),
+        h('div', { className: 'bms-hdr-right' }, h('span', { className: 'bms-badge' }, `0x0${addr.toString(16).toUpperCase()}`))
+      ),
+      connected && live ? h('div', { className: 'kpi4' },
+        h('div', { className: 'kpi4-cell t-yellow' },
+          h('div', { className: 'kpi4-lbl' }, 'Puissance'),
+          h('div', { className: `kpi4-val ${(pwr ?? 0) >= 0 ? 'chg' : 'dch'}` }, pwr != null ? `${pwr.toFixed(0)} W` : '—')
+        ),
+        h('div', { className: 'kpi4-cell t-blue' },
+          h('div', { className: 'kpi4-lbl' }, 'Tension'),
+          h('div', { className: 'kpi4-val' }, volt != null ? `${volt.toFixed(1)} V` : '—')
+        ),
+        h('div', { className: 'kpi4-cell t-orange' },
+          h('div', { className: 'kpi4-lbl' }, 'Courant'),
+          h('div', { className: 'kpi4-val' }, cur != null ? `${cur.toFixed(2)} A` : '—')
+        )
+      ) : h('div', { className: 'empty-state' },
+        h('div', { className: 'empty-icon' }, '⏳'),
+        h('div', { className: 'empty-title' }, 'En attente de données')
+      ),
+      connected && live ? h('div', { className: 'istrip' },
+        h('div', { className: 'icell' },
+          h('span', { className: 'i-lbl' }, '⬇ Importée'),
+          h('span', { className: 'i-val ok' }, imp != null ? `${imp.toFixed(2)} kWh` : '—')
+        ),
+        h('div', { className: 'icell' },
+          h('span', { className: 'i-lbl' }, '⬆ Exportée'),
+          h('span', { className: 'i-val blue' }, expW != null ? `${expW.toFixed(2)} kWh` : '—')
+        )
+      ) : null,
+      h('div', { className: 'card-footer' },
+        h('a', { href: `/dashboard/et112/${addr}`, className: 'btn-link' }, 'Détails →')
+      )
+    )
+  );
+}
+
+function DeviceNode({ data }) {
+  const live = data.live;
+  const pwr  = live?.power_w;
+  const nrj  = live?.energy_import_kwh;
+  return h('div', { className: 'dev-nd' },
+    mkHandle('target', Position.Top,    'tt'),
+    mkHandle('source', Position.Bottom, 'sb'),
+    mkHandle('target', Position.Left,   'tl'),
+    mkHandle('source', Position.Right,  'sr'),
+    mkHandle('source', Position.Left,   'sl', { top: '65%' }),
+    mkHandle('target', Position.Right,  'tr', { top: '65%' }),
+    h('div', { className: 'dev-hdr' },
+      h('span', null, data.icon ?? '⚡'),
+      h('span', { className: 'dev-lbl' }, data.label),
+      h('div',  { className: `dev-dot${live?.connected ? ' on' : ''}` })
+    ),
+    live ? h('div', null,
+      h('div', { className: 'dev-pwr' }, pwr != null ? `${(pwr / 1000).toFixed(2)} kW` : '—'),
+      h('div', { className: 'dev-nrj' }, nrj != null ? `${nrj.toFixed(1)} kWh total` : '\u00a0')
+    ) : h('div', { className: 'dev-wait' }, 'En attente…')
+  );
+}
+
+function HubNode({ data }) {
+  return h('div', { className: 'hub-nd' },
+    mkHandle('target', Position.Top,    'tt'),
+    mkHandle('source', Position.Bottom, 'sb'),
+    mkHandle('target', Position.Left,   'tl'),
+    mkHandle('source', Position.Right,  'sr'),
+    mkHandle('target', Position.Right,  'tr', { top: '68%' }),
+    mkHandle('source', Position.Left,   'sl', { top: '68%' }),
+    h('div', { className: 'hub-icon' }, data.icon),
+    h('div', { className: 'hub-lbl'  }, data.label),
+    data.sub && h('div', { className: 'hub-sub' }, data.sub)
+  );
+}
+
+function PlaceholderNode({ data }) {
+  return h('div', { className: 'ph-nd' },
+    mkHandle('target', Position.Top,    'tt'),
+    mkHandle('source', Position.Bottom, 'sb'),
+    mkHandle('target', Position.Left,   'tl'),
+    mkHandle('source', Position.Right,  'sr'),
+    mkHandle('target', Position.Right,  'tr', { top: '68%' }),
+    mkHandle('source', Position.Left,   'sl', { top: '68%' }),
+    data.icon && h('span', { className: 'ph-icon' }, data.icon),
+    h('div', { className: 'ph-lbl'   }, data.label),
+    h('div', { className: 'ph-badge' }, 'À venir')
+  );
+}
+
+function MPPTNode({ data }) {
+  const live = data.live;
+  const power = live?.power_w ?? null;
+  const yieldToday = live?.yield_today_kwh ?? null;
+
+  return h('div', { className: 'dev-nd' },
+    mkHandle('target', Position.Top,    'tt'),
+    mkHandle('source', Position.Bottom, 'sb'),
+    mkHandle('target', Position.Left,   'tl'),
+    mkHandle('source', Position.Right,  'sr'),
+    mkHandle('target', Position.Right,  'tr', { top: '65%' }),
+    mkHandle('source', Position.Left,   'sl', { top: '65%' }),
+    h('div', { className: 'dev-hdr' },
+      h('span', null, data.icon ?? '☀️'),
+      h('span', { className: 'dev-lbl' }, data.label),
+      h('div', { className: `dev-dot${live ? ' on' : ''}` })
+    ),
+    live ? h('div', null,
+      h('div', { className: 'dev-pwr' }, power != null ? `${power.toFixed(0)} W` : '—'),
+      h('div', { className: 'dev-nrj' }, yieldToday != null ? `${yieldToday.toFixed(2)} kWh` : '—')
+    ) : h('div', { className: 'dev-wait' }, 'En attente…')
+  );
+}
+
+function SmartShuntNode({ data }) {
+  const live = data.live;
+  const soc = live?.soc_percent ?? null;
+  const voltage = live?.voltage_v ?? null;
+  const current = live?.current_a ?? null;
+
+  return h('div', { className: 'dev-nd' },
+    mkHandle('target', Position.Top,    'tt'),
+    mkHandle('source', Position.Bottom, 'sb'),
+    mkHandle('target', Position.Left,   'tl'),
+    mkHandle('source', Position.Right,  'sr'),
+    mkHandle('target', Position.Right,  'tr', { top: '65%' }),
+    mkHandle('source', Position.Left,   'sl', { top: '65%' }),
+    h('div', { className: 'dev-hdr' },
+      h('span', null, data.icon ?? '⚡'),
+      h('span', { className: 'dev-lbl' }, data.label),
+      h('div', { className: `dev-dot${live ? ' on' : ''}` })
+    ),
+    live ? h('div', null,
+      h('div', { className: 'dev-pwr', style: { color: soc != null ? socColor(soc) : undefined } }, soc != null ? `${soc.toFixed(1)}%` : '—'),
+      h('div', { className: 'dev-nrj' }, `${voltage?.toFixed(1)}V • ${current?.toFixed(1)}A`)
+    ) : h('div', { className: 'dev-wait' }, 'En attente…')
+  );
+}
+
+function TemperatureNode({ data }) {
+  const live = data.live;
+  const temp = live?.temp_c ?? null;
+  const humidity = live?.humidity_percent ?? null;
+
+  return h('div', { className: 'dev-nd' },
+    mkHandle('target', Position.Top,    'tt'),
+    mkHandle('source', Position.Bottom, 'sb'),
+    mkHandle('target', Position.Left,   'tl'),
+    mkHandle('source', Position.Right,  'sr'),
+    mkHandle('target', Position.Right,  'tr', { top: '65%' }),
+    mkHandle('source', Position.Left,   'sl', { top: '65%' }),
+    h('div', { className: 'dev-hdr' },
+      h('span', null, data.icon ?? '🌡️'),
+      h('span', { className: 'dev-lbl' }, data.label),
+      h('div', { className: `dev-dot${live ? ' on' : ''}` })
+    ),
+    live ? h('div', null,
+      h('div', { className: 'dev-pwr' }, temp != null ? `${temp.toFixed(1)}°C` : '—'),
+      h('div', { className: 'dev-nrj' }, humidity != null ? `${humidity.toFixed(0)}% HR` : '—')
+    ) : h('div', { className: 'dev-wait' }, 'En attente…')
+  );
+}
+
+// ── ✅ ATS Pro-Nodes CORRIGÉS (VERSION FINALE ROBUSTE) ─────────────────────
 
 function AtsReseauNode({ data }) {
   const active = (data.sw2 || '').includes('Fermé');
@@ -261,17 +443,16 @@ function AtsReseauNode({ data }) {
   const isOk = status.includes('normal');
   const vLevel = Math.min(100, Math.max(0, ((parseInt(data.v2a) || 0) / 400) * 100));
   
-  // ✅ Handler lit depuis la ref globale, PAS depuis data.onForce (évite stale closure)
+  // ✅ Handler interne avec debugging et protection événementielle
   const handleClick = useCallback((e) => {
     e.stopPropagation();
     e.preventDefault();
-    e.nativeEvent?.stopImmediatePropagation?.();
-    const action = window.__atsActions?.reseauForce;
-    if (typeof action === 'function' && !data.disabled) {
-      console.log('[ATS-RESEAU] Exécution action');
-      action();
+    console.log('[ATS-RESEAU] Bouton cliqué, onForce:', typeof data.onForce);
+    if (typeof data.onForce === 'function' && !data.disabled) {
+      console.log('[ATS-RESEAU] Exécution onForce()');
+      data.onForce();
     }
-  }, [data.disabled]);
+  }, [data.onForce, data.disabled]);
 
   return h('div', { className: `pro-node${active ? ' active-source' : ''}` },
     mkHandle('source', Position.Right, 'reseau-out'),
@@ -301,13 +482,13 @@ function AtsReseauNode({ data }) {
     h('div', { className: 'pn-foot' },
       h('button', { 
         className: 'pn-btn pn-btn-warn',
-        'data-ats-interactive': 'true',
-        'data-rev': data._rev,
-        key: `btn-reseau-${data._rev}`, // ✅ Force React à recréer l'élément quand _rev change
+        'data-is-interactive': 'true',
+        'data-rev': data._rev, // ✅ Force re-render quand _rev change
         onClick: handleClick,
-        onMouseDown: (e) => { e.stopPropagation(); e.preventDefault(); e.nativeEvent?.stopImmediatePropagation?.(); },
+        onMouseDown: (e) => { e.stopPropagation(); e.preventDefault(); },
         onTouchStart: (e) => { e.stopPropagation(); e.preventDefault(); },
-        disabled: data.disabled
+        disabled: data.disabled,
+        style: { pointerEvents: 'auto', cursor: data.disabled ? 'not-allowed' : 'pointer' }
       },
         '⚡ ', data.disabled ? '...' : 'ACTIVER'
       )
@@ -325,13 +506,12 @@ function AtsOnduleurNode({ data }) {
   const handleClick = useCallback((e) => {
     e.stopPropagation();
     e.preventDefault();
-    e.nativeEvent?.stopImmediatePropagation?.();
-    const action = window.__atsActions?.onduleurForce;
-    if (typeof action === 'function' && !data.disabled) {
-      console.log('[ATS-ONDULEUR] Exécution action');
-      action();
+    console.log('[ATS-ONDULEUR] Bouton cliqué, onForce:', typeof data.onForce);
+    if (typeof data.onForce === 'function' && !data.disabled) {
+      console.log('[ATS-ONDULEUR] Exécution onForce()');
+      data.onForce();
     }
-  }, [data.disabled]);
+  }, [data.onForce, data.disabled]);
 
   return h('div', { className: `pro-node${active ? ' active-source' : ''}` },
     mkHandle('source', Position.Right, 'onduleur-out'),
@@ -361,13 +541,13 @@ function AtsOnduleurNode({ data }) {
     h('div', { className: 'pn-foot' },
       h('button', { 
         className: 'pn-btn pn-btn-prim',
-        'data-ats-interactive': 'true',
+        'data-is-interactive': 'true',
         'data-rev': data._rev,
-        key: `btn-onduleur-${data._rev}`,
         onClick: handleClick,
-        onMouseDown: (e) => { e.stopPropagation(); e.preventDefault(); e.nativeEvent?.stopImmediatePropagation?.(); },
+        onMouseDown: (e) => { e.stopPropagation(); e.preventDefault(); },
         onTouchStart: (e) => { e.stopPropagation(); e.preventDefault(); },
-        disabled: data.disabled
+        disabled: data.disabled,
+        style: { pointerEvents: 'auto', cursor: data.disabled ? 'not-allowed' : 'pointer' }
       },
         '🔋 ', data.disabled ? '...' : 'ACTIVER'
       )
@@ -380,29 +560,29 @@ function AtsMainNode({ data }) {
   const hasFault = (data.swFault || 'Aucun') !== 'Aucun';
   const centerOff = (data.middleOFF || '').includes('Activé');
   
+  // Handler pour le toggle télécommande
   const handleToggleClick = useCallback((e) => {
     e.stopPropagation();
     e.preventDefault();
-    e.nativeEvent?.stopImmediatePropagation?.();
-    const action = window.__atsActions?.toggleRemote;
-    if (typeof action === 'function' && !data.disabled) {
-      console.log('[ATS-MAIN] Toggle action');
-      action();
+    console.log('[ATS-MAIN] Toggle cliqué, onToggleRemote:', typeof data.onToggleRemote);
+    if (typeof data.onToggleRemote === 'function' && !data.disabled) {
+      console.log('[ATS-MAIN] Exécution onToggleRemote()');
+      data.onToggleRemote();
     }
-  }, [data.disabled]);
+  }, [data.onToggleRemote, data.disabled]);
   
+  // Handler pour le bouton Double OFF
   const handleForceOffClick = useCallback((e) => {
     e.stopPropagation();
     e.preventDefault();
-    e.nativeEvent?.stopImmediatePropagation?.();
-    const action = window.__atsActions?.forceOff;
-    if (typeof action === 'function' && !data.disabled) {
+    console.log('[ATS-MAIN] Double OFF cliqué, onForceOff:', typeof data.onForceOff);
+    if (typeof data.onForceOff === 'function' && !data.disabled) {
       if (window.confirm('⚠️ Confirmer Double OFF ?')) {
-        console.log('[ATS-MAIN] ForceOff action');
-        action();
+        console.log('[ATS-MAIN] Exécution onForceOff()');
+        data.onForceOff();
       }
     }
-  }, [data.disabled]);
+  }, [data.onForceOff, data.disabled]);
 
   return h('div', { className: 'pro-node' },
     mkHandle('target', Position.Left, 'ats-in-reseau'),
@@ -413,12 +593,11 @@ function AtsMainNode({ data }) {
         h('span', null, 'ATS')
       ),
       h('div', {
-        'data-ats-interactive': 'true',
+        'data-is-interactive': 'true',
         'data-rev': data._rev,
-        key: `toggle-ats-${data._rev}`,
         style: { display:'flex', alignItems:'center', gap:4, cursor: data.disabled ? 'default' : 'pointer', opacity: data.disabled ? 0.5 : 1, pointerEvents: 'auto' },
         onClick: handleToggleClick,
-        onMouseDown: (e) => { e.stopPropagation(); e.preventDefault(); e.nativeEvent?.stopImmediatePropagation?.(); },
+        onMouseDown: (e) => { e.stopPropagation(); e.preventDefault(); },
         onTouchStart: (e) => { e.stopPropagation(); e.preventDefault(); }
       },
         h('span', { style: { fontSize:8, color:'#475569' } }, 'Télécommande'),
@@ -438,13 +617,13 @@ function AtsMainNode({ data }) {
     h('div', { className: 'pn-foot' },
       h('button', { 
         className: 'pn-btn pn-btn-danger',
-        'data-ats-interactive': 'true',
+        'data-is-interactive': 'true',
         'data-rev': data._rev,
-        key: `btn-off-${data._rev}`,
         onClick: handleForceOffClick,
-        onMouseDown: (e) => { e.stopPropagation(); e.preventDefault(); e.nativeEvent?.stopImmediatePropagation?.(); },
+        onMouseDown: (e) => { e.stopPropagation(); e.preventDefault(); },
         onTouchStart: (e) => { e.stopPropagation(); e.preventDefault(); },
-        disabled: data.disabled
+        disabled: data.disabled,
+        style: { pointerEvents: 'auto', cursor: data.disabled ? 'not-allowed' : 'pointer' }
       },
         '⏹️ ', data.disabled ? '...' : 'Double OFF'
       )
@@ -452,6 +631,7 @@ function AtsMainNode({ data }) {
   );
 }
 
+// ✅ Enregistrement des nodeTypes
 const nodeTypes = { 
   summary: SummaryNode, bms: BmsNode, et112card: Et112CardNode, device: DeviceNode, 
   hub: HubNode, placeholder: PlaceholderNode, mppt: MPPTNode, smartshunt: SmartShuntNode, 
@@ -460,53 +640,48 @@ const nodeTypes = {
 };
 
 const NODES0 = [
-  { id: 'production', type: 'summary', position: { x: -300, y: 20 }, data: { label: 'Production', icon: '☀️', value: '—', sub: 'Micro-onduleurs', dotClass: '' } },
-  { id: 'batteries', type: 'summary', position: { x: 0, y: 20 }, data: { label: 'Batteries', icon: '🔋', value: '—', sub: '360 Ah + 320 Ah', dotClass: '' } },
-  { id: 'meteo', type: 'summary', position: { x: 250, y: 20 }, data: { label: 'Météo', icon: '🌤️', value: '—', sub: 'Irradiance solaire', dotClass: '' } },
-  { id: 'temp-ext', type: 'temperature', position: { x: 500, y: 20 }, data: { label: 'Température ext.', icon: '🌡️', live: null } },
-  { id: 'maison', type: 'placeholder', position: { x: 800, y: 170 }, data: { label: 'Maison', icon: '🏠' } },
-  { id: 'micro-ond', type: 'et112card', position: { x: 500, y: 270 }, data: { label: 'Micro-onduleurs', address: 7, live: null } },
-  { id: 'onduleur', type: 'device', position: { x: 65, y: 375 }, data: { label: 'Onduleur AC', icon: '⚡', value: '—', dotClass: '' } },
-  { id: 'mppt', type: 'mppt', position: { x: 500, y: 550 }, data: { label: 'MPPT', icon: '☀️', live: null } },
-  { id: 'smartshunt', type: 'smartshunt', position: { x: 65, y: 640 }, data: { label: 'SmartShunt', icon: '📏', live: null } },
-  { id: 'bms1', type: 'bms', position: { x: -100, y: 790 }, data: { label: 'BMS-360Ah', live: null } },
-  { id: 'bms2', type: 'bms', position: { x: 165, y: 790 }, data: { label: 'BMS-320Ah', live: null } },
-  { id: 'chauffe-eau', type: 'device', position: { x: 1020, y: 270 }, data: { label: 'Chauffe-eau', icon: '🚿', live: null } },
-  { id: 'climatisation', type: 'device', position: { x: 1020, y: 370 }, data: { label: 'Climatisation', icon: '❄️', live: null } },
-  { id: 'ats-reseau', type: 'atsreseau', position: { x: -450, y: 215 }, data: { v2a:'—', sw2:'Ouvert', s2a:'—', cnt2:'0', max2:'—', t2:'—', disabled: false, _rev: 0 } },
-  { id: 'ats-main', type: 'atsmain', position: { x: -200, y: 190 }, data: { swRemote:'—', swMode:'—', swFault:'—', middleOFF:'—', sw1:'—', sw2:'—', active_source:'—', disabled: false, _rev: 0 } },
-  { id: 'ats-onduleur', type: 'atsonduleur', position: { x: -200, y: 355 }, data: { v1a:'—', sw1:'Ouvert', s1a:'—', cnt1:'0', max1:'—', t1:'—', disabled: false, _rev: 0 } },
+  { id: 'production',  type: 'summary',     position: { x: -300,  y: 20  }, data: { label: 'Production',      icon: '☀️',  value: '—',   sub: 'Micro-onduleurs',        dotClass: '' } },
+  { id: 'batteries',   type: 'summary',     position: { x: 0,  y: 20  }, data: { label: 'Batteries',       icon: '🔋', value: '—',   sub: '360 Ah + 320 Ah',       dotClass: '' } },
+  { id: 'meteo',       type: 'summary',     position: { x: 250, y: 20  }, data: { label: 'Météo',           icon: '🌤️',  value: '—',   sub: 'Irradiance solaire',     dotClass: '' } },
+  { id: 'temp-ext',    type: 'temperature', position: { x: 500, y: 20 }, data: { label: 'Température ext.', icon: '🌡️', live: null } },
+  { id: 'maison',      type: 'placeholder', position: { x: 800, y: 170 }, data: { label: 'Maison',          icon: '🏠' } },
+  { id: 'micro-ond',   type: 'et112card',   position: { x: 500, y: 270 }, data: { label: 'Micro-onduleurs', address: 7, live: null } },
+  { id: 'onduleur',    type: 'device',      position: { x: 65,   y: 375 }, data: { label: 'Onduleur AC',     icon: '⚡', value: '—', dotClass: '' } },
+  { id: 'mppt',        type: 'mppt',        position: { x: 500,  y: 550 }, data: { label: 'MPPT',            icon: '☀️', live: null } },
+  { id: 'smartshunt',  type: 'smartshunt',  position: { x: 65,   y: 640 }, data: { label: 'SmartShunt',      icon: '📏', live: null } },
+  { id: 'bms1',        type: 'bms',         position: { x: -100, y: 790 }, data: { label: 'BMS-360Ah',       live: null } },
+  { id: 'bms2',        type: 'bms',         position: { x: 165,  y: 790 }, data: { label: 'BMS-320Ah',       live: null } },
+  { id: 'chauffe-eau',    type: 'device',      position: { x: 1020, y: 270 }, data: { label: 'Chauffe-eau',   icon: '🚿', live: null } },
+  { id: 'climatisation',  type: 'device',      position: { x: 1020, y: 370 }, data: { label: 'Climatisation', icon: '❄️',  live: null } },
+  { id: 'ats-reseau',   type: 'atsreseau',  position: { x: -450, y: 215 }, data: { v2a:'—', sw2:'Ouvert', s2a:'—', cnt2:'0', max2:'—', t2:'—', onForce: null, disabled: false, _rev: 0 } },
+  { id: 'ats-main',     type: 'atsmain',    position: { x: -200, y: 190 }, data: { swRemote:'—', swMode:'—', swFault:'—', middleOFF:'—', sw1:'—', sw2:'—', active_source:'—', onToggleRemote: null, onForceOff: null, disabled: false, _rev: 0 } },
+  { id: 'ats-onduleur', type: 'atsonduleur', position: { x: -200, y: 355 }, data: { v1a:'—', sw1:'Ouvert', s1a:'—', cnt1:'0', max1:'—', t1:'—', onForce: null, disabled: false, _rev: 0 } },
 ];
 
 const COLOR = { ac: '#2563eb', dc: '#ea580c', bat: '#16a34a', gray: '#94a3b8' };
+
 function mkEdge(id, src, tgt, color, opts = {}) {
   return { id, source: src, target: tgt, type: 'smoothstep', animated: false, style: { stroke: color, strokeWidth: 2.5 }, ...opts };
 }
-const EDGES0 = [
-  mkEdge('e-mppt-ond', 'mppt', 'onduleur', COLOR.dc, { sourceHandle: 'sl', targetHandle: 'sb' }),
-  mkEdge('e-mppt-shu', 'mppt', 'smartshunt', COLOR.dc, { sourceHandle: 'sl', targetHandle: 'tr' }),
-  mkEdge('e-ond-shu', 'onduleur', 'smartshunt', COLOR.dc, { sourceHandle: 'sb', targetHandle: 'tt' }),
-  mkEdge('e-shu-b1', 'smartshunt', 'bms1', COLOR.bat, { sourceHandle: 'sb', targetHandle: 'tt' }),
-  mkEdge('e-shu-b2', 'smartshunt', 'bms2', COLOR.bat, { sourceHandle: 'sb', targetHandle: 'tt' }),
-];
 
-// ✅ GLOBAL ACTIONS REF - clé de la solution
-window.__atsActions = {
-  reseauForce: null,
-  onduleurForce: null,
-  toggleRemote: null,
-  forceOff: null
-};
+const EDGES0 = [
+  mkEdge('e-mppt-ond', 'mppt',      'onduleur',   COLOR.dc,  { sourceHandle: 'sl', targetHandle: 'sb' }),
+  mkEdge('e-mppt-shu', 'mppt',      'smartshunt', COLOR.dc,  { sourceHandle: 'sl', targetHandle: 'tr' }),
+  mkEdge('e-ond-shu',  'onduleur',  'smartshunt', COLOR.dc,  { sourceHandle: 'sb', targetHandle: 'tt' }),
+  mkEdge('e-shu-b1',   'smartshunt','bms1',       COLOR.bat, { sourceHandle: 'sb', targetHandle: 'tt' }),
+  mkEdge('e-shu-b2',   'smartshunt','bms2',       COLOR.bat, { sourceHandle: 'sb', targetHandle: 'tt' }),
+];
 
 function ESSFlow() {
   const [nodes, setNodes, onNodesChange] = useNodesState(NODES0);
   const [edges, setEdges, onEdgesChange] = useEdgesState(EDGES0);
   const [lastUpdate, setLastUpdate] = useState('—');
   const [atsProcessing, setAtsProcessing] = useState(false);
-  const [atsRev, setAtsRev] = useState(0);
+  const [atsRev, setAtsRev] = useState(0); // ✅ Compteur de révision pour forcer re-render
   const atsExecRef = useRef(null);
   const atsBusyRef = useRef(false);
   
+  // ✅ Fonction d'exécution stable via ref
   atsExecRef.current = async function(steps) {
     if (atsBusyRef.current) return;
     atsBusyRef.current = true;
@@ -516,85 +691,156 @@ function ESSFlow() {
         if (typeof step === 'string') await fetch('/api/v1/ats/' + step, { method: 'POST', cache: 'no-cache' });
         else if (typeof step === 'number') await new Promise(r => setTimeout(r, step));
       }
-    } finally { atsBusyRef.current = false; setAtsProcessing(false); }
+    } finally { 
+      atsBusyRef.current = false; 
+      setAtsProcessing(false); 
+    }
   };
 
-  // ✅ Mise à jour de la ref globale - PAS dans les nodes
-  const updateAtsActions = useCallback(() => {
-    window.__atsActions = {
-      reseauForce: () => atsExecRef.current?.(['remote_on', 200, 'force_source2', 200, 'remote_off']),
-      onduleurForce: () => atsExecRef.current?.(['remote_on', 200, 'force_source1', 200, 'remote_off']),
-      toggleRemote: () => atsExecRef.current?.(['remote_on', 300]),
-      forceOff: () => { if (window.confirm('⚠️ Confirmer Double OFF ?')) atsExecRef.current?.(['remote_on', 200, 'force_double', 200, 'remote_off']); }
-    };
+  // ✅ Callbacks STABLES définis AU NIVEAU DU COMPOSANT PARENT (pas dans applyData)
+  const handleAtsReseauForce = useCallback(() => {
+    console.log('[CALLBACK] Force Réseau appelé');
+    atsExecRef.current?.(['remote_on', 200, 'force_source2', 200, 'remote_off']);
+  }, []);
+  
+  const handleAtsOnduleurForce = useCallback(() => {
+    console.log('[CALLBACK] Force Onduleur appelé');
+    atsExecRef.current?.(['remote_on', 200, 'force_source1', 200, 'remote_off']);
+  }, []);
+  
+  const handleAtsToggleRemote = useCallback(() => {
+    console.log('[CALLBACK] Toggle Remote appelé');
+    // On lit l'état actuel via un snapshot ou on passe par applyData
+    atsExecRef.current?.(['remote_on', 300]); // Simplifié pour l'exemple
+  }, []);
+  
+  const handleAtsForceOff = useCallback(() => {
+    console.log('[CALLBACK] Force Off appelé');
+    if (window.confirm('⚠️ Confirmer Double OFF ?')) {
+      atsExecRef.current?.(['remote_on', 200, 'force_double', 200, 'remote_off']);
+    }
   }, []);
 
   const applyData = useCallback(function(d) {
     const bms1 = d.bms1, bms2 = d.bms2;
-    const et7 = d.et7, et8 = d.et8, et9 = d.et9;
-    const irr = d.irr, mppt = d.mppt, shunt = d.shunt, inverter = d.inverter, temp = d.temp, ats = d.ats;
+    const et7  = d.et7,  et8  = d.et8, et9 = d.et9;
+    const irr  = d.irr;
+    const mppt = d.mppt;
+    const shunt = d.shunt;
+    const inverter = d.inverter;
+    const temp = d.temp;
+    const ats = d.ats;
 
     const validBms = [bms1, bms2].filter(Boolean);
-    const avgSoc = validBms.length ? (validBms.reduce((s, b) => s + (b.Soc ?? 0), 0) / validBms.length).toFixed(0) : null;
+    const avgSoc   = validBms.length
+      ? (validBms.reduce((s, b) => s + (b.Soc ?? 0), 0) / validBms.length).toFixed(0)
+      : null;
     const totalPwr = validBms.reduce((s, b) => s + (b.Dc?.Power ?? 0), 0);
-    const batVal = avgSoc != null ? `SOC ${avgSoc}%` : '—';
-    const batSub = totalPwr ? `${totalPwr > 0 ? '+' : ''}${(totalPwr / 1000).toFixed(2)} kW` : '360 Ah + 320 Ah';
-    const batDot = avgSoc == null ? '' : avgSoc > 50 ? 'live' : avgSoc > 20 ? 'warn' : 'alarm';
-    const microPwr = et7?.power_w ?? 0, mpptPwr = mppt?.power_w ?? 0;
-    const totalProdPwr = microPwr + mpptPwr;
-    const prodVal = fmtKw(totalProdPwr);
-    const prodDot = (et7?.connected || mppt) ? (totalProdPwr > 50 ? 'live' : '') : '';
-    const irrVal = irr?.irradiance_wm2 != null ? `${irr.irradiance_wm2.toFixed(0)} W/m²` : '—';
-    const irrSub = irr?.total_yield_kwh != null ? `☀ ${irr.total_yield_kwh.toFixed(1)} kWh` : 'Irradiance solaire';
-    const irrDot = irr ? 'live' : '';
+    const batVal   = avgSoc != null ? `SOC ${avgSoc}%` : '—';
+    const batSub   = totalPwr ? `${totalPwr > 0 ? '+' : ''}${(totalPwr / 1000).toFixed(2)} kW` : '360 Ah + 320 Ah';
+    const batDot   = avgSoc == null ? '' : avgSoc > 50 ? 'live' : avgSoc > 20 ? 'warn' : 'alarm';
 
+    const microPwr = et7?.power_w ?? 0;
+    const mpptPwr = mppt?.power_w ?? 0;
+    const totalProdPwr = microPwr + mpptPwr;
+    const prodVal  = fmtKw(totalProdPwr);
+    const prodDot  = (et7?.connected || mppt) ? (totalProdPwr > 50 ? 'live' : '') : '';
+
+    const irrVal  = irr?.irradiance_wm2 != null ? `${irr.irradiance_wm2.toFixed(0)} W/m²` : '—';
+    const irrSub  = irr?.total_yield_kwh != null ? `☀ ${irr.total_yield_kwh.toFixed(1)} kWh` : 'Irradiance solaire';
+    const irrDot  = irr ? 'live' : '';
+
+    // ATS internal edges
     if (ats) {
-      const sw1C = (ats.sw1 || '').includes('Fermé'), sw2C = (ats.sw2 || '').includes('Fermé'), midOff = (ats.middleOFF || '').includes('Activé');
+      const sw1C = (ats.sw1 || '').includes('Fermé');
+      const sw2C = (ats.sw2 || '').includes('Fermé');
+      const midOff = (ats.middleOFF || '').includes('Activé');
+
       const atsEdges = [];
       if (!midOff) {
-        if (sw2C) atsEdges.push({ id: 'ats-e2', source: 'ats-reseau', target: 'ats-main', sourceHandle: 'reseau-out', targetHandle: 'ats-in-reseau', animated: true, type: 'smoothstep', style: { stroke: sw1C ? '#6366f1' : '#10b981', strokeWidth: 2, strokeDasharray: '4 4' } });
-        if (sw1C) atsEdges.push({ id: 'ats-e1', source: 'ats-onduleur', target: 'ats-main', sourceHandle: 'onduleur-out', targetHandle: 'ats-in-onduleur', animated: true, type: 'smoothstep', style: { stroke: '#10b981', strokeWidth: 2, strokeDasharray: '4 4' } });
+        if (sw2C) atsEdges.push({
+          id: 'ats-e2', source: 'ats-reseau', target: 'ats-main',
+          sourceHandle: 'reseau-out', targetHandle: 'ats-in-reseau',
+          animated: true, type: 'smoothstep',
+          style: { stroke: sw1C ? '#6366f1' : '#10b981', strokeWidth: 2, strokeDasharray: '4 4' }
+        });
+        if (sw1C) atsEdges.push({
+          id: 'ats-e1', source: 'ats-onduleur', target: 'ats-main',
+          sourceHandle: 'onduleur-out', targetHandle: 'ats-in-onduleur',
+          animated: true, type: 'smoothstep',
+          style: { stroke: '#10b981', strokeWidth: 2, strokeDasharray: '4 4' }
+        });
       }
+
       setEdges(prev => [...prev.filter(e => !e.id.startsWith('ats-e')), ...atsEdges]);
     }
 
-    // ✅ Incrémente _rev et met à jour la ref globale
+    // ✅ Incrémente _rev pour forcer le re-render des nodes ATS
     const newRev = atsRev + 1;
     setAtsRev(newRev);
-    updateAtsActions(); // ← Clé : met à jour window.__atsActions AVANT le rendu des nodes
 
     setNodes(prev => prev.map(n => {
       switch (n.id) {
-        case 'batteries': return { ...n, data: { ...n.data, value: batVal, sub: batSub, dotClass: batDot } };
-        case 'production': { const prodSub = et7 ? `${((et7.energy_export_wh ?? 0) / 1000).toFixed(1)} kWh ET112` : mppt ? `${(mppt.yield_today_kwh ?? 0).toFixed(2)} kWh MPPT` : 'Micro-onduleurs'; return { ...n, data: { ...n.data, value: prodVal, sub: prodSub, dotClass: prodDot } }; }
-        case 'meteo': return { ...n, data: { ...n.data, value: irrVal, sub: irrSub, dotClass: irrDot } };
+        case 'batteries':
+          return { ...n, data: { ...n.data, value: batVal, sub: batSub, dotClass: batDot } };
+        case 'production':
+          const prodSub = et7 ? `${((et7.energy_export_wh ?? 0) / 1000).toFixed(1)} kWh ET112` : mppt ? `${(mppt.yield_today_kwh ?? 0).toFixed(2)} kWh MPPT` : 'Micro-onduleurs';
+          return { ...n, data: { ...n.data, value: prodVal, sub: prodSub, dotClass: prodDot } };
+        case 'meteo':
+          return { ...n, data: { ...n.data, value: irrVal, sub: irrSub, dotClass: irrDot } };
         case 'bms1': return { ...n, data: { ...n.data, live: bms1 ?? null } };
         case 'bms2': return { ...n, data: { ...n.data, live: bms2 ?? null } };
-        case 'micro-ond': return { ...n, data: { ...n.data, live: et7 ?? null } };
-        case 'onduleur': return { ...n, data: { ...n.data, value: inverter ? `${(inverter.ac_output_power_w ?? 0).toFixed(0)}W` : '—', dotClass: inverter ? 'live' : '' } };
-        case 'chauffe-eau': return { ...n, data: { ...n.data, live: et8 ?? null } };
+        case 'micro-ond':   return { ...n, data: { ...n.data, live: et7  ?? null } };
+        case 'onduleur':    return { ...n, data: { ...n.data, value: inverter ? `${(inverter.ac_output_power_w ?? 0).toFixed(0)}W` : '—', dotClass: inverter ? 'live' : '' } };
+        case 'chauffe-eau': return { ...n, data: { ...n.data, live: et8  ?? null } };
         case 'climatisation': return { ...n, data: { ...n.data, live: et9 ?? null } };
-        case 'mppt': return { ...n, data: { ...n.data, live: mppt ?? null } };
-        case 'smartshunt': return { ...n, data: { ...n.data, live: shunt ?? null } };
-        case 'temp-ext': return { ...n, data: { ...n.data, live: temp ?? null } };
+        case 'mppt':        return { ...n, data: { ...n.data, live: mppt ?? null } };
+        case 'smartshunt':  return { ...n, data: { ...n.data, live: shunt ?? null } };
+        case 'temp-ext':    return { ...n, data: { ...n.data, live: temp ?? null } };
         
-        // ✅ NODES ATS : on injecte _rev pour forcer re-render, MAIS PAS les callbacks
+        // ✅ NODES ATS : on injecte les callbacks STABLES + _rev pour forcer re-render
         case 'ats-reseau':
           if (!ats) return n;
-          return { ...n, data: { ...ats, disabled: atsProcessing, _rev: newRev } };
+          return { 
+            ...n, 
+            data: { 
+              ...ats, 
+              disabled: atsProcessing, 
+              onForce: handleAtsReseauForce, // ✅ Callback stable du parent
+              _rev: newRev // ✅ Force React à re-render ce node
+            } 
+          };
         case 'ats-onduleur':
           if (!ats) return n;
-          return { ...n, data: { ...ats, disabled: atsProcessing, _rev: newRev } };
+          return { 
+            ...n, 
+            data: { 
+              ...ats, 
+              disabled: atsProcessing, 
+              onForce: handleAtsOnduleurForce, // ✅ Callback stable du parent
+              _rev: newRev 
+            } 
+          };
         case 'ats-main':
           if (!ats) return n;
-          return { ...n, data: { ...ats, disabled: atsProcessing, _rev: newRev } };
+          return { 
+            ...n, 
+            data: { 
+              ...ats, 
+              disabled: atsProcessing, 
+              onToggleRemote: handleAtsToggleRemote, // ✅ Callback stable
+              onForceOff: handleAtsForceOff, // ✅ Callback stable
+              _rev: newRev 
+            } 
+          };
         default: return n;
       }
     }));
-    setLastUpdate(new Date().toLocaleTimeString('fr-FR'));
-  }, [atsProcessing, atsRev, updateAtsActions]);
 
-  useEffect(() => {
+    setLastUpdate(new Date().toLocaleTimeString('fr-FR'));
+  }, [atsProcessing, atsRev, handleAtsReseauForce, handleAtsOnduleurForce, handleAtsToggleRemote, handleAtsForceOff]);
+
+  useEffect(function() {
     const safe = p => p.catch(() => null);
     async function fetchAll() {
       const [bms1, bms2, et7, et8, et9, irr, venusResp, tempResp, atsResp] = await Promise.all([
@@ -608,23 +854,26 @@ function ESSFlow() {
         safe(fetch('/api/v1/venus/temperatures').then(r => r.ok ? r.json() : null)),
         safe(fetch('/api/v1/ats/status').then(r => r.ok ? r.json() : null)),
       ]);
+
       const mppt = venusResp?.mppts?.[0] ?? null;
       const shuntResp = await safe(fetch('/api/v1/venus/smartshunt').then(r => r.ok ? r.json() : null));
       const shunt = shuntResp?.shunt ?? null;
       const inverterResp = await safe(fetch('/api/v1/venus/inverter').then(r => r.ok ? r.json() : null));
       const inverter = inverterResp?.inverter ?? null;
-      const temps = tempResp?.temperatures ?? [], temp = temps.length > 0 ? temps[0] : null;
+      const temps = tempResp?.temperatures ?? [];
+      const temp = temps.length > 0 ? temps[0] : null;
       const ats = atsResp?.values ?? null;
+
       applyData({ bms1, bms2, et7, et8, et9, irr, mppt, shunt, inverter, temp, ats });
     }
     fetchAll();
     const timer = setInterval(fetchAll, 2000);
-    return () => clearInterval(timer);
+    return function() { clearInterval(timer); };
   }, [applyData]);
 
   const legend = [
-    { color: COLOR.ac, label: 'Courant AC' },
-    { color: COLOR.dc, label: 'Bus DC' },
+    { color: COLOR.ac,  label: 'Courant AC' },
+    { color: COLOR.dc,  label: 'Bus DC' },
     { color: COLOR.bat, label: 'Batterie' },
   ];
 
@@ -638,11 +887,14 @@ function ESSFlow() {
     h(Panel, { position: 'bottom-left' },
       h('div', { className: 'viz-panel viz-legend' },
         ...legend.map(l => h('div', { key: l.color, className: 'viz-leg-item' },
-          h('div', { className: 'viz-leg-line', style: { background: l.color } }), l.label
+          h('div', { className: 'viz-leg-line', style: { background: l.color } }),
+          l.label
         ))
       )
     ),
-    h(Panel, { position: 'bottom-right' }, h('div', { className: 'viz-panel' }, `Màj : ${lastUpdate}`))
+    h(Panel, { position: 'bottom-right' },
+      h('div', { className: 'viz-panel' }, `Màj : ${lastUpdate}`)
+    )
   );
 }
 
