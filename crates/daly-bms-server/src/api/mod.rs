@@ -93,6 +93,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/v1/tasmota",                 get(tasmota::list_tasmota))
         .route("/api/v1/tasmota/:id/status",      get(tasmota::get_tasmota_status))
         .route("/api/v1/tasmota/:id/history",     get(tasmota::get_tasmota_history))
+        .route("/api/v1/tasmota/:id/control",     post(tasmota::control_tasmota))
 
         // ── WebSocket ─────────────────────────────────────────────────────────
         .route("/ws/bms/stream",         get(bms::ws_all))
