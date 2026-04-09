@@ -642,9 +642,9 @@ const nodeTypes = {
 
 const NODES0 = [
   { id: 'production',  type: 'summary',     position: { x: -300,  y: 20  }, data: { label: 'Production',      icon: '☀️',  value: '—',   sub: 'Micro-onduleurs',        dotClass: '' } },
-  { id: 'batteries',   type: 'summary',     position: { x: 0,  y: 20  }, data: { label: 'Batteries',       icon: '🔋', value: '—',   sub: '360 Ah + 320 Ah',       dotClass: '' } },
-  { id: 'meteo',       type: 'summary',     position: { x: 250, y: 20  }, data: { label: 'Météo',           icon: '🌤️',  value: '—',   sub: 'Irradiance solaire',     dotClass: '' } },
-  { id: 'temp-ext',    type: 'temperature', position: { x: 500, y: 20 }, data: { label: 'Température ext.', icon: '🌡️', live: null } },
+  { id: 'batteries',   type: 'summary',     position: { x: 65,  y: 20  }, data: { label: 'Batteries',       icon: '🔋', value: '—',   sub: '360 Ah + 320 Ah',       dotClass: '' } },
+  { id: 'meteo',       type: 'summary',     position: { x: 300, y: 20  }, data: { label: 'Météo',           icon: '🌤️',  value: '—',   sub: 'Irradiance solaire',     dotClass: '' } },
+  { id: 'temp-ext',    type: 'temperature', position: { x: 600, y: 20 }, data: { label: 'Température ext.', icon: '🌡️', live: null } },
   { id: 'maison',      type: 'placeholder', position: { x: 800, y: 170 }, data: { label: 'Maison',          icon: '🏠' } },
   { id: 'micro-ond',   type: 'et112card',   position: { x: 500, y: 300 }, data: { label: 'Micro-onduleurs', address: 7, live: null } },
   { id: 'onduleur',    type: 'device',      position: { x: 65,   y: 500 }, data: { label: 'Onduleur AC',     icon: '⚡', value: '—', dotClass: '' } },
@@ -654,7 +654,7 @@ const NODES0 = [
   { id: 'bms2',        type: 'bms',         position: { x: 165,  y: 790 }, data: { label: 'BMS-320Ah',       live: null } },
   { id: 'chauffe-eau',    type: 'device',      position: { x: 1020, y: 270 }, data: { label: 'Chauffe-eau',   icon: '🚿', live: null } },
   { id: 'climatisation',  type: 'device',      position: { x: 1020, y: 370 }, data: { label: 'Climatisation', icon: '❄️',  live: null } },
-  { id: 'ats-reseau',   type: 'atsreseau',  position: { x: -300, y: 165 }, data: { v2a:'—', sw2:'Ouvert', s2a:'—', cnt2:'0', max2:'—', t2:'—', onForce: null, disabled: false, _rev: 0 } },
+  { id: 'ats-reseau',   type: 'atsreseau',  position: { x: -300, y: 160 }, data: { v2a:'—', sw2:'Ouvert', s2a:'—', cnt2:'0', max2:'—', t2:'—', onForce: null, disabled: false, _rev: 0 } },
   { id: 'ats-main',     type: 'atsmain',    position: { x: 65, y: 145 }, data: { swRemote:'—', swMode:'—', swFault:'—', middleOFF:'—', sw1:'—', sw2:'—', active_source:'—', onToggleRemote: null, onForceOff: null, disabled: false, _rev: 0 } },
   { id: 'ats-onduleur', type: 'atsonduleur', position: { x: 65, y: 315 }, data: { v1a:'—', sw1:'Ouvert', s1a:'—', cnt1:'0', max1:'—', t1:'—', onForce: null, disabled: false, _rev: 0 } },
 ];
