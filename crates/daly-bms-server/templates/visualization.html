@@ -456,6 +456,7 @@ function AtsReseauNode({ data }) {
 
   return h('div', { className: `pro-node${active ? ' active-source' : ''}` },
     mkHandle('source', Position.Right, 'reseau-out'),
+    mkHandle('source', Position.Bottom, 'reseau-onduleur'),       
     h('div', { className: 'pn-banner' },
       h('div', { className: 'pn-banner-left' },
         h('div', { className: 'pn-bicon pn-bicon-res' }, '⚡'),
