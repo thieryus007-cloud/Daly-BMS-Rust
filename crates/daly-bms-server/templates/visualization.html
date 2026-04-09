@@ -514,7 +514,7 @@ function AtsOnduleurNode({ data }) {
   }, [data.onForce, data.disabled]);
 
   return h('div', { className: `pro-node${active ? ' active-source' : ''}` },
-    mkHandle('source', Position.Right, 'onduleur-out'),
+    mkHandle('source', Position.Top, 'onduleur-out'),
     h('div', { className: 'pn-banner' },
       h('div', { className: 'pn-banner-left' },
         h('div', { className: 'pn-bicon pn-bicon-inv' }, '🔋'),
@@ -586,7 +586,7 @@ function AtsMainNode({ data }) {
 
   return h('div', { className: 'pro-node' },
     mkHandle('target', Position.Left, 'ats-in-reseau'),
-    mkHandle('target', Position.Right, 'ats-in-onduleur', { top: '65%' }),
+    mkHandle('target', Position.Bottom, 'ats-in-onduleur', { top: '65%' }),
     h('div', { style: { display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 8px', background:'#f8fafc', borderBottom:'2px solid #6366f1', gap:5 } },
       h('div', { style: { display:'flex', alignItems:'center', gap:4, fontWeight:600, fontSize:10 } },
         h('div', { className: 'pn-bicon pn-bicon-ats' }, '🔀'),
