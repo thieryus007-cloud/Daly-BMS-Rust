@@ -21,7 +21,7 @@
 Remarque : si le Makefile utilise une cible différente pour la compilation ARM (ex. make release-arm), ajustez en conséquence. 
 La commande make build-arm est celle que vous aviez dans l'exemple.
 
-## Pi5
+# Pi5
 
 # 1. Sur Pi5, aller dans le répertoire du projet
 1. cd ~/Daly-BMS-Rust
@@ -32,7 +32,7 @@ La commande make build-arm est celle que vous aviez dans l'exemple.
 4. git reset --hard origin/claude/update-visualization-html-bTjgf
 
 # 3. Compiler pour aarch64 (Pi5)
-# ⏱️ Durée estimée : 5-10 minutes
+
 5. make build-arm
 
 # 4. Arrêter le service BMS en cours
@@ -52,4 +52,4 @@ La commande make build-arm est celle que vous aviez dans l'exemple.
 11. journalctl -u daly-bms -f
 
 # 9. Accéder au dashboard
-# http://192.168.1.141:8080/dashboard/visualization
+-- http://192.168.1.141:8080/dashboard/visualization
