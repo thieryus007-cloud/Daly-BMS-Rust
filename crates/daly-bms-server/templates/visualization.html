@@ -756,6 +756,9 @@ const NODES0 = [
   { id: 'chauffe-eau',    type: 'device',      position: { x: 800, y: 270 }, data: { label: 'Chauffe-eau',   icon: '🚿', live: null } },
   { id: 'climatisation',  type: 'device',      position: { x: 800, y: 370 }, data: { label: 'Climatisation', icon: '❄️',  live: null } },
   { id: 'tongou-sw',      type: 'switch',      position: { x: 800, y: 450 }, data: { label: 'Tongou Switch', tasmota_id: 'tongou_3BC764', icon: '🔌', live: null, onToggle: null, disabled: false } },
+  { id: 'tongou-sw2',      type: 'switch',      position: { x: 800, y: 400 }, data: { label: 'Tongou Switch', tasmota_id: 'tongou_0A3FA0', icon: '🔌', live: null, onToggle: null, disabled: false } },
+  { id: 'tongou-sw3',      type: 'switch',      position: { x: 800, y: 550 }, data: { label: 'Tongou Switch', tasmota_id: 'tongou_0A3C14', icon: '🔌', live: null, onToggle: null, disabled: false } },
+  { id: 'tongou-sw4',      type: 'switch',      position: { x: 800, y: 700 }, data: { label: 'Tongou Switch', tasmota_id: 'tongou_0A4040', icon: '🔌', live: null, onToggle: null, disabled: false } },
   { id: 'ats-reseau',   type: 'atsreseau',  position: { x: -350, y: 160 }, data: { v2a:'—', sw2:'Ouvert', s2a:'—', cnt2:'0', max2:'—', t2:'—', onForce: null, disabled: false, _rev: 0 } },
   { id: 'ats-main',     type: 'atsmain',    position: { x: 65, y: 145 }, data: { swRemote:'—', swMode:'—', swFault:'—', middleOFF:'—', sw1:'—', sw2:'—', active_source:'—', onToggleRemote: null, onForceOff: null, disabled: false, _rev: 0 } },
   { id: 'ats-onduleur', type: 'atsonduleur', position: { x: 65, y: 315 }, data: { v1a:'—', sw1:'Ouvert', s1a:'—', cnt1:'0', max1:'—', t1:'—', onForce: null, disabled: false, _rev: 0 } },
@@ -895,8 +898,10 @@ function ESSFlow() {
         case 'onduleur':    return { ...n, data: { ...n.data, value: inverter ? `${(inverter.ac_output_power_w ?? 0).toFixed(0)}W` : '—', dotClass: inverter ? 'live' : '' } };
         case 'chauffe-eau': return { ...n, data: { ...n.data, live: et8  ?? null } };
         case 'climatisation': return { ...n, data: { ...n.data, live: et9 ?? null } };
-        // ✅ CORRECTIF : ajout de _rev pour le nœud switch
         case 'tongou-sw':   return { ...n, data: { ...n.data, live: tasmota ?? null, disabled: atsProcessing, _rev: newRev } };
+        case 'tongou-sw2':   return { ...n, data: { ...n.data, live: tasmota ?? null, disabled: atsProcessing, _rev: newRev } };
+        case 'tongou-sw3':   return { ...n, data: { ...n.data, live: tasmota ?? null, disabled: atsProcessing, _rev: newRev } };
+        case 'tongou-sw4':   return { ...n, data: { ...n.data, live: tasmota ?? null, disabled: atsProcessing, _rev: newRev } };  
         case 'mppt':        return { ...n, data: { ...n.data, live: mppt ?? null } };
         case 'smartshunt':  return { ...n, data: { ...n.data, live: shunt ?? null } };
         case 'temp-ext':    return { ...n, data: { ...n.data, live: temp ?? null } };
