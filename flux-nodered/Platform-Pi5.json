@@ -1,0 +1,217 @@
+[
+    {
+        "id": "tab_platform",
+        "type": "tab",
+        "label": "Platform Pi5",
+        "disabled": false,
+        "info": "Validation com.victronenergy.platform (singleton)\nTopic fixe : santuario/platform/venus\nPas de config.toml nécessaire — singleton activé par défaut si venus.enabled=true"
+    },
+    {
+        "id": "inj_plt_ok",
+        "type": "inject",
+        "z": "tab_platform",
+        "name": "Backup OK",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 160,
+        "y": 100,
+        "wires": [
+            [
+                "fn_plt_ok"
+            ]
+        ]
+    },
+    {
+        "id": "inj_plt_running",
+        "type": "inject",
+        "z": "tab_platform",
+        "name": "Backup en cours",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 170,
+        "y": 160,
+        "wires": [
+            [
+                "fn_plt_running"
+            ]
+        ]
+    },
+    {
+        "id": "inj_plt_error",
+        "type": "inject",
+        "z": "tab_platform",
+        "name": "Backup erreur",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 160,
+        "y": 220,
+        "wires": [
+            [
+                "fn_plt_error"
+            ]
+        ]
+    },
+    {
+        "id": "inj_plt_heartbeat",
+        "type": "inject",
+        "z": "tab_platform",
+        "name": "Heartbeat idle (60s)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "60",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 3,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 180,
+        "y": 280,
+        "wires": [
+            [
+                "fn_plt_ok"
+            ]
+        ]
+    },
+    {
+        "id": "fn_plt_ok",
+        "type": "function",
+        "z": "tab_platform",
+        "name": "Platform Backup OK",
+        "func": "// Status : 0=idle, 1=running, 2=OK, 3=error\n// LastRun : timestamp Unix secondes\nmsg.payload = {\n    \"Backup\": {\n        \"Status\": 2,\n        \"LastRun\": Math.floor(Date.now() / 1000)\n    },\n    \"Restore\": {\n        \"Status\": 0,\n        \"LastRun\": 0\n    }\n};\nreturn msg;",
+        "outputs": 1,
+        "x": 450,
+        "y": 100,
+        "wires": [
+            [
+                "mqtt_plt_out",
+                "dbg_plt"
+            ]
+        ]
+    },
+    {
+        "id": "fn_plt_running",
+        "type": "function",
+        "z": "tab_platform",
+        "name": "Platform Backup running",
+        "func": "msg.payload = {\n    \"Backup\": {\n        \"Status\": 1,\n        \"LastRun\": Math.floor(Date.now() / 1000)\n    },\n    \"Restore\": {\n        \"Status\": 0,\n        \"LastRun\": 0\n    }\n};\nreturn msg;",
+        "outputs": 1,
+        "x": 460,
+        "y": 160,
+        "wires": [
+            [
+                "mqtt_plt_out",
+                "dbg_plt"
+            ]
+        ]
+    },
+    {
+        "id": "fn_plt_error",
+        "type": "function",
+        "z": "tab_platform",
+        "name": "Platform Backup error",
+        "func": "msg.payload = {\n    \"Backup\": {\n        \"Status\": 3,\n        \"LastRun\": Math.floor(Date.now() / 1000)\n    },\n    \"Restore\": {\n        \"Status\": 0,\n        \"LastRun\": 0\n    }\n};\nreturn msg;",
+        "outputs": 1,
+        "x": 450,
+        "y": 220,
+        "wires": [
+            [
+                "mqtt_plt_out",
+                "dbg_plt"
+            ]
+        ]
+    },
+    {
+        "id": "mqtt_plt_out",
+        "type": "mqtt out",
+        "z": "tab_platform",
+        "name": "→ santuario/platform/venus",
+        "topic": "santuario/platform/venus",
+        "qos": "0",
+        "retain": "true",
+        "broker": "broker_nanopi_venus",
+        "x": 710,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "dbg_plt",
+        "type": "debug",
+        "z": "tab_platform",
+        "name": "Platform publié",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 710,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "txt_plt_info",
+        "type": "comment",
+        "z": "tab_platform",
+        "name": "Vérification D-Bus",
+        "info": "ssh root@192.168.1.120\ndbus -y | grep platform\ndbus -y com.victronenergy.platform /Backup/Status GetValue\ndbus -y com.victronenergy.platform /Backup/LastRun GetValue\ndbus -y com.victronenergy.platform / GetItems\n\nStatus : 0=idle  1=running  2=OK  3=error",
+        "x": 240,
+        "y": 380,
+        "wires": []
+    },
+    {
+        "id": "broker_nanopi_venus",
+        "type": "mqtt-broker",
+        "name": "NanoPi 192.168.1.120:1883",
+        "broker": "192.168.1.120",
+        "port": "1883",
+        "clientid": "nodered-venus-validation",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": ""
+    }
+]

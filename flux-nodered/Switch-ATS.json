@@ -1,0 +1,192 @@
+[
+    {
+        "id": "tab_switch",
+        "type": "tab",
+        "label": "Switch / ATS",
+        "disabled": false,
+        "info": "Validation com.victronenergy.switch.mqtt_1\nTopic : santuario/switch/1/venus\nConfig NanoPi : [[switches]] mqtt_index=1 device_instance=301"
+    },
+    {
+        "id": "inj_sw_reseau",
+        "type": "inject",
+        "z": "tab_switch",
+        "name": "Position 0 — Réseau (AC1)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 190,
+        "y": 100,
+        "wires": [
+            [
+                "fn_sw_reseau"
+            ]
+        ]
+    },
+    {
+        "id": "inj_sw_gen",
+        "type": "inject",
+        "z": "tab_switch",
+        "name": "Position 1 — Générateur (AC2)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 190,
+        "y": 160,
+        "wires": [
+            [
+                "fn_sw_gen"
+            ]
+        ]
+    },
+    {
+        "id": "inj_sw_alerte",
+        "type": "inject",
+        "z": "tab_switch",
+        "name": "État ALERTE (State=2)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 170,
+        "y": 220,
+        "wires": [
+            [
+                "fn_sw_alerte"
+            ]
+        ]
+    },
+    {
+        "id": "fn_sw_reseau",
+        "type": "function",
+        "z": "tab_switch",
+        "name": "Switch → Réseau",
+        "func": "// Position : 0=AC1 (Réseau), 1=AC2 (Générateur/Onduleur)\n// State    : 0=inactive, 1=active, 2=alerted\nmsg.payload = {\n    \"Position\": 0,\n    \"State\": 1\n};\nreturn msg;",
+        "outputs": 1,
+        "x": 450,
+        "y": 100,
+        "wires": [
+            [
+                "mqtt_sw_out",
+                "dbg_sw"
+            ]
+        ]
+    },
+    {
+        "id": "fn_sw_gen",
+        "type": "function",
+        "z": "tab_switch",
+        "name": "Switch → Générateur",
+        "func": "msg.payload = {\n    \"Position\": 1,\n    \"State\": 1\n};\nreturn msg;",
+        "outputs": 1,
+        "x": 450,
+        "y": 160,
+        "wires": [
+            [
+                "mqtt_sw_out",
+                "dbg_sw"
+            ]
+        ]
+    },
+    {
+        "id": "fn_sw_alerte",
+        "type": "function",
+        "z": "tab_switch",
+        "name": "Switch → Alerte",
+        "func": "msg.payload = {\n    \"Position\": 0,\n    \"State\": 2\n};\nreturn msg;",
+        "outputs": 1,
+        "x": 450,
+        "y": 220,
+        "wires": [
+            [
+                "mqtt_sw_out",
+                "dbg_sw"
+            ]
+        ]
+    },
+    {
+        "id": "mqtt_sw_out",
+        "type": "mqtt out",
+        "z": "tab_switch",
+        "name": "→ santuario/switch/1/venus",
+        "topic": "santuario/switch/1/venus",
+        "qos": "0",
+        "retain": "true",
+        "broker": "broker_nanopi_venus",
+        "x": 700,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "dbg_sw",
+        "type": "debug",
+        "z": "tab_switch",
+        "name": "Switch publié",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 700,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "txt_sw_info",
+        "type": "comment",
+        "z": "tab_switch",
+        "name": "Vérification D-Bus",
+        "info": "ssh root@192.168.1.120\ndbus -y com.victronenergy.switch.mqtt_1 /Position GetValue\ndbus -y com.victronenergy.switch.mqtt_1 /State GetValue\ndbus -y com.victronenergy.switch.mqtt_1 / GetItems\n\nPosition : 0=AC1/Réseau  1=AC2/Générateur\nState    : 0=inactive    1=active    2=alerted",
+        "x": 240,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "broker_nanopi_venus",
+        "type": "mqtt-broker",
+        "name": "NanoPi 192.168.1.120:1883",
+        "broker": "192.168.1.120",
+        "port": "1883",
+        "clientid": "nodered-venus-validation",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": ""
+    }
+]
