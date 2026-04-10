@@ -520,19 +520,55 @@ pub async fn start_venus_mqtt_subscriber(state: AppState, cfg: MqttConfig) {
 }
 
 /// Traite le topic `santuario/meteo/venus`
-/// Payload : { "Irradiance": 750, "TodaysYield": 12.5, "MpptPower": 2500 }
+///
+/// Payload format v1 (legacy) : { "Irradiance": 750, "TodaysYield": 12.5, "MpptPower": 2500 }
+/// Payload format v2 (étendu) : { ..., "Mppts": [
+///   { "Instance": 273, "State": "Float", "PvVoltage": 72.5, "DcCurrent": 12.3, "Power": 1250, "YieldToday": 8.5 },
+///   { "Instance": 289, ... }
+/// ] }
 async fn handle_meteo_topic(state: &AppState, json: &Value) {
-    if let Some(yield_kwh) = json.get("TodaysYield").and_then(|v| v.as_f64()).map(|v| v as f32) {
-        // Power peut venir de MpptPower ou calculée depuis irradiance (fallback)
-        let irradiance = json.get("Irradiance").and_then(|v| v.as_f64()).map(|v| v as f32).unwrap_or(0.0);
-        let mppt_power = json.get("MpptPower").and_then(|v| v.as_f64()).map(|v| v as f32);
+    let irradiance = json.get("Irradiance").and_then(|v| v.as_f64()).map(|v| v as f32).unwrap_or(0.0);
+    let yield_kwh  = json.get("TodaysYield").and_then(|v| v.as_f64()).map(|v| v as f32);
+    let mppt_power = json.get("MpptPower").and_then(|v| v.as_f64()).map(|v| v as f32);
 
+    // Format v2 : tableau Mppts avec données individuelles par chargeur
+    if let Some(arr) = json.get("Mppts").and_then(|v| v.as_array()) {
+        for item in arr {
+            let instance = item.get("Instance").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+            let name     = format!("MPPT-{}", instance);
+            let state_str = item.get("State").and_then(|v| v.as_str()).map(|s| s.to_string());
+            let pv_v     = item.get("PvVoltage").and_then(|v| v.as_f64()).map(|v| v as f32);
+            let dc_i     = item.get("DcCurrent").and_then(|v| v.as_f64()).map(|v| v as f32);
+            let power    = item.get("Power").and_then(|v| v.as_f64()).map(|v| v as f32);
+            let yield_t  = item.get("YieldToday").and_then(|v| v.as_f64()).map(|v| v as f32);
+            let max_pw   = item.get("MaxPowerToday").and_then(|v| v.as_f64()).map(|v| v as f32);
+            let mppt = VenusMppt {
+                instance,
+                name,
+                power_w: power,
+                yield_today_kwh: yield_t,
+                max_power_today_w: max_pw,
+                state: state_str,
+                pv_voltage_v: pv_v,
+                dc_current_a: dc_i,
+                timestamp: Utc::now(),
+            };
+            state.on_venus_mppt(mppt).await;
+        }
+        return; // format v2 traité, pas de fallback nécessaire
+    }
+
+    // Format v1 (legacy) : un seul MPPT agrégé
+    if let Some(yield_kwh) = yield_kwh {
         let mppt = VenusMppt {
             instance: 0,
             name: "MPPT SolarCharger".to_string(),
             power_w: mppt_power.or(if irradiance > 0.0 { Some(irradiance) } else { None }),
             yield_today_kwh: Some(yield_kwh),
             max_power_today_w: None,
+            state: None,
+            pv_voltage_v: None,
+            dc_current_a: None,
             timestamp: Utc::now(),
         };
         state.on_venus_mppt(mppt).await;
@@ -583,14 +619,32 @@ async fn handle_temperature_topic(state: &AppState, json: &Value) {
 }
 
 /// Traite le topic `santuario/system/venus`
-/// Payload : SmartShunt data { "Soc": 75.2, "Voltage": 48.32, "Current": 5.5, ... }
+///
+/// Payload v1 : { "Soc": 75.2, "Voltage": 48.32, "Current": 5.5, "Power": 266.0, "EnergyIn": 1000000, "EnergyOut": 500000 }
+/// Payload v2 : { ..., "State": 3, "TimeToGo": 3600 }
+///   State : 0=Idle, 1=Charging, 2=Discharging
+///   TimeToGo : secondes (None si en charge)
 async fn handle_system_topic(state: &AppState, json: &Value) {
     if let Some(soc) = json.get("Soc").and_then(|v| v.as_f64()).map(|v| v as f32) {
-        let voltage = json.get("Voltage").and_then(|v| v.as_f64()).map(|v| v as f32);
-        let current = json.get("Current").and_then(|v| v.as_f64()).map(|v| v as f32);
-        let power = json.get("Power").and_then(|v| v.as_f64()).map(|v| v as f32);
-        let energy_in = json.get("EnergyIn").and_then(|v| v.as_f64()).map(|v| v as f32);
+        let voltage    = json.get("Voltage").and_then(|v| v.as_f64()).map(|v| v as f32);
+        let current    = json.get("Current").and_then(|v| v.as_f64()).map(|v| v as f32);
+        let power      = json.get("Power").and_then(|v| v.as_f64()).map(|v| v as f32);
+        let energy_in  = json.get("EnergyIn").and_then(|v| v.as_f64()).map(|v| v as f32);
         let energy_out = json.get("EnergyOut").and_then(|v| v.as_f64()).map(|v| v as f32);
+
+        // State : entier Victron → libellé
+        let state_str = json.get("State").and_then(|v| v.as_u64()).map(|s| match s {
+            0 => "Idle".to_string(),
+            1 => "Charging".to_string(),
+            2 => "Discharging".to_string(),
+            _ => format!("State {}", s),
+        });
+
+        // TimeToGo : secondes → minutes (None si absent ou ≥ 864000 s = 10 j → "∞")
+        let time_to_go_min = json.get("TimeToGo")
+            .and_then(|v| v.as_f64())
+            .map(|secs| secs as f32 / 60.0)
+            .filter(|&m| m < 14400.0); // > 10 jours → ignorer (= en charge)
 
         let shunt = VenusSmartShunt {
             soc_percent: Some(soc),
@@ -599,6 +653,8 @@ async fn handle_system_topic(state: &AppState, json: &Value) {
             power_w: power,
             energy_in_kwh: energy_in.map(|e| e / 1000.0),
             energy_out_kwh: energy_out.map(|e| e / 1000.0),
+            state: state_str,
+            time_to_go_min,
             timestamp: Utc::now(),
         };
 
@@ -607,15 +663,52 @@ async fn handle_system_topic(state: &AppState, json: &Value) {
 }
 
 /// Traite le topic `santuario/inverter/venus`
-/// Payload : Inverter data { "Voltage": 48.32, "Current": 5.5, "Power": 250.0, "AcVoltage": 230.0, ... }
+///
+/// Payload v1 : { "Voltage": 48.32, "Current": 5.5, "Power": 250.0, "AcVoltage": 230.0, "AcCurrent": 1.09, "AcPower": 250.0, "State": "on", "Mode": "inverter" }
+/// Payload v2 : { ..., "AcFrequency": 50.03, "IgnoreAcIn": 0, "VebusState": 244 }
+///   VebusState : entier VEBus → libellé État (240=External, 241=Active, 243=Bulk, 244=Absorption, 245=Float,
+///                 246=Storage, 249=Passthru, 250=Inverting, 252=Power assist, 254=Charge, 255=Inverter Only, etc.)
 async fn handle_inverter_topic(state: &AppState, json: &Value) {
-    let voltage = json.get("Voltage").and_then(|v| v.as_f64()).map(|v| v as f32);
-    let current = json.get("Current").and_then(|v| v.as_f64()).map(|v| v as f32);
-    let power = json.get("Power").and_then(|v| v.as_f64()).map(|v| v as f32);
+    let voltage    = json.get("Voltage").and_then(|v| v.as_f64()).map(|v| v as f32);
+    let current    = json.get("Current").and_then(|v| v.as_f64()).map(|v| v as f32);
+    let power      = json.get("Power").and_then(|v| v.as_f64()).map(|v| v as f32);
     let ac_voltage = json.get("AcVoltage").and_then(|v| v.as_f64()).map(|v| v as f32);
     let ac_current = json.get("AcCurrent").and_then(|v| v.as_f64()).map(|v| v as f32);
-    let ac_power = json.get("AcPower").and_then(|v| v.as_f64()).map(|v| v as f32);
-    let state_str = json.get("State").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
+    let ac_power   = json.get("AcPower").and_then(|v| v.as_f64()).map(|v| v as f32);
+
+    // Fréquence AC sortie (Hz)
+    let ac_freq = json.get("AcFrequency").and_then(|v| v.as_f64()).map(|v| v as f32);
+
+    // IgnoreAcIn1 : 0=normal, 1=ignoré (mode îlotage forcé)
+    let ac_in_ignore = json.get("IgnoreAcIn").and_then(|v| v.as_u64()).map(|v| v != 0);
+
+    // VebusState → libellé lisible (VEBus numeric state)
+    let state_str = if let Some(vs) = json.get("VebusState").and_then(|v| v.as_u64()) {
+        match vs {
+            0   => "Off".to_string(),
+            1   => "Low Power".to_string(),
+            2   => "Fault".to_string(),
+            3   => "Bulk".to_string(),
+            4   => "Absorption".to_string(),
+            5   => "Float".to_string(),
+            6   => "Storage".to_string(),
+            7   => "Equalize".to_string(),
+            8   => "Passthru".to_string(),
+            9   => "Inverting".to_string(),
+            10  => "Power assist".to_string(),
+            11  => "Power supply".to_string(),
+            244 => "Absorption".to_string(),
+            245 => "Float".to_string(),
+            246 => "Storage".to_string(),
+            249 => "Passthru".to_string(),
+            250 => "Inverting".to_string(),
+            252 => "Bulk".to_string(),
+            _   => json.get("State").and_then(|v| v.as_str()).unwrap_or("—").to_string(),
+        }
+    } else {
+        json.get("State").and_then(|v| v.as_str()).unwrap_or("unknown").to_string()
+    };
+
     let mode_str = json.get("Mode").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
 
     let inverter = crate::state::VenusInverter {
@@ -625,6 +718,8 @@ async fn handle_inverter_topic(state: &AppState, json: &Value) {
         ac_output_voltage_v: ac_voltage,
         ac_output_current_a: ac_current,
         ac_output_power_w: ac_power,
+        ac_out_frequency_hz: ac_freq,
+        ac_in_ignore,
         state: state_str,
         mode: mode_str,
         timestamp: Utc::now(),

@@ -197,6 +197,7 @@ pub async fn get_venus_mppt(State(state): State<AppState>) -> impl IntoResponse 
         "count": mppts.len(),
         "mppts": mppts,
         "total_power_w": state.venus_mppt_total_power().await,
+        "total_dc_current_a": state.venus_mppt_total_dc_current().await,
     })))
 }
 
