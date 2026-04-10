@@ -140,6 +140,12 @@ pub struct VenusMppt {
     pub power_w: Option<f32>,
     pub yield_today_kwh: Option<f32>,
     pub max_power_today_w: Option<f32>,
+    /// État MPPT : "Off", "Fault", "Bulk", "Absorption", "Float", "Storage", etc.
+    pub state: Option<String>,
+    /// Tension panneau solaire PV (V).
+    pub pv_voltage_v: Option<f32>,
+    /// Courant DC sortie chargeur (A).
+    pub dc_current_a: Option<f32>,
     pub timestamp: DateTime<Utc>,
 }
 
@@ -152,6 +158,10 @@ pub struct VenusSmartShunt {
     pub power_w: Option<f32>,
     pub energy_in_kwh: Option<f32>,
     pub energy_out_kwh: Option<f32>,
+    /// État batterie : "Idle", "Charging", "Discharging".
+    pub state: Option<String>,
+    /// Temps restant en minutes (None = inconnu ou en charge).
+    pub time_to_go_min: Option<f32>,
     pub timestamp: DateTime<Utc>,
 }
 
@@ -164,7 +174,11 @@ pub struct VenusInverter {
     pub ac_output_voltage_v: Option<f32>,
     pub ac_output_current_a: Option<f32>,
     pub ac_output_power_w: Option<f32>,
-    pub state: String, // "off", "on", "error", etc.
+    /// Fréquence AC sortie (Hz).
+    pub ac_out_frequency_hz: Option<f32>,
+    /// IgnoreAcIn1 : true si l'AC input est ignoré (mode îlotage).
+    pub ac_in_ignore: Option<bool>,
+    pub state: String, // "off", "on", "inverting", "charger", etc.
     pub mode: String,  // "charger", "inverter", "passthrough", etc.
     pub timestamp: DateTime<Utc>,
 }
@@ -435,6 +449,12 @@ impl AppState {
     pub async fn venus_mppt_total_power(&self) -> f32 {
         let mppts = self.venus_mppts.read().await;
         mppts.values().filter_map(|m| m.power_w).sum()
+    }
+
+    /// Retourne le courant DC total MPPT en A (somme de tous les chargeurs).
+    pub async fn venus_mppt_total_dc_current(&self) -> f32 {
+        let mppts = self.venus_mppts.read().await;
+        mppts.values().filter_map(|m| m.dc_current_a).sum()
     }
 
     /// Enregistre/met à jour le SmartShunt.
