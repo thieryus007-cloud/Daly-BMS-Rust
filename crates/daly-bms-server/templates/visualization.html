@@ -549,35 +549,31 @@ function TemperatureNode({ data }) {
 }
 
 // ── 🆕 NOUVEAU NODE TONGOU GROUP (4 à 6 switchs) ───────────────────────────
-const TASMOTA_IDS = [
-  'tongou_3BC764',
-  'tongou_0A3FA0',
-  'tongou_0A3C14',
-  'tongou_0A4040'
-];
+// 🔥 Correction : utilisation des IDs numériques 1,2,3,4
+const TASMOTA_IDS = [1, 2, 3, 4];  // extensible jusqu'à 6
 
 const TongouGroupNode = memo(function TongouGroupNode({ data }) {
-  // Si data.switches est vide, on utilise les placeholders pour éviter l'écran vide
+  // Placeholders si data.switches est vide
   const switches = (data.switches && data.switches.length > 0) 
     ? data.switches 
-    : TASMOTA_IDS.map(id => ({ tasmota_id: id, name: id.slice(-10), connected: false }));
+    : TASMOTA_IDS.map(id => ({ id: id, name: `Switch ${id}`, connected: false }));
   
   const disabled = data.disabled || false;
 
-  const handleToggle = useCallback((tasmotaId, currentState) => {
+  const handleToggle = useCallback((switchId, currentState) => {
     if (disabled) return;
     const newState = !currentState;
     const cmd = newState ? 'on' : 'off';
-    console.log(`[TONGOU] Toggle ${tasmotaId} -> ${cmd}`);
-    fetch(`/api/v1/tasmota/${tasmotaId}/control`, {
+    console.log(`[TONGOU] Toggle ID ${switchId} -> ${cmd}`);
+    fetch(`/api/v1/tasmota/${switchId}/control`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ state: cmd }),
       cache: 'no-cache'
     })
     .then(r => r.json())
-    .then(d => console.log(`[TONGOU] OK ${tasmotaId}:`, d))
-    .catch(err => console.error(`[TONGOU] Erreur ${tasmotaId}:`, err));
+    .then(d => console.log(`[TONGOU] OK ID ${switchId}:`, d))
+    .catch(err => console.error(`[TONGOU] Erreur ID ${switchId}:`, err));
   }, [disabled]);
 
   const countOnline = switches.filter(s => s.connected).length;
@@ -596,25 +592,26 @@ const TongouGroupNode = memo(function TongouGroupNode({ data }) {
     ),
     h('div', { className: 'tg-switch-list' },
       switches.map((sw, idx) => {
+        const switchId = sw.id || idx+1;
         const connected = sw.connected ?? false;
         const powerOn = sw.power_on ?? false;
         const powerW = sw.power_w ?? null;
         const voltage = sw.voltage_v ?? null;
         const current = sw.current_a ?? null;
         const energy = sw.energy_today_kwh ?? null;
-        const name = sw.name || `Switch ${idx+1}`;
-        const shortId = sw.tasmota_id ? sw.tasmota_id.slice(-10) : '—';
+        const name = sw.name || `Switch ${switchId}`;
+        const displayId = `ID: ${switchId}`;
 
-        return h('div', { key: sw.tasmota_id || idx, className: 'tg-switch-item' },
+        return h('div', { key: switchId, className: 'tg-switch-item' },
           // Ligne 1 : nom, ID, bouton toggle
           h('div', { className: 'tg-row1' },
             h('span', { className: 'tg-name' }, name),
-            h('span', { className: 'tg-id', title: sw.tasmota_id }, shortId),
+            h('span', { className: 'tg-id' }, displayId),
             h('button', {
               className: `tg-toggle-btn ${powerOn ? 'off' : ''}`,
               'data-is-interactive': 'true',
               disabled: disabled || !connected,
-              onClick: (e) => { e.stopPropagation(); handleToggle(sw.tasmota_id, powerOn); }
+              onClick: (e) => { e.stopPropagation(); handleToggle(switchId, powerOn); }
             }, disabled ? '...' : (connected ? (powerOn ? 'Éteindre' : 'Allumer') : 'Hors ligne'))
           ),
           // Ligne 2 : mesures avec fond coloré selon état
@@ -860,7 +857,7 @@ const NODES0 = [
   { id: 'bms1',        type: 'bms',         position: { x: -100, y: 790 }, data: { label: 'BMS-360Ah',       live: null } },
   { id: 'bms2',        type: 'bms',         position: { x: 165,  y: 790 }, data: { label: 'BMS-320Ah',       live: null } },
   // 🆕 Nœud groupé Tongou (remplace les 4 switchs)
-  { id: 'tongou-group', type: 'tongouGroup', position: { x: 780, y: 20 }, data: { switches: [], disabled: false, _rev: 0 } },
+  { id: 'tongou-group', type: 'tongouGroup', position: { x: 780, y: 145 }, data: { switches: [], disabled: false, _rev: 0 } },
   { id: 'ats-reseau',   type: 'atsreseau',  position: { x: -350, y: 160 }, data: { v2a:'—', sw2:'Ouvert', s2a:'—', cnt2:'0', max2:'—', t2:'—', onForce: null, disabled: false, _rev: 0 } },
   { id: 'ats-main',     type: 'atsmain',    position: { x: 65, y: 145 }, data: { swRemote:'—', swMode:'—', swFault:'—', middleOFF:'—', sw1:'—', sw2:'—', active_source:'—', onToggleRemote: null, onForceOff: null, disabled: false, _rev: 0 } },
   { id: 'ats-onduleur', type: 'atsonduleur', position: { x: 65, y: 315 }, data: { v1a:'—', sw1:'Ouvert', s1a:'—', cnt1:'0', max1:'—', t1:'—', onForce: null, disabled: false, _rev: 0 } },
@@ -1061,15 +1058,15 @@ function ESSFlow() {
         safe(fetch('/api/v1/ats/status').then(r => r.ok ? r.json() : null)),
       ]);
 
-      // Récupération des données Tasmota pour chaque ID
+      // 🔥 Récupération des données Tasmota pour chaque ID numérique
       const tasmotaPromises = TASMOTA_IDS.map(async (id) => {
         try {
           const resp = await fetch(`/api/v1/tasmota/${id}/status`);
           if (!resp.ok) return null;
           const data = await resp.json();
           return {
-            tasmota_id: id,
-            name: `Switch ${id.slice(-4)}`,
+            id: id,  // ID numérique
+            name: data.name || `Switch ${id}`,
             connected: true,
             power_on: data.power_on ?? false,
             power_w: data.power_w ?? 0,
@@ -1078,7 +1075,7 @@ function ESSFlow() {
             energy_today_kwh: data.energy_today_kwh ?? 0
           };
         } catch {
-          return { tasmota_id: id, name: id.slice(-10), connected: false };
+          return { id: id, name: `Switch ${id}`, connected: false };
         }
       });
       const tasmotaDevices = (await Promise.all(tasmotaPromises)).filter(Boolean);
