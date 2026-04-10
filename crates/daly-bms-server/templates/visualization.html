@@ -176,8 +176,7 @@
   .btn-toggle:disabled { opacity: 0.6; cursor: not-allowed; }
 
   /* 🎯 Réduction de 25% pour les nodes Tongou Switch */
-  .react-flow__node-switch .bms-card-in-viz { width: 206px !important; /* 275px × 0.75 */ transform-origin: top left !important; }
-  /* Ajustement des polices et espacements pour cohérence visuelle */
+  .react-flow__node-switch .bms-card-in-viz { width: 206px !important; transform-origin: top left !important; }
   .react-flow__node-switch .kpi4-val { font-size: 0.85rem !important; }
   .react-flow__node-switch .kpi4-lbl { font-size: 0.48rem !important; }
   .react-flow__node-switch .i-val { font-size: 0.6rem !important; }
@@ -185,8 +184,95 @@
   .react-flow__node-switch .bms-hdr-name { font-size: 0.7rem !important; }
   .react-flow__node-switch .btn-toggle { font-size: 0.65rem !important; padding: 4px 6px !important; }
   .react-flow__node-switch .bms-badge { font-size: 0.5rem !important; padding: 1px 4px !important; }
-  /* Ajustement des handles si nécessaire (optionnel) */
   .react-flow__node-switch .react-flow__handle { transform: scale(0.9); transform-origin: center; }
+
+  /* 🎯 Switch Group Node - Consolidation Tongou */
+  .react-flow__node-switchgroup .bms-card-in-viz { 
+    width: 275px !important; 
+    min-width: 275px !important;
+    padding: 6px !important; 
+  }
+  .switch-row { 
+    display: flex; 
+    align-items: center; 
+    gap: 6px; 
+    padding: 5px 8px; 
+    border-radius: 5px; 
+    transition: background 0.2s; 
+  }
+  .switch-row-on { 
+    background: rgba(22,163,74,0.10) !important; 
+    border: 1px solid rgba(22,163,74,0.25); 
+  }
+  .switch-row-off { 
+    background: rgba(220,38,38,0.10) !important; 
+    border: 1px solid rgba(220,38,38,0.25); 
+  }
+  .switch-id { 
+    font-size: 0.68rem; 
+    font-weight: 700; 
+    color: #0f172a; 
+    min-width: 48px; 
+    font-family: 'JetBrains Mono', monospace; 
+  }
+  .switch-info { 
+    font-size: 0.62rem; 
+    color: #64748b; 
+    flex: 1; 
+    white-space: nowrap; 
+    overflow: hidden; 
+    text-overflow: ellipsis; 
+  }
+  .switch-toggle { 
+    position: relative; 
+    width: 26px; 
+    height: 14px; 
+    background: #e2e8f0; 
+    border-radius: 14px; 
+    cursor: pointer; 
+    flex-shrink: 0; 
+    transition: background 0.2s; 
+  }
+  .switch-toggle.on { background: #16a34a; }
+  .switch-toggle::after { 
+    content: ""; 
+    position: absolute; 
+    width: 12px; 
+    height: 12px; 
+    background: white; 
+    border-radius: 50%; 
+    top: 1px; 
+    left: 1px; 
+    transition: transform 0.2s; 
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1); 
+  }
+  .switch-toggle.on::after { transform: translateX(12px); }
+  .switch-toggle:disabled { opacity: 0.5; cursor: not-allowed; }
+  .switch-group-header { 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; 
+    padding: 6px 10px; 
+    background: linear-gradient(135deg, #fef9c3 0%, #fef08a 100%); 
+    border-radius: 6px; 
+    margin-bottom: 6px; 
+  }
+  .switch-group-title { 
+    font-size: 0.75rem; 
+    font-weight: 700; 
+    color: #0f172a; 
+    display: flex; 
+    align-items: center; 
+    gap: 5px; 
+  }
+  .switch-badge { 
+    font-size: 0.52rem; 
+    padding: 2px 6px; 
+    border-radius: 10px; 
+    font-weight: 600; 
+  }
+  .switch-badge.ok { background: rgba(22,163,74,0.15); color: #16a34a; }
+  .switch-badge.off { background: rgba(148,163,184,0.15); color: #64748b; }
 
 </style>
 {% endblock %}
@@ -458,7 +544,6 @@ function TemperatureNode({ data }) {
 }
 
 // ── 🔌 SWITCH TASMOTA NODE (CORRIGÉ) ─────────────────────────────────────────
-// ✅ Utilisation de memo et useCallback pour stabiliser le gestionnaire de clic
 const SwitchNode = memo(function SwitchNode({ data }) {
   const live = data.live;
   const connected = live?.connected ?? false;
@@ -469,7 +554,7 @@ const SwitchNode = memo(function SwitchNode({ data }) {
   const energy = live?.energy_today_kwh ?? null;
   const tasmotaId = data.tasmota_id ?? '—';
   const disabled = data.disabled ?? false;
-  const rev = data._rev ?? 0;  // pour forcer le re‑rendu
+  const rev = data._rev ?? 0;
 
   const handleToggle = useCallback((e) => {
     e.stopPropagation();
@@ -537,7 +622,7 @@ const SwitchNode = memo(function SwitchNode({ data }) {
         h('button', {
           className: 'btn-toggle',
           'data-is-interactive': 'true',
-          'data-rev': rev,               // ✅ force le re‑rendu quand _rev change
+          'data-rev': rev,
           disabled: disabled,
           onClick: handleToggle,
           onMouseDown: (e) => { e.stopPropagation(); e.preventDefault(); },
@@ -551,6 +636,87 @@ const SwitchNode = memo(function SwitchNode({ data }) {
     )
   );
 });
+
+// ── 🔌 SWITCH GROUP NODE (4 Tongou consolidés) ─────────────────────────────
+function SwitchGroupNode({ data }) {
+  const switches = data.switches || [];
+  const onlineCount = switches.filter(s => s.live?.connected).length;
+  
+  const handleToggle = useCallback((e, tasmotaId, currentState) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (data.disabled) return;
+    const newState = !currentState;
+    const cmd = newState ? 'on' : 'off';
+    console.log('[SWITCH-GROUP] Commande:', tasmotaId, cmd);
+    fetch(`/api/v1/tasmota/${tasmotaId}/control`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state: cmd }),
+      cache: 'no-cache'
+    }).catch(err => console.error('[SWITCH-GROUP] Erreur:', err));
+  }, [data.disabled]);
+
+  return h('div', { className: 'et112-card-wrapper' },
+    mkHandle('target', Position.Left, 'tl'),
+    mkHandle('source', Position.Left, 'sl', { top: '50%' }),
+    mkHandle('target', Position.Top, 'tt'),
+    mkHandle('source', Position.Bottom, 'sb'),
+    mkHandle('source', Position.Right, 'sr'),
+    mkHandle('target', Position.Right, 'tr', { top: '50%' }),
+    h('div', { className: 'bms-card-in-viz', style: { padding: '6px' } },
+      // 🔹 En-tête bandeau Switch
+      h('div', { className: 'switch-group-header' },
+        h('span', { className: 'switch-group-title' }, '🔌 Switches'),
+        h('span', { className: `switch-badge ${onlineCount > 0 ? 'ok' : 'off'}` },
+          `${onlineCount}/${switches.length} en ligne`
+        )
+      ),
+      // 🔹 Liste des switches - une ligne par ID
+      h('div', { style: { display: 'flex', flexDirection: 'column', gap: '4px' } },
+        switches.map(sw => {
+          const live = sw.live || {};
+          const powerOn = live.power_on ?? false;
+          const powerW = live.power_w;
+          const voltage = live.voltage_v;
+          const current = live.current_a;
+          const swId = (sw.tasmota_id || '').substring((sw.tasmota_id || '').length - 6);
+          const isOnline = live.connected ?? false;
+          
+          return h('div', {
+            key: sw.tasmota_id,
+            className: `switch-row ${powerOn ? 'switch-row-on' : 'switch-row-off'}`
+          },
+            // Dot de statut
+            h('div', {
+              className: `sn-dot ${isOnline ? (powerOn ? 'live' : 'warn') : ''}`,
+              style: { width: '6px', height: '6px', flexShrink: '0' }
+            }),
+            // ID du switch
+            h('span', { className: 'switch-id' }, swId),
+            // Infos techniques
+            h('span', { className: 'switch-info' },
+              powerW != null ? `${Math.round(powerW)}W` : '—',
+              voltage != null ? ` • ${voltage.toFixed(0)}V` : '',
+              current != null ? ` • ${current.toFixed(1)}A` : ''
+            ),
+            // Toggle button
+            h('div', {
+              className: `switch-toggle${powerOn ? ' on' : ''}`,
+              'data-is-interactive': 'true',
+              'data-rev': data._rev,
+              disabled: data.disabled || !isOnline,
+              onClick: (e) => handleToggle(e, sw.tasmota_id, powerOn),
+              onMouseDown: (e) => { e.stopPropagation(); e.preventDefault(); },
+              onTouchStart: (e) => { e.stopPropagation(); e.preventDefault(); },
+              title: isOnline ? (powerOn ? 'Éteindre' : 'Allumer') : 'Hors ligne'
+            })
+          );
+        })
+      )
+    )
+  );
+}
 
 // ── ✅ ATS Pro-Nodes (inchangés) ─────────────────────────────────────────────
 function AtsReseauNode({ data }) {
@@ -749,7 +915,7 @@ function AtsMainNode({ data }) {
 const nodeTypes = {
   summary: SummaryNode, bms: BmsNode, et112card: Et112CardNode, device: DeviceNode,
   hub: HubNode, placeholder: PlaceholderNode, mppt: MPPTNode, smartshunt: SmartShuntNode,
-  temperature: TemperatureNode, switch: SwitchNode,
+  temperature: TemperatureNode, switch: SwitchNode, switchgroup: SwitchGroupNode,
   atsreseau: AtsReseauNode, atsonduleur: AtsOnduleurNode, atsmain: AtsMainNode
 };
 
@@ -768,10 +934,22 @@ const NODES0 = [
   { id: 'smartshunt',  type: 'smartshunt',  position: { x: 65,   y: 640 }, data: { label: 'SmartShunt',      icon: '📏', live: null } },
   { id: 'bms1',        type: 'bms',         position: { x: -100, y: 790 }, data: { label: 'BMS-360Ah',       live: null } },
   { id: 'bms2',        type: 'bms',         position: { x: 165,  y: 790 }, data: { label: 'BMS-320Ah',       live: null } },
-  { id: 'tongou-sw',      type: 'switch',      position: { x: 800, y: 20 }, data: { label: 'Tongou Switch', tasmota_id: 'tongou_3BC764', icon: '🔌', live: null, onToggle: null, disabled: false } },
-  { id: 'tongou-sw2',      type: 'switch',      position: { x: 800, y: 200 }, data: { label: 'Tongou Switch', tasmota_id: 'tongou_0A3FA0', icon: '🔌', live: null, onToggle: null, disabled: false } },
-  { id: 'tongou-sw3',      type: 'switch',      position: { x: 800, y: 380 }, data: { label: 'Tongou Switch', tasmota_id: 'tongou_0A3C14', icon: '🔌', live: null, onToggle: null, disabled: false } },
-  { id: 'tongou-sw4',      type: 'switch',      position: { x: 800, y: 560 }, data: { label: 'Tongou Switch', tasmota_id: 'tongou_0A4040', icon: '🔌', live: null, onToggle: null, disabled: false } },
+  { 
+    id: 'tongou-group', 
+    type: 'switchgroup', 
+    position: { x: 800, y: 290 }, 
+    data: { 
+      label: 'Tongou Switches', 
+      switches: [
+        { tasmota_id: 'tongou_3BC764', icon: '🔌', live: null },
+        { tasmota_id: 'tongou_0A3FA0', icon: '🔌', live: null },
+        { tasmota_id: 'tongou_0A3C14', icon: '🔌', live: null },
+        { tasmota_id: 'tongou_0A4040', icon: '🔌', live: null }
+      ],
+      disabled: false,
+      _rev: 0
+    } 
+  },
   { id: 'ats-reseau',   type: 'atsreseau',  position: { x: -350, y: 160 }, data: { v2a:'—', sw2:'Ouvert', s2a:'—', cnt2:'0', max2:'—', t2:'—', onForce: null, disabled: false, _rev: 0 } },
   { id: 'ats-main',     type: 'atsmain',    position: { x: 65, y: 145 }, data: { swRemote:'—', swMode:'—', swFault:'—', middleOFF:'—', sw1:'—', sw2:'—', active_source:'—', onToggleRemote: null, onForceOff: null, disabled: false, _rev: 0 } },
   { id: 'ats-onduleur', type: 'atsonduleur', position: { x: 65, y: 315 }, data: { v1a:'—', sw1:'Ouvert', s1a:'—', cnt1:'0', max1:'—', t1:'—', onForce: null, disabled: false, _rev: 0 } },
@@ -911,10 +1089,33 @@ function ESSFlow() {
         case 'onduleur':    return { ...n, data: { ...n.data, value: inverter ? `${(inverter.ac_output_power_w ?? 0).toFixed(0)}W` : '—', dotClass: inverter ? 'live' : '' } };
         case 'chauffe-eau': return { ...n, data: { ...n.data, live: et8  ?? null } };
         case 'climatisation': return { ...n, data: { ...n.data, live: et9 ?? null } };
-        case 'tongou-sw':   return { ...n, data: { ...n.data, live: tasmota ?? null, disabled: atsProcessing, _rev: newRev } };
-        case 'tongou-sw2':   return { ...n, data: { ...n.data, live: tasmota ?? null, disabled: atsProcessing, _rev: newRev } };
-        case 'tongou-sw3':   return { ...n, data: { ...n.data, live: tasmota ?? null, disabled: atsProcessing, _rev: newRev } };
-        case 'tongou-sw4':   return { ...n, data: { ...n.data, live: tasmota ?? null, disabled: atsProcessing, _rev: newRev } };  
+        case 'tongou-group': {
+          const switchesData = [
+            { tasmota_id: 'tongou_3BC764', icon: '🔌' },
+            { tasmota_id: 'tongou_0A3FA0', icon: '🔌' },
+            { tasmota_id: 'tongou_0A3C14', icon: '🔌' },
+            { tasmota_id: 'tongou_0A4040', icon: '🔌' }
+          ].map(sw => ({
+            ...sw,
+            live: tasmota ? {
+              connected: true,
+              power_on: tasmota.power_on ?? false,
+              power_w: tasmota.power_w ?? 0,
+              voltage_v: tasmota.voltage_v ?? 0,
+              current_a: tasmota.current_a ?? 0,
+              energy_today_kwh: tasmota.energy_today_kwh ?? 0
+            } : null
+          }));
+          return { 
+            ...n, 
+            data: { 
+              ...n.data, 
+              switches: switchesData, 
+              disabled: atsProcessing, 
+              _rev: newRev 
+            } 
+          };
+        }
         case 'mppt':        return { ...n, data: { ...n.data, live: mppt ?? null } };
         case 'smartshunt':  return { ...n, data: { ...n.data, live: shunt ?? null } };
         case 'temp-ext':    return { ...n, data: { ...n.data, live: temp ?? null } };
