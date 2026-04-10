@@ -96,7 +96,7 @@
   .bms-card-in-viz .btn-link { font-size: 0.72rem; padding: 0.25rem 0.65rem; background: transparent; border: 1px solid var(--border2); color: var(--text2); border-radius: 6px; text-decoration: none; cursor: pointer; transition: all 0.15s; }
   .bms-card-in-viz .btn-link:hover { background: var(--surface2); text-decoration: none; color: var(--text); }
 
-  /* ATS Pro-Nodes */
+  /* ATS Nodes */
   .pro-node { width: 180px; background: #fff; border-radius: 9px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px -1px rgb(0 0 0 / 0.05); display: flex; flex-direction: column; overflow: hidden; font-size: 9px; line-height: 1.25; position: relative; }
   .pro-node.active-source { border: 2px solid #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,.15); }
   .pn-banner { display: flex; align-items: center; justify-content: space-between; padding: 5px 8px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; gap: 6px; }
@@ -587,7 +587,7 @@ const TongouGroupNode = memo(function TongouGroupNode({ data }) {
     mkHandle('source', Position.Left,   'sl', { top: '68%' }),
     h('div', { className: 'tg-header' },
       h('span', { className: 'tg-header-icon' }, '🔌'),
-      h('span', { className: 'tg-header-title' }, 'Switchs Tongou'),
+      h('span', { className: 'tg-header-title' }, 'Meter Switchs'),
       h('span', { className: 'tg-header-count' }, `${countOnline}/${switches.length} en ligne`)
     ),
     h('div', { className: 'tg-switch-list' },
@@ -639,7 +639,7 @@ const TongouGroupNode = memo(function TongouGroupNode({ data }) {
   );
 });
 
-// ── ✅ ATS Pro-Nodes (inchangés) ─────────────────────────────────────────────
+// ── ✅ ATS Nodes ─────────────────────────────────────────────
 function AtsReseauNode({ data }) {
   const active = (data.sw2 || '').includes('Fermé');
   const connected = (parseInt(data.v2a) || 0) > 50;
@@ -845,7 +845,7 @@ const NODES0 = [
   { id: 'production',  type: 'summary',     position: { x: -350,  y: 20  }, data: { label: 'Production',      icon: '☀️',  value: '—',   sub: 'Micro-onduleurs',        dotClass: '' } },
   { id: 'batteries',   type: 'summary',     position: { x: -150,  y: 20  }, data: { label: 'Batteries',       icon: '🔋', value: '—',   sub: '360 Ah + 320 Ah',       dotClass: '' } },
   { id: 'meteo',       type: 'summary',     position: { x: 50, y: 20  }, data: { label: 'Météo',           icon: '🌤️',  value: '—',   sub: 'Irradiance solaire',     dotClass: '' } },
-  { id: 'temp-ext',    type: 'temperature', position: { x: 250, y: 20 }, data: { label: 'Température ext.', icon: '🌡️', live: null } },
+  { id: 'temp-ext',    type: 'temperature', position: { x: 250, y: 20 }, data: { label: 'Température', icon: '🌡️', live: null } },
   { id: 'chauffe-eau',    type: 'device',      position: { x: 450, y: 20 }, data: { label: 'Chauffe-eau',   icon: '🚿', live: null } },
   { id: 'climatisation',  type: 'device',      position: { x: 650, y: 20 }, data: { label: 'Climatisation', icon: '❄️',  live: null } },
   { id: 'micro-ond',   type: 'et112card',   position: { x: 400, y: 300 }, data: { label: 'Micro-onduleurs', address: 7, live: null } },
