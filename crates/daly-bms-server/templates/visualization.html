@@ -96,35 +96,6 @@
   .bms-card-in-viz .btn-link { font-size: 0.72rem; padding: 0.25rem 0.65rem; background: transparent; border: 1px solid var(--border2); color: var(--text2); border-radius: 6px; text-decoration: none; cursor: pointer; transition: all 0.15s; }
   .bms-card-in-viz .btn-link:hover { background: var(--surface2); text-decoration: none; color: var(--text); }
 
-/* 🎯 Réduction de 25% pour les nodes Tongou Switch */
-.react-flow__node-switch .bms-card-in-viz {
-  width: 206px !important; /* 275px × 0.75 */
-  transform-origin: top left !important;
-}
-
-/* Ajustement des polices et espacements pour cohérence visuelle */
-.react-flow__node-switch .kpi4-val { font-size: 0.85rem !important; }
-.react-flow__node-switch .kpi4-lbl { font-size: 0.48rem !important; }
-.react-flow__node-switch .i-val { font-size: 0.6rem !important; }
-.react-flow__node-switch .i-lbl { font-size: 0.48rem !important; }
-.react-flow__node-switch .bms-hdr-name { font-size: 0.7rem !important; }
-.react-flow__node-switch .btn-toggle { 
-  font-size: 0.65rem !important; 
-  padding: 4px 6px !important; 
-}
-.react-flow__node-switch .bms-badge { 
-  font-size: 0.5rem !important; 
-  padding: 1px 4px !important; 
-}
-
-/* Ajustement des handles si nécessaire (optionnel) */
-.react-flow__node-switch .react-flow__handle {
-  transform: scale(0.9);
-  transform-origin: center;
-}
-
-
-  
   /* ATS Pro-Nodes */
   .pro-node { width: 180px; background: #fff; border-radius: 9px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px -1px rgb(0 0 0 / 0.05); display: flex; flex-direction: column; overflow: hidden; font-size: 9px; line-height: 1.25; position: relative; }
   .pro-node.active-source { border: 2px solid #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,.15); }
@@ -203,6 +174,20 @@
   .btn-toggle:hover:not(:disabled) { opacity: 0.9; box-shadow: 0 2px 6px rgba(0,0,0,.15); }
   .btn-toggle:active:not(:disabled) { transform: scale(0.98); }
   .btn-toggle:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  /* 🎯 Réduction de 25% pour les nodes Tongou Switch */
+  .react-flow__node-switch .bms-card-in-viz { width: 206px !important; /* 275px × 0.75 */ transform-origin: top left !important; }
+  /* Ajustement des polices et espacements pour cohérence visuelle */
+  .react-flow__node-switch .kpi4-val { font-size: 0.85rem !important; }
+  .react-flow__node-switch .kpi4-lbl { font-size: 0.48rem !important; }
+  .react-flow__node-switch .i-val { font-size: 0.6rem !important; }
+  .react-flow__node-switch .i-lbl { font-size: 0.48rem !important; }
+  .react-flow__node-switch .bms-hdr-name { font-size: 0.7rem !important; }
+  .react-flow__node-switch .btn-toggle { font-size: 0.65rem !important; padding: 4px 6px !important; }
+  .react-flow__node-switch .bms-badge { font-size: 0.5rem !important; padding: 1px 4px !important; }
+  /* Ajustement des handles si nécessaire (optionnel) */
+  .react-flow__node-switch .react-flow__handle { transform: scale(0.9); transform-origin: center; }
+
 </style>
 {% endblock %}
 
