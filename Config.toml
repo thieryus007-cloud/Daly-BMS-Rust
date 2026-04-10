@@ -340,6 +340,27 @@ mqtt_index      = 2                  # → forward santuario/switch/2/venus → 
 service_type    = "switch"
 device_instance = 61                 # Instance D-Bus Venus OS (60=ATS CHINT, 61=Tongou)
 
+id              = 2                  # Identifiant interne unique (clé du ring buffer)
+tasmota_id      = "tongou_0A3FA0"    # Topics : tele/tongou_0A3FA0/STATE, stat/tongou_0A3FA0/POWER
+name            = "Tongou Switch2"
+mqtt_index      = 3                  # → forward santuario/switch/2/venus → D-Bus switch.mqtt_3
+service_type    = "switch"
+device_instance = 62                 # Instance D-Bus Venus OS (60=ATS CHINT, 61=Tongou)
+
+id              = 3                  # Identifiant interne unique (clé du ring buffer)
+tasmota_id      = "tongou_0A3C14"    # Topics : tele/tongou_0A3C14/STATE, stat/tongou_0A3C14/POWER
+name            = "Tongou Switch3"
+mqtt_index      = 4                  # → forward santuario/switch/2/venus → D-Bus switch.mqtt_4
+service_type    = "switch"
+device_instance = 63                 # Instance D-Bus Venus OS (60=ATS CHINT, 61=Tongou)
+
+id              = 4                  # Identifiant interne unique (clé du ring buffer)
+tasmota_id      = "tongou_0A4040"    # Topics : tele/tongou_0A4040/STATE, stat/tongou_0A4040/POWER
+name            = "Tongou Switch4"
+mqtt_index      = 5                 # → forward santuario/switch/2/venus → D-Bus switch.mqtt_5
+service_type    = "switch"
+device_instance = 64                 # Instance D-Bus Venus OS (60=ATS CHINT, 61=Tongou)
+
 # Décommenter et adapter pour chaque prise Tasmota supplémentaire :
 # [[tasmota.devices]]
 # id           = 2           # Identifiant interne unique (clé du ring buffer)
