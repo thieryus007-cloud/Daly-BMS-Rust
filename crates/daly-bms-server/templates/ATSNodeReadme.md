@@ -1,5 +1,17 @@
 Intégrer les trois nœuds ATS dans une page de visualisation globale existante, sous forme d’un conteneur réutilisable (ATSFlow). Cette approche préserve toutes les fonctionnalités et données, et permet de les ajouter à un flow React Flow plus large (ici illustré avec 14 nœuds supplémentaires).
 
+Dans la page html ci-apres, nous avons quatre node tongou switch, optimise les quatre nodes en un seul node avec:
+en entete un bandeau switch pour l ensemble, 
+en dessous, deux lignes par switch ID.
+ >> premiere ligne: switch name, switch ID et toggle button On/Off.
+ >> deuxieme ligne: toutes les informations sur la meme ligne: Puissance, Tension, Courant et enfin kWh, 
+animations demandees: quand le switch est On le fond de la ligne contenant les informations vert tres clair, quand le switch est OFF, rouge tres clair.
+> > cette animation ne s applique que pour le fond de la deuxieme ligne de chacun des switch.
+Ce nouveau node pourra contenir pour le moment 4 swicth par la suite total 6.
+Pour etre correctement visible il devra avoir une largeur mini de 1.20x la card du node ET112. la hauteur sera en fonctions du nombre de switch.
+Toutes les autres fonctionalitees ne doivent pas etre impactees.
+>>>Communique moi en retour, le fichier COMPLET pour que je puisse copier et coller facilement.
+
 ## Structure proposée
 
 · Composant <ATSFlow /> : encapsule la logique métier (fetch API, commandes, état) et expose les nodes et edges dynamiques des trois équipements.
