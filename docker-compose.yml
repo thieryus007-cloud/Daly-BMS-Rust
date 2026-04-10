@@ -145,6 +145,9 @@ services:
     depends_on:
       mosquitto:
         condition: service_healthy
+    # Alias pour résoudre dalybms-mosquitto vers le NanoPi broker (192.168.1.120)
+    extra_hosts:
+      - "dalybms-mosquitto:192.168.1.120"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:1880"]
       interval: 30s
