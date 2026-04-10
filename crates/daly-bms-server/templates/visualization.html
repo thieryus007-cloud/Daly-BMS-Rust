@@ -898,8 +898,10 @@ function ESSFlow() {
         case 'onduleur':    return { ...n, data: { ...n.data, value: inverter ? `${(inverter.ac_output_power_w ?? 0).toFixed(0)}W` : '—', dotClass: inverter ? 'live' : '' } };
         case 'chauffe-eau': return { ...n, data: { ...n.data, live: et8  ?? null } };
         case 'climatisation': return { ...n, data: { ...n.data, live: et9 ?? null } };
-        // ✅ CORRECTIF : ajout de _rev pour le nœud switch
         case 'tongou-sw':   return { ...n, data: { ...n.data, live: tasmota ?? null, disabled: atsProcessing, _rev: newRev } };
+        case 'tongou-sw2':   return { ...n, data: { ...n.data, live: tasmota ?? null, disabled: atsProcessing, _rev: newRev } };
+        case 'tongou-sw3':   return { ...n, data: { ...n.data, live: tasmota ?? null, disabled: atsProcessing, _rev: newRev } };
+        case 'tongou-sw4':   return { ...n, data: { ...n.data, live: tasmota ?? null, disabled: atsProcessing, _rev: newRev } };
         case 'mppt':        return { ...n, data: { ...n.data, live: mppt ?? null } };
         case 'smartshunt':  return { ...n, data: { ...n.data, live: shunt ?? null } };
         case 'temp-ext':    return { ...n, data: { ...n.data, live: temp ?? null } };
