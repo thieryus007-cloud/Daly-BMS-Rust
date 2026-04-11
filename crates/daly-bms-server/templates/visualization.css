@@ -21,7 +21,7 @@
 
   .bms-nd { width: 235px; background: #fff; border: 1px solid #d6dce5; border-radius: 10px; padding: 10px 12px; box-shadow: 0 1px 3px rgba(15,23,42,.06),0 2px 8px rgba(15,23,42,.04); cursor: default; }
   .bms-nd.alarm { border-color: #fca5a5; background: #fff9f9; }
-  .bms-hdr { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+  .bms-hdr { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; height: 15px; }
   .bms-name { font-size: 0.78rem; font-weight: 700; color: #0f172a; flex: 1; }
   .bms-live-dot { width: 7px; height: 7px; border-radius: 50%; background: #94a3b8; flex-shrink: 0; }
   .bms-live-dot.on { background: #16a34a; box-shadow: 0 0 6px rgba(22,163,74,.5); animation: nd-blink 2.5s infinite; }
