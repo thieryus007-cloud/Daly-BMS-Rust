@@ -77,7 +77,7 @@ function BmsNode({ data }) {
         h('div', { className: 'bms-kpi-l' }, 'SOC')
       ),
       h('div', { className: 'bms-kpi' },
-        h('div', { className: 'bms-kpi-v' }, volt != null ? `${volt.toFixed(1)}V` : '—'),
+        h('div', { className: 'bms-kpi-v' }, volt != null ? `${volt.toFixed(2)}V` : '—'),
         h('div', { className: 'bms-kpi-l' }, 'Tension')
       ),
       h('div', { className: 'bms-kpi' },
