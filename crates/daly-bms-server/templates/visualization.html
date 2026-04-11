@@ -62,6 +62,7 @@ function BmsNode({ data }) {
     h('div', { className: 'bms-hdr' },
       h('span', null, '🔋'),
       h('span', { className: 'bms-name' }, data.label),
+      tmax != null ? h('span', { className: 'bms-temp' }, `🌡 ${tmax.toFixed(1)}°C`) : null,
       h('div',  { className: `bms-live-dot${live ? ' on' : ''}` })
     ),
     h('div', { className: 'bms-bar-bg' },
@@ -85,15 +86,15 @@ function BmsNode({ data }) {
           style: { color: cur != null ? (cur < 0 ? '#dc2626' : cur > 0 ? '#2563eb' : '#0f172a') : undefined }
         }, cur != null ? `${cur > 0 ? '+' : ''}${cur.toFixed(1)}A` : '—'),
         h('div', { className: 'bms-kpi-l' }, 'Courant')
+      ),
+      h('div', { className: 'bms-kpi' },
+        h('div', { className: 'bms-kpi-v' }, pwr != null ? `${pwr > 0 ? '+' : ''}${(pwr / 1000).toFixed(2)} kW` : '—'),
+        h('div', { className: 'bms-kpi-l' }, 'Power')
       )
-    ),
-    tmax != null ? h('div', { className: 'bms-temp' }, `🌡 ${tmax.toFixed(1)}°C`) : null,
-    h('div', { className: 'bms-pwr' },
-      pwr != null ? `${pwr > 0 ? '+' : ''}${(pwr / 1000).toFixed(2)} kW` : live ? 'Données reçues…' : h('span', { className: 'bms-wait' }, 'En attente…')
     )
   );
 }
-
+  
 function Et112CardNode({ data }) {
   const live = data.live;
   const connected = live?.connected ?? false;
