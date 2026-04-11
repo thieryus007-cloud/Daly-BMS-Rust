@@ -60,10 +60,10 @@ function BmsNode({ data }) {
   return h('div', { className: `bms-nd${alarm ? ' alarm' : ''}` },
     mkHandle('target', Position.Top, 'tt'),
     h('div', { className: 'bms-hdr' },
-      h('span', null, '🔋'),
-      h('span', { className: 'bms-name' }, data.label),
-      tmax != null ? h('span', { className: 'bms-temp' }, `🌡 ${tmax.toFixed(1)}°C`) : null,
-      h('div',  { className: `bms-live-dot${live ? ' on' : ''}` })
+      h('span', { className: 'bms-hdr-icon' }, '🔋'),
+      h('span', { className: 'bms-hdr-title' }, data.label),
+      tmax != null ? h('span', { className: 'bms-temp-badge' }, `🌡 ${tmax.toFixed(1)}°C`) : null,
+      h('div', { className: `bms-dot${live ? ' live' : ''}` })
     ),
     h('div', { className: 'bms-bar-bg' },
       h('div', {
