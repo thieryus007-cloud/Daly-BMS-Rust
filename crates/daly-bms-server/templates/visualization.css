@@ -44,7 +44,7 @@
   .dev-nrj { font-size: 0.63rem; color: #94a3b8; margin-top: 2px; }
   .dev-wait { font-size: 0.68rem; color: #94a3b8; font-style: italic; }
 
-  .hub-nd { width: 5px; background: #fff; opacity: 0.25; border: 1px solid #b8c2cf; border-radius: 1px; padding: 1px 1px; text-align: center; box-shadow: 0 1px 1px rgba(15,23,42,.06),0 1px 1px rgba(15,23,42,.04); cursor: default; }
+  .hub-nd { width: 5px; background: #fff; border: 1px solid #b8c2cf; border-radius: 1px; padding: 1px 1px; text-align: center; box-shadow: 0 1px 1px rgba(15,23,42,.06),0 1px 1px rgba(15,23,42,.04); cursor: default; }
   .hub-icon { font-size: 1.35rem; line-height: 1; margin-bottom: 4px; }
   .hub-lbl { font-size: 0.82rem; font-weight: 700; color: #0f172a; }
   .hub-sub { font-size: 0.62rem; color: #94a3b8; margin-top: 2px; }
