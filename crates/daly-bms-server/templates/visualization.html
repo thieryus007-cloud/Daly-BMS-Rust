@@ -480,7 +480,7 @@ function AtsReseauNode({ data }) {
 
   return h('div', { className: `pro-node${active ? ' active-source' : ''}` },
     mkHandle('source', Position.Right, 'reseau-out'),
-    mkHandle('source', Position.Bottom, 'reseau-onduleur'),       
+    mkHandle('source', Position.Bottom, 'reseau-onduleur'), 
     h('div', { className: 'pn-banner' },
       h('div', { className: 'pn-banner-left' },
         h('div', { className: 'pn-bicon pn-bicon-res' }, '⚡'),
@@ -609,7 +609,7 @@ function AtsMainNode({ data }) {
   }, [data.onForceOff, data.disabled]);
 
   return h('div', { className: 'pro-node' },
-    mkHandle('target', Position.Left, 'ats-in-reseau'),main-right
+    mkHandle('target', Position.Left, 'ats-in-reseau'),
     mkHandle('target', Position.Right, 'main-right'),
     mkHandle('target', Position.Bottom, 'ats-in-onduleur', { top: '65%' }),
     h('div', { style: { display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 8px', background:'#f8fafc', borderBottom:'2px solid #6366f1', gap:5 } },
@@ -788,6 +788,9 @@ function mkEdge(id, src, tgt, color, opts = {}) {
 const EDGES0 = [
   mkEdge('e-ats-maison', 'ats-main', 'et112-maison',   COLOR.ac,  { sourceHandle: 'main-right', targetHandle: 'tl' }),
   mkEdge('e-ats-micro', 'ats-onduleur', 'micro-ond',   COLOR.ac,  { sourceHandle: 'onduleur-right', targetHandle: 'tl' }),
+  mkEdge('e-maison-switchs', 'et112-maison', 'tongou-group',   COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tl' }),
+  mkEdge('e-ats-reseau', 'ats-reseau', 'et112-reseau',   COLOR.ac,  { sourceHandle: 'sb', targetHandle: 'tt' }),
+  mkEdge('e-reseau-onduleur', 'et112-reseau', 'onduleur',   COLOR.ac,  { sourceHandle: 'sb', targetHandle: 'tl' }),
   mkEdge('e-mppt-shu', 'mppt',      'hubMPPT', COLOR.dc,  { sourceHandle: 'sl', targetHandle: 'tr' }),
   mkEdge('e-ond-shu',  'onduleur',  'hubMPPT', COLOR.dc,  { sourceHandle: 'sb', targetHandle: 'tt' }),
   mkEdge('e-hub-shu',  'hubMPPT',  'smartshunt', COLOR.dc,  { sourceHandle: 'sb', targetHandle: 'tt' }),
