@@ -324,8 +324,7 @@ function SmartShuntNode({ data }) {
       ),
       h('div', { className: 'inv-kpi-row' },
         h('div', { className: 'inv-kpi' },
-          h('span', { className: 'inv-kpi-lbl' }, 'Puissance'),
-          h('span', { className: 'inv-kpi-val dc' }, power != null ? `${power > 0 ? '+' : ''}${power.toFixed(0)} W` : '—')
+          h('span', { className: 'inv-kpi-lbl' }, 'Puissance', power != null ? `${power > 0 ? '+' : ''}${power.toFixed(0)} W` : '—')
         ),
         h('div', { className: 'inv-kpi' },
           h('span', { className: 'inv-kpi-lbl' }, 'Temps restant'),
