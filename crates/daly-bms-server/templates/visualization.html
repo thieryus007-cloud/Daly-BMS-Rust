@@ -322,23 +322,25 @@ function SmartShuntNode({ data }) {
             current != null ? `${current > 0 ? '+' : ''}${current.toFixed(1)}A` : '—')
         )
       ),
-      h('div', { className: 'inv-kpi-row' },
-        h('div', { className: 'inv-kpi' },
-          h('span', { className: 'inv-kpi-lbl' }, 'Puissance', power != null ? `${power > 0 ? '+' : ''}${power.toFixed(0)} W` : '—')
+
+      h('div', { className: 'ss-row' },
+        h('span', { className: 'ss-row-lbl' }, 'Puissance'),
+        h('span', { className: 'ss-row-val' }, power != null ? `${power > 0 ? '+' : ''}${power.toFixed(0)} W` : '—')
+      ),
+        h('div', { style: { display: 'flex', gap: '1rem', flexWrap: 'wrap' } },
+        h('div', { className: 'ss-row', style: { flex: '1 1 0', minWidth: 0 } },
+          h('span', { className: 'ss-row-lbl' }, 'Temps restant'),
+          h('span', { className: 'ss-row-val ttg' }, fmtTtg(ttgMin))
         ),
-        h('div', { className: 'inv-kpi' },
-          h('span', { className: 'inv-kpi-lbl' }, 'Temps restant'),
-          h('span', { className: 'inv-kpi-val dc' }, fmtTtg(ttgMin))
+        h('div', { className: 'ss-row', style: { flex: '1 1 0', minWidth: 0 } },
+          h('span', { className: 'ss-row-lbl' }, '⬆ Chargée'),
+          h('span', { className: 'ss-row-val' }, eIn != null ? `${eIn.toFixed(1)} kWh` : '—')
         ),
-        h('div', { className: 'inv-kpi' },
-          h('span', { className: 'inv-kpi-lbl' }, '⬆ Chargée'),
-          h('span', { className: 'inv-kpi-val dc' }, eIn != null ? `${eIn.toFixed(1)} kWh` : '—')
-        ),
-        h('div', { className: 'inv-kpi' },
-          h('span', { className: 'inv-kpi-lbl' }, '⬆ Déchargée'),
-          h('span', { className: 'inv-kpi-val dc' }, eOut != null ? `${eOut.toFixed(1)} kWh` : '—')
+        h('div', { className: 'ss-row', style: { flex: '1 1 0', minWidth: 0 } },
+          h('span', { className: 'ss-row-lbl' }, '⬇ Déchargée'),
+          h('span', { className: 'ss-row-val' }, eOut != null ? `${eOut.toFixed(1)} kWh` : '—')
         )
-      )
+    )       
     ) : h('div', { className: 'ss-wait' }, 'En attente…')
   );
 }
