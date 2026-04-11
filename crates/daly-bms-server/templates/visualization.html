@@ -226,7 +226,7 @@ function MPPTGroupNode({ data }) {
     mkHandle('source', Position.Left,   'sl', { top: '65%' }),
     h('div', { className: 'mg-header' },
       h('span', { className: 'mg-header-icon' }, '☀️'),
-      h('span', { className: 'mg-header-title' }, 'MPPT Solar charger'),
+      h('span', { className: 'mg-header-title' }, 'SmartSolar MPPT'),
       h('span', { style: { fontSize:'0.65rem', opacity:0.8, marginLeft:'auto' } }, `${mppts.length} chargeur${mppts.length > 1 ? 's' : ''}`)
     ),
     h('div', { className: 'mg-totals' },
@@ -669,7 +669,7 @@ function InverterNode({ data }) {
     mkHandle('source', Position.Left,   'sl', { top: '65%' }),
     h('div', { className: 'inv-hdr' },
       h('span', { className: 'inv-hdr-icon' }, '⚡'),
-      h('span', { className: 'inv-hdr-title' }, 'Onduleur AC'),
+      h('span', { className: 'inv-hdr-title' }, 'EasySolar-II'),
       h('div', { className: 'inv-dot' })
     ),
     h('div', { className: 'inv-wait' }, 'En attente…')
@@ -705,7 +705,7 @@ function InverterNode({ data }) {
     mkHandle('source', Position.Left,   'sl', { top: '65%' }),
     h('div', { className: 'inv-hdr' },
       h('span', { className: 'inv-hdr-icon' }, '⚡'),
-      h('span', { className: 'inv-hdr-title' }, 'Onduleur AC'),
+      h('span', { className: 'inv-hdr-title' }, 'EasySolar-II'),
       h('span', { className: `inv-state-badge ${stateClass}` }, state),
       h('div', { className: 'inv-dot live' })
     ),
