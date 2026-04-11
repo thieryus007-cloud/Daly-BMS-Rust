@@ -332,7 +332,7 @@
   }
   .mg-header {
     display: flex; align-items: center; gap: 8px; padding: 9px 12px;
-    background: linear-gradient(135deg, #78350f 0%, #92400e 100%);
+    background: linear-gradient(135deg, #0f172a  0%, #0f172a  100%);
     color: white; border-bottom: 2px solid #b45309;
   }
   .mg-header-icon { font-size: 1.3rem; line-height: 1; }
