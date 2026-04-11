@@ -786,7 +786,7 @@ const EDGES0 = [
   mkEdge('e-mppt-ond', 'mppt',      'onduleur',   COLOR.dc,  { sourceHandle: 'sl', targetHandle: 'sb' }),
   mkEdge('e-mppt-shu', 'mppt',      'hubMPPT', COLOR.dc,  { sourceHandle: 'sl', targetHandle: 'tr' }),
   mkEdge('e-ond-shu',  'onduleur',  'hubMPPT', COLOR.dc,  { sourceHandle: 'sb', targetHandle: 'tt' }),
-  mkEdge('e-shu-hub',  'smartshunt',  'hubMPPT', COLOR.dc,  { sourceHandle: 'st', targetHandle: 'tb' }),
+  mkEdge('e-hub-shu',  'hubMPPT',  'smartshunt', COLOR.dc,  { sourceHandle: 'sb', targetHandle: 'tt' }),
   mkEdge('e-shu-b1',   'smartshunt','bms1',       COLOR.bat, { sourceHandle: 'sb', targetHandle: 'tt' }),
   mkEdge('e-shu-b2',   'smartshunt','bms2',       COLOR.bat, { sourceHandle: 'sb', targetHandle: 'tt' }),
 ];
