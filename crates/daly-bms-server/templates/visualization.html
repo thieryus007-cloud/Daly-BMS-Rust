@@ -784,7 +784,8 @@ function mkEdge(id, src, tgt, color, opts = {}) {
 }
 
 const EDGES0 = [
-  mkEdge('e-mppt-ond', 'mppt',      'onduleur',   COLOR.dc,  { sourceHandle: 'sl', targetHandle: 'sb' }),
+  mkEdge('e-ats-maison', 'ats-main', 'et112-maison',   COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tl' }),
+  mkEdge('e-ats-micro', 'ats-onduleur', 'micro-ond',   COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tl' }),
   mkEdge('e-mppt-shu', 'mppt',      'hubMPPT', COLOR.dc,  { sourceHandle: 'sl', targetHandle: 'tr' }),
   mkEdge('e-ond-shu',  'onduleur',  'hubMPPT', COLOR.dc,  { sourceHandle: 'sb', targetHandle: 'tt' }),
   mkEdge('e-hub-shu',  'hubMPPT',  'smartshunt', COLOR.dc,  { sourceHandle: 'sb', targetHandle: 'tt' }),
