@@ -433,10 +433,22 @@ impl AppState {
     // Méthodes Venus OS
     // ==========================================================================
 
-    /// Enregistre/met à jour un snapshot MPPT.
+    /// Enregistre/met à jour un snapshot MPPT unique (format v1 legacy).
     pub async fn on_venus_mppt(&self, mppt: VenusMppt) {
         let mut mppts = self.venus_mppts.write().await;
         mppts.insert(mppt.instance, mppt);
+    }
+
+    /// Remplace atomiquement toute la liste MPPT (format v2 — tableau complet).
+    ///
+    /// Utilisé quand Venus OS publie un snapshot complet de tous les chargeurs.
+    /// Les entrées orphelines (MPPT déconnecté) sont ainsi purgées automatiquement.
+    pub async fn on_venus_mppts_replace(&self, mppts: Vec<VenusMppt>) {
+        let mut map = self.venus_mppts.write().await;
+        map.clear();
+        for mppt in mppts {
+            map.insert(mppt.instance, mppt);
+        }
     }
 
     /// Retourne tous les MPPT actuels.

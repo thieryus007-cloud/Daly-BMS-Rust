@@ -531,8 +531,11 @@ async fn handle_meteo_topic(state: &AppState, json: &Value) {
     let yield_kwh  = json.get("TodaysYield").and_then(|v| v.as_f64()).map(|v| v as f32);
     let mppt_power = json.get("MpptPower").and_then(|v| v.as_f64()).map(|v| v as f32);
 
-    // Format v2 : tableau Mppts avec données individuelles par chargeur
+    // Format v2 : tableau Mppts avec données individuelles par chargeur.
+    // On remplace toute la map en une seule opération pour purger les entrées
+    // orphelines (ex : MPPT qui n'est plus connecté disparaît du message).
     if let Some(arr) = json.get("Mppts").and_then(|v| v.as_array()) {
+        let mut new_mppts = Vec::with_capacity(arr.len());
         for item in arr {
             let instance = item.get("Instance").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
             let name     = format!("MPPT-{}", instance);
@@ -542,7 +545,7 @@ async fn handle_meteo_topic(state: &AppState, json: &Value) {
             let power    = item.get("Power").and_then(|v| v.as_f64()).map(|v| v as f32);
             let yield_t  = item.get("YieldToday").and_then(|v| v.as_f64()).map(|v| v as f32);
             let max_pw   = item.get("MaxPowerToday").and_then(|v| v.as_f64()).map(|v| v as f32);
-            let mppt = VenusMppt {
+            new_mppts.push(VenusMppt {
                 instance,
                 name,
                 power_w: power,
@@ -552,9 +555,9 @@ async fn handle_meteo_topic(state: &AppState, json: &Value) {
                 pv_voltage_v: pv_v,
                 dc_current_a: dc_i,
                 timestamp: Utc::now(),
-            };
-            state.on_venus_mppt(mppt).await;
+            });
         }
+        state.on_venus_mppts_replace(new_mppts).await;
         return; // format v2 traité, pas de fallback nécessaire
     }
 
