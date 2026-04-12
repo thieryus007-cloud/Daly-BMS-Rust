@@ -424,3 +424,4 @@
   .inv-kpi-val.ac { color: #2563eb; }
   .inv-kpi-val.dc { color: #ea580c; }
   .inv-wait { text-align: center; font-size: 0.7rem; color: #94a3b8; font-style: italic; padding: 14px; }
+  @keyframes dle-flow { from { stroke-dashoffset: 18; } to { stroke-dashoffset: 0; } }
