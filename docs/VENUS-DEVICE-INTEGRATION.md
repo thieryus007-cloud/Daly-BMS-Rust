@@ -584,6 +584,26 @@ topic_prefix = "santuario/switch"
 mqtt_index      = 1
 name            = "ATS CHINT"
 device_instance = 60
+
+[[switches]]
+mqtt_index      = 2
+name            = "tongou_3BC764"
+device_instance = 61
+
+[[switches]]
+mqtt_index      = 3
+name            = "tongou_0A3FA0"
+device_instance = 62
+
+[[switches]]
+mqtt_index      = 4
+name            = "tongou_0A3C14"
+device_instance = 63
+
+[[switches]]
+mqtt_index      = 5
+name            = "tongou_0A4040"
+device_instance = 64
 ```
 
 ### 3. Topic MQTT
