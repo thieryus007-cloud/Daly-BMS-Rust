@@ -216,7 +216,7 @@ async fn main() -> Result<()> {
         start_switch_mqtt_source(mqtt_cfg5, switch_prefix, switch_tx).await;
     });
 
-    let switch_manager = SwitchManager::new(cfg.venus.clone(), cfg.switches, switch_rx);
+    let switch_manager = SwitchManager::new(cfg.venus.clone(), cfg.switches, switch_rx, cfg.mqtt.clone());
     tokio::spawn(async move {
         if let Err(e) = switch_manager.run().await {
             error!("SwitchManager terminé avec erreur : {:#}", e);

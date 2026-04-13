@@ -1,14 +1,14 @@
-//! Service D-Bus `com.victronenergy.switch.{name}` pour commutateurs automatiques (ATS).
+//! Service D-Bus `com.victronenergy.switch.{name}` pour commutateurs.
 //!
 //! Conforme au wiki Victron Venus OS — section Switch :
-//! <https://github.com/victronenergy/venus/wiki/dbus#switches>
+//! <https://github.com/victronenergy/venus/wiki/dbus#switch>
 //!
-//! ## Chemins D-Bus exposés
+//! ## Chemins D-Bus exposés (tous les switches)
 //!
 //! ```text
-//! /Position   — 0=AC1 (réseau), 1=AC2 (générateur/onduleur)
-//! /State      — 0=inactive, 1=active, 2=alerted
-//! /Connected  — 0 ou 1
+//! /Position          — 0=AC1 (réseau), 1=AC2 (générateur/onduleur)
+//! /State             — 0x100=Connected (état module global)
+//! /Connected         — 0 ou 1
 //! /ProductName
 //! /ProductId
 //! /DeviceInstance
@@ -17,15 +17,32 @@
 //! /Mgmt/Connection
 //! ```
 //!
-//! Utilisé pour :
-//! - ATS CHINT (commutation réseau ↔ onduleur)
-//! - Relais généraux commandés via Node-RED
+//! ## Chemins SwitchableOutput (uniquement si `controllable = true`)
+//!
+//! Exposés quand `command_topic` est défini dans la config.
+//! La console Venus OS détecte ces chemins et affiche un bouton ON/OFF.
+//!
+//! ```text
+//! /SwitchableOutput/0/State              — RW  0=Off, 1=On
+//! /SwitchableOutput/0/Status             — R   0x00=Off, 0x09=On
+//! /SwitchableOutput/0/Name               — R   nom du canal
+//! /SwitchableOutput/0/Settings/Type      — R   1=toggle
+//! /SwitchableOutput/0/Settings/CustomName — RW  nom affiché
+//! /SwitchableOutput/0/Settings/Group      — RW  groupe d'affichage
+//! /SwitchableOutput/0/Settings/ShowUIControl — RW 1=visible
+//! ```
+//!
+//! Lorsque l'utilisateur bascule le switch depuis la console Venus OS,
+//! `set_value()` est appelé sur `/SwitchableOutput/0/State`.
+//! La valeur (0=Off, 1=On) est transmise via `cmd_tx` au `SwitchManager`,
+//! qui publie ensuite `"OFF"` ou `"ON"` sur le topic MQTT `command_topic`.
 
 use crate::types::SwitchPayload;
 use anyhow::Result;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
+use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
 use zbus::{connection, object_server::SignalContext, Connection};
 use zvariant::{OwnedValue, Str};
@@ -35,6 +52,13 @@ use zvariant::{OwnedValue, Str};
 // =============================================================================
 
 const VICTRON_SWITCH_PREFIX: &str = "com.victronenergy.switch";
+
+// Path du canal SwitchableOutput contrôlable
+const PATH_SW_STATE: &str = "/SwitchableOutput/0/State";
+
+// Statut SwitchableOutput (wiki Victron)
+const STATUS_ON:  i32 = 0x09; // Output fault (0x08) OR-ed avec Active (0x01)
+const STATUS_OFF: i32 = 0x00;
 
 // =============================================================================
 // Item D-Bus
@@ -92,28 +116,40 @@ type ItemsDict = HashMap<String, HashMap<String, OwnedValue>>;
 // Valeurs courantes
 // =============================================================================
 
-/// État courant d'un switch/ATS exposé sur D-Bus.
+/// État courant d'un switch exposé sur D-Bus.
 #[derive(Debug, Clone)]
 pub struct SwitchValues {
-    pub connected:       i32,
-    pub position:        i32,
-    pub state:           i32,
-    pub product_name:    String,
-    pub custom_name:     String,
-    pub device_instance: u32,
-    pub last_update:     Instant,
+    pub connected:         i32,
+    pub position:          i32,
+    /// État ON/OFF pour SwitchableOutput (0=Off, 1=On)
+    pub switchable_state:  i32,
+    /// true → expose les chemins /SwitchableOutput/0/...
+    pub controllable:      bool,
+    pub product_name:      String,
+    pub custom_name:       String,
+    pub group:             String,
+    pub device_instance:   u32,
+    pub last_update:       Instant,
 }
 
 impl SwitchValues {
-    pub fn disconnected(device_instance: u32, product_name: String, custom_name: String) -> Self {
+    pub fn disconnected(
+        device_instance: u32,
+        product_name:    String,
+        custom_name:     String,
+        group:           String,
+        controllable:    bool,
+    ) -> Self {
         Self {
-            connected:       0,
-            position:        0,
-            state:           0,
+            connected:        0,
+            position:         0,
+            switchable_state: 0,
+            controllable,
             product_name,
             custom_name,
+            group,
             device_instance,
-            last_update:     Instant::now(),
+            last_update:      Instant::now(),
         }
     }
 
@@ -122,22 +158,28 @@ impl SwitchValues {
         device_instance: u32,
         product_name:    String,
         custom_name:     String,
+        group:           String,
+        controllable:    bool,
     ) -> Self {
+        // switchable_state : 0=Off, 1=On — direct depuis payload.state (0/1 Tasmota)
+        let switchable_state = if payload.state > 0 { 1 } else { 0 };
         Self {
-            connected:       1,
-            position:        payload.position,
-            state:           payload.state,
+            connected:        1,
+            position:         payload.position,
+            switchable_state,
+            controllable,
             product_name,
             custom_name,
+            group,
             device_instance,
-            last_update:     Instant::now(),
+            last_update:      Instant::now(),
         }
     }
 
     pub fn to_items(&self) -> HashMap<String, DbusItem> {
         let mut m = HashMap::new();
 
-        // Identification
+        // ── Identification ────────────────────────────────────────────────────
         m.insert("/Mgmt/ProcessName".into(),    DbusItem::str("dbus-mqtt-venus"));
         m.insert("/Mgmt/ProcessVersion".into(), DbusItem::str(env!("CARGO_PKG_VERSION")));
         m.insert("/Mgmt/Connection".into(),     DbusItem::str("MQTT"));
@@ -148,9 +190,31 @@ impl SwitchValues {
         m.insert("/CustomName".into(),          DbusItem::str(&self.custom_name));
         m.insert("/FirmwareVersion".into(),     DbusItem::str("1"));
 
-        // Switch (chemins officiels wiki Victron)
+        // ── Chemins switch ATS (wiki Victron — switch module state) ──────────
         m.insert("/Position".into(), DbusItem::i32(self.position));
-        m.insert("/State".into(),    DbusItem::i32(self.state));
+        // /State au sens module : 0x100=Connected, 0=disconnected
+        m.insert("/State".into(),    DbusItem::i32(if self.connected == 1 { 0x100 } else { 0 }));
+
+        // ── Chemins SwitchableOutput (console Venus ON/OFF) ──────────────────
+        // Exposés uniquement si controllable = true (command_topic configuré)
+        if self.controllable {
+            let status = if self.switchable_state != 0 { STATUS_ON } else { STATUS_OFF };
+
+            m.insert(PATH_SW_STATE.into(),
+                DbusItem::i32(self.switchable_state));
+            m.insert("/SwitchableOutput/0/Status".into(),
+                DbusItem::i32(status));
+            m.insert("/SwitchableOutput/0/Name".into(),
+                DbusItem::str(&self.product_name));
+            m.insert("/SwitchableOutput/0/Settings/Type".into(),
+                DbusItem::i32(1));   // 1 = toggle
+            m.insert("/SwitchableOutput/0/Settings/CustomName".into(),
+                DbusItem::str(&self.custom_name));
+            m.insert("/SwitchableOutput/0/Settings/Group".into(),
+                DbusItem::str(&self.group));
+            m.insert("/SwitchableOutput/0/Settings/ShowUIControl".into(),
+                DbusItem::i32(1));  // visible dans toutes les UI
+        }
 
         m
     }
@@ -191,8 +255,11 @@ impl SwitchRootIface {
 // =============================================================================
 
 struct BusItemLeaf {
-    path:   String,
-    values: Arc<Mutex<SwitchValues>>,
+    path:    String,
+    values:  Arc<Mutex<SwitchValues>>,
+    /// Émetteur de commande ON/OFF — présent uniquement pour
+    /// `/SwitchableOutput/0/State` sur un switch controllable.
+    cmd_tx:  Option<mpsc::Sender<i32>>,
 }
 
 #[zbus::interface(name = "com.victronenergy.BusItem")]
@@ -210,7 +277,43 @@ impl BusItemLeaf {
         guard.to_items().get(&self.path).map(|i| i.text.clone()).unwrap_or_default()
     }
 
-    fn set_value(&self, _val: zvariant::Value<'_>) -> i32 { 1 }
+    /// Traite les écritures D-Bus depuis la console Venus OS.
+    ///
+    /// Seul `/SwitchableOutput/0/State` est inscriptible.
+    /// Retourne 0 (succès) ou 1 (non supporté / chemin en lecture seule).
+    fn set_value(&self, val: zvariant::Value<'_>) -> i32 {
+        if self.path != PATH_SW_STATE {
+            return 1; // lecture seule
+        }
+        let Some(tx) = &self.cmd_tx else { return 1 };
+
+        // Extraire la valeur entière (0=Off, 1=On) depuis le variant D-Bus
+        let state_val: i32 = match &val {
+            zvariant::Value::I32(v)  => *v,
+            zvariant::Value::U32(v)  => *v as i32,
+            zvariant::Value::I64(v)  => *v as i32,
+            zvariant::Value::U64(v)  => *v as i32,
+            zvariant::Value::I16(v)  => *v as i32,
+            zvariant::Value::U16(v)  => *v as i32,
+            zvariant::Value::U8(v)   => *v as i32,
+            _ => {
+                warn!(path = %self.path, "set_value : type D-Bus non supporté {:?}", val);
+                return 1;
+            }
+        };
+
+        // Mise à jour optimiste locale (avant confirmation Tasmota)
+        if let Ok(mut guard) = self.values.lock() {
+            guard.switchable_state = if state_val != 0 { 1 } else { 0 };
+            guard.last_update = Instant::now();
+        }
+
+        // Transmettre la commande au SwitchManager → MQTT → Tasmota
+        let _ = tx.try_send(state_val);
+        debug!(path = %self.path, state = state_val, "Commande switch reçue depuis console Venus");
+
+        0 // succès D-Bus
+    }
 }
 
 // =============================================================================
@@ -224,20 +327,32 @@ pub struct SwitchServiceHandle {
     connection:          Connection,
     pub product_name:    String,
     pub custom_name:     String,
+    /// Récepteur de commandes ON/OFF (0=Off, 1=On) depuis D-Bus.
+    /// Pris par le SwitchManager pour lancer la tâche de publication MQTT.
+    pub cmd_rx:          Option<mpsc::Receiver<i32>>,
 }
 
 impl SwitchServiceHandle {
     pub async fn update(&self, payload: &SwitchPayload) -> Result<()> {
+        let controllable = { self.values.lock().unwrap().controllable };
+        let group        = { self.values.lock().unwrap().group.clone() };
         let new_values = SwitchValues::from_payload(
             payload,
             self.device_instance,
             self.product_name.clone(),
             self.custom_name.clone(),
+            group,
+            controllable,
         );
         let items = new_values.to_items();
         { *self.values.lock().unwrap() = new_values; }
         self.emit_items_changed(&items).await?;
-        debug!(service = %self.service_name, position = payload.position, state = payload.state, "D-Bus ItemsChanged switch émis");
+        debug!(
+            service = %self.service_name,
+            position = payload.position,
+            state    = payload.state,
+            "D-Bus ItemsChanged switch émis"
+        );
         Ok(())
     }
 
@@ -273,24 +388,48 @@ impl SwitchServiceHandle {
 // Création du service
 // =============================================================================
 
+/// Crée et enregistre un service D-Bus `com.victronenergy.switch.{suffix}`.
+///
+/// - Si `controllable = true`, expose les chemins `/SwitchableOutput/0/...`
+///   et retourne un `cmd_rx` dans le handle pour la publication MQTT.
+/// - Si `controllable = false` (ex: ATS CHINT), expose uniquement `/Position`
+///   et `/State` (comportement hérité).
 pub async fn create_switch_service(
     dbus_bus:        &str,
     service_suffix:  &str,
     device_instance: u32,
     product_name:    String,
     custom_name:     String,
+    group:           String,
+    controllable:    bool,
 ) -> Result<SwitchServiceHandle> {
     let service_name = format!("{}.{}", VICTRON_SWITCH_PREFIX, service_suffix);
 
     info!(
-        service = %service_name,
-        device_instance = device_instance,
+        service      = %service_name,
+        device_instance,
+        controllable,
         "Enregistrement service D-Bus switch Venus OS"
     );
 
     let initial_values = Arc::new(Mutex::new(
-        SwitchValues::disconnected(device_instance, product_name.clone(), custom_name.clone())
+        SwitchValues::disconnected(
+            device_instance,
+            product_name.clone(),
+            custom_name.clone(),
+            group,
+            controllable,
+        )
     ));
+
+    // Canal de commande ON/OFF (uniquement si controllable)
+    let (cmd_tx, cmd_rx): (Option<mpsc::Sender<i32>>, Option<mpsc::Receiver<i32>>) =
+        if controllable {
+            let (tx, rx) = mpsc::channel(8);
+            (Some(tx), Some(rx))
+        } else {
+            (None, None)
+        };
 
     let root = SwitchRootIface { values: initial_values.clone() };
 
@@ -305,19 +444,28 @@ pub async fn create_switch_service(
         .build()
         .await?;
 
+    // Enregistrer un objet feuille pour chaque chemin exposé
     let leaf_paths: Vec<String> = {
         initial_values.lock().unwrap().to_items().into_keys().collect()
     };
 
     for path in &leaf_paths {
+        // Le canal de commande n'est transmis qu'à la feuille du chemin inscriptible
+        let leaf_cmd_tx = if path == PATH_SW_STATE { cmd_tx.clone() } else { None };
+
         conn.object_server()
-            .at(path.as_str(), BusItemLeaf { path: path.clone(), values: initial_values.clone() })
+            .at(path.as_str(), BusItemLeaf {
+                path:   path.clone(),
+                values: initial_values.clone(),
+                cmd_tx: leaf_cmd_tx,
+            })
             .await?;
     }
 
     info!(
-        service = %service_name,
-        paths   = leaf_paths.len(),
+        service      = %service_name,
+        paths        = leaf_paths.len(),
+        controllable,
         "Service D-Bus switch enregistré ({} chemins + racine /)",
         leaf_paths.len()
     );
@@ -325,9 +473,10 @@ pub async fn create_switch_service(
     Ok(SwitchServiceHandle {
         service_name,
         device_instance,
-        values: initial_values,
+        values:     initial_values,
         connection: conn,
         product_name,
         custom_name,
+        cmd_rx,
     })
 }
