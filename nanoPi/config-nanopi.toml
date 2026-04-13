@@ -115,7 +115,18 @@ device_instance = 40
 # D-Bus  : com.victronenergy.switch.mqtt_{mqtt_index}
 #
 # Position : 0=AC1 (onduleur)  1=AC2 (réseau)
-# State    : 0=inactive  1=active  2=alerted
+# State    : 0=Off  1=On  (Tasmota) / 0=inactive 1=active 2=alerted (ATS)
+#
+# command_topic (optionnel) :
+#   Si défini, expose /SwitchableOutput/0/State sur D-Bus → switch contrôlable
+#   depuis la console Venus OS (même principe que les switches Shelly).
+#   Lorsque l'utilisateur bascule ON/OFF dans la console, le service publie
+#   "ON" ou "OFF" sur ce topic MQTT Tasmota.
+#   → Sans command_topic : affichage lecture seule seulement (ex: ATS CHINT).
+#
+# group (optionnel) :
+#   Regroupe plusieurs switches sur la même carte dans la console Venus.
+#   Laisser vide = regroupement par service D-Bus (défaut).
 # -----------------------------------------------------------------------------
 [switch]
 topic_prefix = "santuario/switch"
@@ -124,26 +135,31 @@ topic_prefix = "santuario/switch"
 mqtt_index      = 1
 name            = "ATS CHINT"
 device_instance = 60
+# Pas de command_topic → ATS géré via Modbus RS485, lecture seule dans Venus
 
 [[switches]]
-mqtt_index      = 2                  # Tasmota tongou_3BC764 — forward depuis daly-bms-server
+mqtt_index      = 2
 name            = "tongou_3BC764"
 device_instance = 61
+command_topic   = "cmnd/tongou_3BC764/Power"   # → contrôlable depuis console Venus
 
 [[switches]]
 mqtt_index      = 3
 name            = "tongou_0A3FA0"
 device_instance = 62
+command_topic   = "cmnd/tongou_0A3FA0/Power"
 
 [[switches]]
 mqtt_index      = 4
 name            = "tongou_0A3C14"
 device_instance = 63
+command_topic   = "cmnd/tongou_0A3C14/Power"
 
 [[switches]]
 mqtt_index      = 5
 name            = "tongou_0A4040"
 device_instance = 64
+command_topic   = "cmnd/tongou_0A4040/Power"
 
 # -----------------------------------------------------------------------------
 # Compteurs réseau / consommation AC

@@ -302,6 +302,25 @@ pub struct SwitchRef {
 
     /// DeviceInstance Venus OS D-Bus.
     pub device_instance: Option<u32>,
+
+    /// Topic MQTT de commande Tasmota (optionnel).
+    ///
+    /// Si défini, expose les chemins `/SwitchableOutput/0/...` sur D-Bus,
+    /// ce qui rend le switch contrôlable ON/OFF depuis la console Victron.
+    ///
+    /// Lorsque l'utilisateur bascule le switch dans la console Venus OS,
+    /// le service publie `"ON"` ou `"OFF"` sur ce topic MQTT.
+    ///
+    /// Exemples :
+    /// - Tasmota   : `"cmnd/tongou_3BC764/Power"`
+    /// - Shelly    : `"shellies/shelly1-ABCDEF/relay/0/command"`
+    pub command_topic: Option<String>,
+
+    /// Groupe d'affichage dans la console Venus OS (optionnel).
+    ///
+    /// Les switches avec le même groupe sont regroupés sur une même carte.
+    /// Laissé vide = regroupement par service D-Bus (défaut).
+    pub group: Option<String>,
 }
 
 // =============================================================================
