@@ -20,7 +20,7 @@
 'use strict';
 
 const h = React.createElement;
-const { useState, useEffect, useCallback, useRef, memo } = React;
+const { useState, useEffect, useCallback, useRef, useMemo, memo } = React;
 const { ReactFlow, Background, Controls, Panel, Handle, Position, useNodesState, useEdgesState, getSmoothStepPath } = window.ReactFlow;
 
 const fmtKw  = w  => w  != null ? `${(w / 1000).toFixed(2)} kW` : '—';
@@ -748,19 +748,87 @@ function InverterNode({ data }) {
   );
 }
 
-function DoubleLineEdge({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style }) {
-  const color = style?.stroke ?? '#2563eb';
-  const [edgePath] = getSmoothStepPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, borderRadius: 5 });
-  const isH = Math.abs(targetX - sourceX) >= Math.abs(targetY - sourceY);
-  const ox = isH ? 0 : 3, oy = isH ? 3 : 0;
-  const base = { fill: 'none', stroke: color, strokeWidth: 2, strokeOpacity: 0.25, strokeLinecap: 'round' };
-  const flow = (delay) => ({ fill: 'none', stroke: color, strokeWidth: 2, strokeLinecap: 'round', strokeDasharray: '10 8', animation: `dle-flow 1.1s linear ${delay} infinite` });
-  return h('g', null,
-    h('path', { d: edgePath, style: base, transform: `translate(${ox},${oy})` }),
-    h('path', { d: edgePath, style: base, transform: `translate(${-ox},${-oy})` }),
-    h('path', { d: edgePath, style: flow('0s'), transform: `translate(${ox},${oy})` }),
-    h('path', { d: edgePath, style: flow('0.55s'), transform: `translate(${-ox},${-oy})` }),
+// ── ANIMATED FLOW EDGE (WAAPI offset-distance) ───────────────────────────────
+function AnimatedFlowEdge({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style, data }) {
+  const color      = style?.stroke ?? '#2563eb';
+  const edgePath   = useMemo(
+    () => getSmoothStepPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, borderRadius: 5 })[0],
+    [sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition]
   );
+  const isH        = Math.abs(targetX - sourceX) >= Math.abs(targetY - sourceY);
+  const ox         = isH ? 0 : 3;
+  const oy         = isH ? 3 : 0;
+
+  const flowValue  = data?.flowValue    ?? 0;
+  const flowSpeed  = data?.flowSpeed    ?? 1;
+  const flowColor  = data?.flowColor    ?? color;
+  const reverse    = data?.reverse      ?? false;
+  const pCount     = Math.max(1, Math.min(5, data?.particleCount ?? 2));
+  const isActive   = flowValue > 0;
+
+  const particleRefs = useRef([]);
+  const animsRef     = useRef([]);
+
+  useEffect(function () {
+    // Annuler les animations précédentes
+    animsRef.current.forEach(function (a) { try { if (a) a.cancel(); } catch (_) {} });
+    animsRef.current = [];
+    if (!isActive) return;
+
+    // Durée : baseDuration=2000ms / vitesse, bornée entre 500ms et 5000ms
+    const duration  = Math.max(500, Math.min(5000, 2000 / Math.max(0.4, flowSpeed)));
+    const keyframes = reverse
+      ? [{ offsetDistance: '100%' }, { offsetDistance: '0%'   }]
+      : [{ offsetDistance: '0%'   }, { offsetDistance: '100%' }];
+
+    const newAnims = [];
+    for (let i = 0; i < pCount; i++) {
+      const el = particleRefs.current[i];
+      if (!el) continue;
+      try {
+        el.style.offsetPath = "path('" + edgePath + "')";
+        const anim = el.animate(keyframes, {
+          duration: duration, iterations: Infinity, easing: 'linear',
+          delay: -(duration / pCount) * i,   // décalage pour flux continu
+        });
+        newAnims.push(anim);
+      } catch (err) { console.warn('[AnimatedFlowEdge] WAAPI:', err); }
+    }
+    animsRef.current = newAnims;
+
+    return function () {
+      newAnims.forEach(function (a) { try { if (a) a.cancel(); } catch (_) {} });
+    };
+  }, [edgePath, isActive, flowSpeed, reverse, pCount]);
+
+  const lineOpacity = isActive ? 0.55 : 0.25;
+  const lineStyle   = { fill: 'none', stroke: color, strokeWidth: 2, strokeOpacity: lineOpacity, strokeLinecap: 'round' };
+  const children    = [
+    h('path', { key: 'l1', d: edgePath, style: lineStyle, transform: 'translate(' + ox + ',' + oy + ')' }),
+    h('path', { key: 'l2', d: edgePath, style: lineStyle, transform: 'translate(' + (-ox) + ',' + (-oy) + ')' }),
+  ];
+
+  if (isActive) {
+    for (let i = 0; i < pCount; i++) {
+      children.push(h('circle', {
+        key:  'p' + i,
+        r:    4,
+        cx:   0,
+        cy:   0,
+        fill: flowColor,
+        ref:  (function (idx) { return function (el) { particleRefs.current[idx] = el; }; })(i),
+        style: {
+          offsetPath:     "path('" + edgePath + "')",
+          offsetDistance: reverse ? '100%' : '0%',
+          offsetRotate:   '0deg',
+          willChange:     'offset-distance',
+          filter:         'drop-shadow(0 0 3px ' + flowColor + ')',
+        },
+      }));
+    }
+  }
+
+  return h('g', null, ...children);
 }
 
 const nodeTypes = {
@@ -771,7 +839,7 @@ const nodeTypes = {
   inverter: InverterNode,
   atsreseau: AtsReseauNode, atsonduleur: AtsOnduleurNode, atsmain: AtsMainNode
 };
-const edgeTypes = { doubleLine: DoubleLineEdge };
+const edgeTypes = { doubleLine: AnimatedFlowEdge };
 
 const NODES0 = [
   { id: 'production',  type: 'summary',     position: { x: -350,  y: 10  }, data: { label: 'Production',      icon: '☀️',  value: '—',   sub: 'Micro-onduleurs',        dotClass: '' } },
@@ -897,11 +965,50 @@ function ESSFlow() {
     const irrSub  = irr?.total_yield_kwh != null ? `☀ ${irr.total_yield_kwh.toFixed(1)} kWh` : 'Irradiance solaire';
     const irrDot  = irr ? 'live' : '';
 
-    if (ats) {
-      const sw1C = (ats.sw1 || '').includes('Fermé');
-      const sw2C = (ats.sw2 || '').includes('Fermé');
-      const midOff = (ats.middleOFF || '').includes('Activé');
+    // Mise à jour des données de flux (WAAPI) + arêtes ATS dynamiques en un seul appel
+    setEdges(function (prev) {
+      // ── Flux de puissance pour chaque arête doubleLine ──────────────────────
+      const withFlow = prev.map(function (e) {
+        if (e.type !== 'doubleLine') return e;
+        let fv = 0, rev = false;
+        switch (e.id) {
+          case 'e-ats-maison':
+          case 'e-maison-switchs':  fv = Math.abs(et8?.power_w              ?? 0); break;
+          case 'e-ats-micro':       fv = Math.abs(et7?.power_w              ?? 0); break;
+          case 'e-onduleur-ats':    fv = Math.abs(inverter?.ac_output_power_w ?? 0); rev = true; break;
+          case 'e-ats-reseau':
+          case 'e-reseau-onduleur': fv = Math.abs(et9?.power_w              ?? 0); break;
+          case 'e-mppt-shu':        fv = mpptTotalPowerW;                          break;
+          case 'e-ond-shu':         fv = Math.abs(inverter?.power_w         ?? 0); break;
+          case 'e-hub-shu':         fv = mpptTotalPowerW + Math.abs(inverter?.power_w ?? 0); break;
+          case 'e-shu-hubBMS': {
+            const pw = shunt?.power_w ?? 0; fv = Math.abs(pw); rev = pw < 0; break;
+          }
+          case 'e-hubBMS-b1': {
+            const pw = bms1?.Dc?.Power ?? 0; fv = Math.abs(pw); rev = pw < 0; break;
+          }
+          case 'e-hubBMS-b2': {
+            const pw = bms2?.Dc?.Power ?? 0; fv = Math.abs(pw); rev = pw < 0; break;
+          }
+        }
+        return {
+          ...e,
+          data: {
+            flowValue:     fv,
+            reverse:       rev,
+            flowSpeed:     Math.min(4, Math.max(0.4, fv / 500)),
+            flowColor:     e.style?.stroke ?? '#2563eb',
+            particleCount: 2,
+          },
+        };
+      });
 
+      // ── Arêtes ATS dynamiques (type smoothstep, non doubleLine) ─────────────
+      if (!ats) return withFlow;
+
+      const sw1C   = (ats.sw1 || '').includes('Fermé');
+      const sw2C   = (ats.sw2 || '').includes('Fermé');
+      const midOff = (ats.middleOFF || '').includes('Activé');
       const atsEdges = [];
       if (!midOff) {
         if (sw2C) atsEdges.push({
@@ -917,9 +1024,8 @@ function ESSFlow() {
           style: { stroke: '#10b981', strokeWidth: 2, strokeDasharray: '4 4' }
         });
       }
-
-      setEdges(prev => [...prev.filter(e => !e.id.startsWith('ats-e')), ...atsEdges]);
-    }
+      return [...withFlow.filter(function (e) { return !e.id.startsWith('ats-e'); }), ...atsEdges];
+    });
 
     const newRev = atsRev + 1;
     setAtsRev(newRev);
