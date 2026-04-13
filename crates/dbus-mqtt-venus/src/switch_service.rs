@@ -208,6 +208,11 @@ impl SwitchValues {
                 DbusItem::str(&self.product_name));
             m.insert("/SwitchableOutput/0/Settings/Type".into(),
                 DbusItem::i32(1));   // 1 = toggle
+            // ValidTypes : champ binaire — bit N = type N supporté.
+            // Bit 1 (valeur 2) = toggle. OBLIGATOIRE pour que le GUI
+            // affiche le widget de contrôle ON/OFF (sans lui, output = non-contrôlable).
+            m.insert("/SwitchableOutput/0/Settings/ValidTypes".into(),
+                DbusItem::i32(0b0010));  // 2 = toggle uniquement
             m.insert("/SwitchableOutput/0/Settings/CustomName".into(),
                 DbusItem::str(&self.custom_name));
             m.insert("/SwitchableOutput/0/Settings/Group".into(),
