@@ -189,9 +189,9 @@ topic_prefix = "santuario/grid"
 #
 # ARCHITECTURE 3 ET112 SUR PI5 (migration depuis Victron) :
 #
-#   ET112 #1 — Micro-inverseurs (mqtt_index=3, device_instance=63)
+#   ET112 #1 — Micro-onduleurs (mqtt_index=3, device_instance=63)
 #     → Remplace com.victronenergy.pvinverter.cgwacs_ttyUSB0_mb2 (Victron direct)
-#     → Adresse RS485 actuelle : 0x03 (Pi5 /dev/ttyUSB1)
+#     → Adresse RS485 actuelle : 0x07 (Pi5 /dev/ttyUSB1)
 #     → Publié par daly-bms-server → santuario/pvinverter/3/venus
 #
 #   ET112 #2 — PAC Climatisation (acload) → section [[grids]] mqtt_index=4
