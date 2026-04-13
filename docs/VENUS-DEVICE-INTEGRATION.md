@@ -570,7 +570,7 @@ mosquitto_sub -h localhost -t "santuario/heatpump/1/venus" -v
 <https://github.com/victronenergy/venus/wiki/dbus#switches>
 
 Chemins exposés :
-- `/Position` — 0=AC1 (réseau), 1=AC2 (générateur/onduleur)
+- `/Position` — 0=AC1 (onduleur), 1=AC2 (réseau)
 - `/State` — 0=inactive, 1=active, 2=alerted
 - `/Connected`, `/ProductName`, `/DeviceInstance`
 
@@ -599,8 +599,8 @@ Payload JSON (publié par Node-RED) :
 
 | Position | Signification |
 |---|---|
-| 0 | AC1 — réseau EDF |
-| 1 | AC2 — onduleur / groupe |
+| 0 | AC1 — onduleur |
+| 1 | AC2 — réseau |
 
 ### 4. Service D-Bus résultant
 
