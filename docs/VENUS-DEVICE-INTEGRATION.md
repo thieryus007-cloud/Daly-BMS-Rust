@@ -825,3 +825,241 @@ Toujours compiler avec `--target armv7-unknown-linux-gnueabihf`.
 Les volumes Node-RED sont persistants. Si les flux disparaissent :
 1. Vérifier `docker volume ls | grep nodered`
 2. Réimporter depuis `flux-nodered/*.json`
+
+
+### annexe: Victron switch parameters
+
+com.victronenergy.switch
+
+Generic:
+/State          <-- Current state of the whole module. Visible in the UI in the Device List -> 
+                    SmartSwitch -> Settings. Not visible on the switch card, also not necessary
+                    because in case of a module level problem, all channels will indicate disabled.
+                    Values offset by 0x100 to allow common state component in QML
+                    0x100 = Connected
+                    0x101 = Over temperature
+                    0x102 = Temperature warning
+                    0x103 = Channel fault
+                    0x104 = Channel Tripped
+                    0x105 = Under Voltage
+
+CONFIGURATION PATHS PER CHANNEL:
+There may be channel wide configuration which must be set before the channel can identify 
+itself as a switchable output or as a generic input. For this, the following paths can be used. 
+Make sure the same channel index ('x') is used both here and in the 
+switchable output or generic input API. 
+
+/Channel/x/Direction                 <-- RW (optional) Set the channel direction. 0: output, 1: input, -1: not defined (yet)
+
+OPERATIONAL PATHS PER CHANNEL:
+Note that <x> should be a clear label of the output channel, not necessarily an integer. 
+<x> can be used in the UI to display the output when /SwitchableOutput/x/Settings/CustomName 
+is not set or not valid.
+
+/SwitchableOutput/x/State             <-- RW (optional) / Requested on/off state of channel, separate from dimming.
+                                          In rare cases, state can be absent/invalid. If this is the case, the 
+                                          UI element in the switch pane should not be shown.
+/SwitchableOutput/x/Dimming           <-- RW (optional) / 0 to 100%, read/write.
+                                          Optional: required only for dimmable outputs, otherwise invalid or
+                                          doesn't exist. 
+/SwitchableOutput/x/LightControls     <-- RW (optional) 
+                                          Used for multi-channel dimmers (types 11, 12, 13), this is 
+                                          an array of ints with the following values:
+                                          0 | Hue               | 0 - 360 degrees
+                                          1 | Saturation        | 0 - 100 %
+                                          2 | Brightness        | 0 - 100 %
+                                          3 | White             | 0 - 100 %
+                                          4 | Color temperature | 0 - 6500 K
+                                          Producers should change the parameters relevant for their type (check /Type)
+                                          Do not set the unused parameters to invalid or NULL.
+/SwitchableOutput/x/Measurement       <-- R (optional) / Measured value of the actuator that is controlled by /Dimming. 
+                                          e.g. for a temperature setpoint slider, /Dimming holds the setpoint value and
+                                          /Measurement holds the measured temperature, if available.
+                                          GUI will display the measured value if this path is populated. 
+/SwitchableOutput/x/Name              <-- R / Channel default name, must be set by the driver and is not writable.
+/SwitchableOutput/x/Status            <-- R / Channel status
+
+                       Normal states, visible in the component itself:
+                       0x00 = Off
+                       0x09 = On <- OR-ed state of Active and Input Active. Note that the 0x8 output fault bit is set in normal operation.
+
+                       Exceptional states visible in the component itself
+
+                       0x02 = Tripped
+                       0x04 = Over temperature
+
+                       Exceptional states, made visible by a extra label in the UI:
+                       0x01 = Powered <- Voltage present on the Channels supply in the case where the 
+                                         channels are individually supplied or if not and channel output
+                                         is being back fed. In latter case query if input/analog input 
+                                         and if they go on dbus as com.victronenergy.digitalinput
+                       0x08 = Output fault <- Generic output fault.
+                       0x10 = Short fault  <- A certain hardware error that the switch self-diagnoses (ES Smart switch specific)
+                       0x20 = Disabled     <- The hardware indicates this status in case for some 
+                                              reason the switch is disabled. For example in case
+                                              the whole module is in over temperature.
+                       0x40 = Bypassed     <- The switching circuit is bypassed, so the channel is permanently on.
+                       0x80 = Ext. control <- The switching circuit is externally controlled and dimming/value might not be valid. 
+                                              For example for a RGB light that is in sound mode, it is not needed to continuously update the color.
+/SwitchableOutput/x/Auto           <-- RW (optional) Used by the three-state switch (9) and bilge pump control (10). 
+                                       When set, the driver or another service will control `/State`, and 
+                                       the user cannot control the state from the UI.
+                                       0: Manual mode, user can control the output from the UI. (default)
+                                       1: Auto mode, user cannot control the output from the UI.
+/SwitchableOutput/x/Temperature    <-- R / temperature of the switch,
+                                       Optional: not all output types will feature temp. measurement.
+/SwitchableOutput/x/Voltage        <-- R / voltage of its output
+                                       Optional: not all output types will feature voltage measurement.
+/SwitchableOutput/x/Current        <-- R / the current in amps. optional
+                                       Optional: not all output types will feature current measurement.
+
+
+SETTINGS:
+/SwitchableOutput/x/Settings/Adjustable        <-- R (optional) / Indicates if ALL settings are writable / adjustable or not. 
+                                                   Setting the path explicitly to 0 makes all settings read-only.
+                                                   0: Settings are not adjustable
+                                                   1 / any other value / not present / invalid: Settings are adjustable
+
+/SwitchableOutput/x/Settings/Group             <-- RW / max 32 bytes utf8 long string, free input, used by the 
+                                                   UI to group switches with the same group name onto 
+                                                   the same card. When left blank (dbus-invalid), the UI 
+                                                   falls back to grouping them by dbus service.
+/SwitchableOutput/x/Settings/CustomName        <-- RW / the label; max 32 bytes utf8 long string. Preferably stored on the device itself.
+/SwitchableOutput/x/Settings/ShowUIControl     <-- RW / integer
+
+                                                   (optional) Indicate if the control is shown in the local  and in the remote UI
+                                                   If used, set to 1 by default.
+                                                   (for usage in Node-RED, but not in the gui)
+
+                                                   Values:
+                                                   0bxx1: Show control in all UI's
+                                                   0b000: Hide in all UI's
+                                                   0bx10: Show in local UI's (GUI running natively on GX, MFD and WASM over local LAN)
+                                                   0b1x0: Show in remote UI's (VRM remote console and VRM switch pane)
+
+/SwitchableOutput/x/Settings/Type              <-- RW / Specifies the output type:
+                                                       0 = momentary
+                                                       1 = toggle
+                                                       2 = dimmable (pwm)
+                                                       3 = Temperature setpoint
+                                                       4 = Stepped switch
+                                                       5 = Slave mode (ES Smartswitch only)
+                                                       6 = Dropdown
+                                                       7 = Basic slider
+                                                       8 = Numeric input box
+                                                       9 = Three-state switch
+                                                       10 = Bilge pump control
+                                                       11 = RGB color wheel
+                                                       12 = CCT color wheel
+                                                       13 = RGBW color wheel
+                                                   Preferably stored on the device itself. 
+                                                   The device should reset the output to its inactive state
+                                                   when the type is changed to momentary to prevent the 
+                                                   output being in the active state while the user is not 
+                                                   pressing the button.
+/SwitchableOutput/x/Settings/ValidTypes        <-- R / binary field where each bit corresponds to the 
+                                                   enum of xx/type indicates which options the UI should 
+                                                   provide to the user.
+
+                                                   In case the output is not controllable, set /ValidTypes to 0 and invalidate /Type.
+/SwitchableOutput/x/Settings/Function          <-- RW (optional) / Set the function of the digital output. The function is
+                                                   currently only used with digital outputs (of type "toggle"),
+                                                   so not with dimmable outputs.
+
+                                                   Note that currently only the GX internal relays support
+                                                   functions other than "Manual".
+                                                   When the path is invalid or absent, the function is set to manual
+
+                                                   0: Alarm
+                                                   1: Generator start/stop
+                                                   2: Manual, 
+                                                   3: Tank pump
+                                                   4: Temperature
+                                                   5: Genset helper relay
+                                                   6: Opportunity load
+
+                                                   ES SmartSwitch: only manual
+                                                   GX: builtin relays all options, second relay at 
+                                                   least manual, alarm (new) and temperature
+                                                   IO extender: only manual
+                                                   BMV, smartsolar, other: only manual 
+                                                   
+/SwitchableOutput/x/Settings/ValidFunctions    <-- R / binary field where each bit corresponds 
+                                                   to the enum of xx/function indicates which options the UI 
+                                                   should provide to the user.
+/SwitchableOutput/x/Settings/FuseRating        <-- RW (optional) Channel trip rating in amps; 
+                                                   Preferably stored on the device. 
+                                                   GetMin and GetMax are implemented to get the limits.
+/SwitchableOutput/x/Settings/DimmingMin        <-- RW (optional) Only used for dimmable outputs. Defines
+                                                   the minimum dimvalue. 0 will be used if omitted.
+/SwitchableOutput/x/Settings/DimmingMax        <-- RW (optional) Only used for dimmable outputs. Defines
+                                                   the maximum dimvalue. 100 will be used if omitted.
+/SwitchableOutput/x/Settings/StepSize          <-- RW (optional) Only used for dimmable outputs. Defines 
+                                                   the stepsize of the output. If not present, 
+                                                   a stepsize of 1 should be used.
+/SwitchableOutput/x/Settings/Decimals          <-- RW (optional) Only used for dimmable outputs. Defines the number 
+                                                   of decimals to use when the GUI cannot accurately determine 
+                                                   it from the stepsize path. Set this to enforce the number of decimals.
+/SwitchableOutput/x/Settings/Unit              <-- RW (optional) Text field with the unit to display.
+                                                   Only applicable to the Basic Slider (7) and Numeric input (8).
+
+                                                   There are three units configurable by the user in Venus OS:
+                                                   Speed (Knots, km/h, ..), Temperature (Celcius, Fahrenheit),
+                                                   Volume (Litres, m3, ... ).
+
+                                                   To all switches/node-red and so forth systems to have controls
+                                                   in the units that are configured system wide by the user, we
+                                                   introduce special texts that the UI control will recognize
+                                                   and when used it will use the user configured unit:
+
+                                                   1. Speed: keyword: "/Speed", base unit: m/s
+                                                   2. Temperature: keyword: "/Temperature", base unit: Degrees Celsius
+                                                   3. Volume: keyword: "/Volume", base unit: m3
+
+                                                   The data (dimming, min, max, stepsize, actual value) is then to
+                                                   be sent in the corresponding base unit.
+
+                                                   For other use cases, when its not wanted, then there is still the
+                                                   freedom that we had: path is set to which ever string/unit, and
+                                                   data is sent is in the same unit.
+
+                                                   Note that the temperature slider is already doing this, and doesn't
+                                                   have this Settings/Unit path.
+/SwitchableOutput/x/Settings/Polarity          <-- RW (optional) Polarity of the output.
+                                                     0: Active high / Normally open
+                                                     1: Active low / Normally closed
+/SwitchableOutput/x/Settings/StartupState      <-- RW (optional) Defines the state of the output when the 
+                                                   device is powered on.
+
+                                                   0: Output off
+                                                   1: Output on
+                                                   2: Restore from memory (default)
+/SwitchableOutput/x/Settings/StartupDimming    <-- RW (optional) Defines the dim level of a dimmable output
+                                                   when the device is powered on.
+
+                                                   0-100: Fixed value to be written at startup
+                                                   -1: Restore from memory (default)
+/SwitchableOutput/x/Settings/StartupState          RW (optional): Defines the initial state of the output
+                                                   0: off
+                                                   1: on
+                                                   -1: restore last state from memory
+/SwitchableOutput/x/Settings/DimCurve              RW (optional): Defines the dimming curve
+                                                   0: Linear
+                                                   1: Optical
+/SwitchableOutput/x/Settings/OutputLimitMin        RW (optional): Float value between 0 and 100%. 4
+                                                   PWM duty-cycle corresponding to 0% dimlevel
+/SwitchableOutput/x/Settings/OutputLimitMax        RW (optional): Float value between 0 and 100%. 
+                                                   PWM duty-cycle corresponding to 100% dimlevel
+/SwitchableOutput/x/Settings/FuseDetection     <-- RW (optional) Set fuse detection mode on the DC Distribution board
+                                                   0: Disabled
+                                                   1: Enabled
+                                                   2: Only when the output is off
+/SwitchableOutput/x/Settings/Labels            <-- RW (optional) Define the labels of the multi-option switch.
+                                                   For a multi-option switch, the `min` of the `/Dimming` path must be 0.
+                                                   The `max` of the `/Dimming` path then defines the number of options.
+                                                   The `../Labels/` path defines the labels of the presented options 
+                                                   as a string array:
+                                                   ["Label 1","Label 2", "Label 3"]
+                                                   
+
+
