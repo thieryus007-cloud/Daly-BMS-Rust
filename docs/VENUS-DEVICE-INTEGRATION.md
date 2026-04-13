@@ -562,7 +562,7 @@ mosquitto_sub -h localhost -t "santuario/heatpump/1/venus" -v
 
 ---
 
-## Exemple : Switch / ATS CHINT
+## Exemple : Switch / ATS CHINT. -- voir annexe victron switch parameter -- bas de page
 
 ### 1. Type D-Bus utilisé
 
