@@ -21,7 +21,7 @@
 
 const h = React.createElement;
 const { useState, useEffect, useCallback, useRef, useMemo, memo } = React;
-const { ReactFlow, Background, Controls, Panel, Handle, Position, useNodesState, useEdgesState, getSmoothStepPath } = window.ReactFlow;
+const { ReactFlow, Background, Controls, Panel, Handle, Position, useNodesState, useEdgesState, getSmoothStepPath, getBezierPath } = window.ReactFlow;
 
 const fmtKw  = w  => w  != null ? `${(w / 1000).toFixed(2)} kW` : '—';
 const socColor = s => s > 60 ? '#16a34a' : s > 30 ? '#ca8a04' : '#dc2626';
@@ -831,6 +831,152 @@ function AnimatedFlowEdge({ sourceX, sourceY, targetX, targetY, sourcePosition, 
   return h('g', null, ...children);
 }
 
+// ── CUSTOM BEZIER EDGE (même animation que AnimatedFlowEdge, chemin Bézier) ────
+function CustomBezierEdge({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style, data }) {
+  const color    = style?.stroke ?? '#2563eb';
+  const edgePath = useMemo(
+    () => getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition })[0],
+    [sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition]
+  );
+  const isH      = Math.abs(targetX - sourceX) >= Math.abs(targetY - sourceY);
+  const ox       = isH ? 0 : 3;
+  const oy       = isH ? 3 : 0;
+
+  const flowValue  = data?.flowValue    ?? 0;
+  const flowSpeed  = data?.flowSpeed    ?? 1;
+  const flowColor  = data?.flowColor    ?? color;
+  const reverse    = data?.reverse      ?? false;
+  const pCount     = Math.max(1, Math.min(5, data?.particleCount ?? 2));
+  const isActive   = flowValue > 0;
+
+  const particleRefs = useRef([]);
+  const animsRef     = useRef([]);
+
+  useEffect(function () {
+    animsRef.current.forEach(function (a) { try { if (a) a.cancel(); } catch (_) {} });
+    animsRef.current = [];
+    if (!isActive) return;
+    const duration  = Math.max(500, Math.min(5000, 2000 / Math.max(0.4, flowSpeed)));
+    const keyframes = reverse
+      ? [{ offsetDistance: '100%' }, { offsetDistance: '0%'   }]
+      : [{ offsetDistance: '0%'   }, { offsetDistance: '100%' }];
+    const newAnims = [];
+    for (let i = 0; i < pCount; i++) {
+      const el = particleRefs.current[i];
+      if (!el) continue;
+      try {
+        el.style.offsetPath = "path('" + edgePath + "')";
+        const anim = el.animate(keyframes, {
+          duration: duration, iterations: Infinity, easing: 'linear',
+          delay: -(duration / pCount) * i,
+        });
+        newAnims.push(anim);
+      } catch (err) { console.warn('[CustomBezierEdge] WAAPI:', err); }
+    }
+    animsRef.current = newAnims;
+    return function () {
+      newAnims.forEach(function (a) { try { if (a) a.cancel(); } catch (_) {} });
+    };
+  }, [edgePath, isActive, flowSpeed, reverse, pCount]);
+
+  const lineOpacity = isActive ? 0.55 : 0.25;
+  const lineStyle   = { fill: 'none', stroke: color, strokeWidth: 2, strokeOpacity: lineOpacity, strokeLinecap: 'round' };
+  const children    = [
+    h('path', { key: 'l1', d: edgePath, style: lineStyle, transform: 'translate(' + ox + ',' + oy + ')' }),
+    h('path', { key: 'l2', d: edgePath, style: lineStyle, transform: 'translate(' + (-ox) + ',' + (-oy) + ')' }),
+  ];
+  if (isActive) {
+    for (let i = 0; i < pCount; i++) {
+      children.push(h('circle', {
+        key:  'p' + i,
+        r: 4, cx: 0, cy: 0,
+        fill: flowColor,
+        ref:  (function (idx) { return function (el) { particleRefs.current[idx] = el; }; })(i),
+        style: {
+          offsetPath:     "path('" + edgePath + "')",
+          offsetDistance: reverse ? '100%' : '0%',
+          offsetRotate:   '0deg',
+          willChange:     'offset-distance',
+          filter:         'drop-shadow(0 0 3px ' + flowColor + ')',
+        },
+      }));
+    }
+  }
+  return h('g', null, ...children);
+}
+
+// ── TRIPLE ATS EDGE (3 lignes pointillées parallèles, point sur la ligne centrale) ─
+function TripleAtsEdge({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style, data }) {
+  const color  = style?.stroke ?? '#10b981';
+  const GAP    = 5;
+  const useBez = data?.useBezier ?? false;
+
+  const edgePath = useMemo(function () {
+    return useBez
+      ? getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition })[0]
+      : getSmoothStepPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, borderRadius: 5 })[0];
+  }, [sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, useBez]);
+
+  const isH = Math.abs(targetX - sourceX) >= Math.abs(targetY - sourceY);
+  const ox  = isH ? 0 : GAP;
+  const oy  = isH ? GAP : 0;
+
+  const flowValue = data?.flowValue ?? 0;
+  const flowSpeed = data?.flowSpeed ?? 1;
+  const flowColor = data?.flowColor ?? color;
+  const reverse   = data?.reverse   ?? false;
+  const isActive  = flowValue > 0;
+
+  const particleRef = useRef(null);
+  const animRef     = useRef(null);
+
+  useEffect(function () {
+    try { if (animRef.current) animRef.current.cancel(); } catch (_) {}
+    animRef.current = null;
+    if (!isActive) return;
+    const duration  = Math.max(500, Math.min(5000, 2000 / Math.max(0.4, flowSpeed)));
+    const keyframes = reverse
+      ? [{ offsetDistance: '100%' }, { offsetDistance: '0%' }]
+      : [{ offsetDistance: '0%'   }, { offsetDistance: '100%' }];
+    try {
+      if (particleRef.current) {
+        particleRef.current.style.offsetPath = "path('" + edgePath + "')";
+        animRef.current = particleRef.current.animate(keyframes, {
+          duration: duration, iterations: Infinity, easing: 'linear',
+        });
+      }
+    } catch (err) { console.warn('[TripleAtsEdge] WAAPI:', err); }
+    return function () {
+      try { if (animRef.current) animRef.current.cancel(); } catch (_) {}
+    };
+  }, [edgePath, isActive, flowSpeed, reverse]);
+
+  const lineOpacity = isActive ? 0.7 : 0.45;
+  const dashStyle   = { fill: 'none', stroke: color, strokeWidth: 2, strokeOpacity: lineOpacity, strokeDasharray: '6 6', strokeLinecap: 'round' };
+
+  const children = [
+    h('path', { key: 'l1', d: edgePath, style: dashStyle, transform: 'translate(' + ox    + ',' + oy    + ')' }),
+    h('path', { key: 'l2', d: edgePath, style: dashStyle }),
+    h('path', { key: 'l3', d: edgePath, style: dashStyle, transform: 'translate(' + (-ox) + ',' + (-oy) + ')' }),
+  ];
+  if (isActive) {
+    children.push(h('circle', {
+      key:  'dot',
+      r: 4, cx: 0, cy: 0,
+      fill: flowColor,
+      ref:  function (el) { particleRef.current = el; },
+      style: {
+        offsetPath:     "path('" + edgePath + "')",
+        offsetDistance: reverse ? '100%' : '0%',
+        offsetRotate:   '0deg',
+        willChange:     'offset-distance',
+        filter:         'drop-shadow(0 0 3px ' + flowColor + ')',
+      },
+    }));
+  }
+  return h('g', null, ...children);
+}
+
 const nodeTypes = {
   summary: SummaryNode, bms: BmsNode, et112card: Et112CardNode, device: DeviceNode,
   hub: HubNode, placeholder: PlaceholderNode, mpptGroup: MPPTGroupNode, smartshunt: SmartShuntNode,
@@ -839,7 +985,7 @@ const nodeTypes = {
   inverter: InverterNode,
   atsreseau: AtsReseauNode, atsonduleur: AtsOnduleurNode, atsmain: AtsMainNode
 };
-const edgeTypes = { doubleLine: AnimatedFlowEdge };
+const edgeTypes = { doubleLine: AnimatedFlowEdge, customBezier: CustomBezierEdge, tripleAts: TripleAtsEdge };
 
 const NODES0 = [
   { id: 'production',  type: 'summary',     position: { x: -350,  y: 10  }, data: { label: 'Production',      icon: '☀️',  value: '—',   sub: 'Micro-onduleurs',        dotClass: '' } },
@@ -872,19 +1018,19 @@ function mkEdge(id, src, tgt, color, opts = {}) {
 }
 
 const EDGES0 = [
-  mkEdge('e-ats-maison', 'ats-main', 'et112-maison',   COLOR.ac,  { sourceHandle: 'main-right', targetHandle: 'tl' }),
-  mkEdge('e-ats-micro', 'micro-ond', 'ats-onduleur',   COLOR.ac,  { sourceHandle: 'sl', targetHandle: 'onduleur-right' }),
+  mkEdge('e-ats-maison', 'ats-main', 'et112-maison',   COLOR.ac,  { sourceHandle: 'main-right', targetHandle: 'tl', type: 'customBezier' }),
+  mkEdge('e-ats-micro', 'micro-ond', 'ats-onduleur',   COLOR.ac,  { sourceHandle: 'sl', targetHandle: 'onduleur-right', type: 'customBezier' }),
   mkEdge('e-onduleur-ats', 'ats-onduleur', 'onduleur',   COLOR.ac,  { sourceHandle: 'onduleur-bottom', targetHandle: 'tt' }),
-  mkEdge('e-maison-switchs', 'et112-maison', 'tongou-group',   COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tl' }),
+  mkEdge('e-maison-switchs', 'et112-maison', 'tongou-group',   COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tl', type: 'customBezier' }),
   mkEdge('e-ats-reseau', 'ats-reseau', 'et112-reseau',   COLOR.ac,  { sourceHandle: 'reseau-et112reseau', targetHandle: 'tt' }),
   mkEdge('e-reseau-onduleur', 'et112-reseau', 'onduleur',   COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tl' }),
-  mkEdge('e-mppt-shu', 'mppt',      'hubMPPT', COLOR.dc,  { sourceHandle: 'sl', targetHandle: 'tr' }),
+  mkEdge('e-mppt-shu', 'mppt',      'hubMPPT', COLOR.dc,  { sourceHandle: 'sl', targetHandle: 'tr', type: 'customBezier' }),
   mkEdge('e-ond-shu',  'onduleur',  'hubMPPT', COLOR.dc,  { sourceHandle: 'sb', targetHandle: 'tt' }),
   mkEdge('e-hub-shu',  'hubMPPT',  'smartshunt', COLOR.dc,  { sourceHandle: 'sb', targetHandle: 'tt' }),
   mkEdge('e-shu-hubBMS', 'smartshunt','hubBMS',       COLOR.bat, { sourceHandle: 'sb', targetHandle: 'tt' }),
-  mkEdge('e-hubBMS-b1',  'hubBMS', 'bms1',       COLOR.bat, { sourceHandle: 'sl', targetHandle: 'tt' }),
+  mkEdge('e-hubBMS-b1',  'hubBMS', 'bms1',       COLOR.bat, { sourceHandle: 'sl', targetHandle: 'tt', type: 'customBezier' }),
   mkEdge('e-hubBMS-b2', 'hubBMS', 'bms2',       COLOR.bat, { sourceHandle: 'sb', targetHandle: 'tt' }),
-  mkEdge('e-hubBMS-b3', 'hubBMS', 'bms3',       COLOR.bat, { sourceHandle: 'sr', targetHandle: 'tt' }),
+  mkEdge('e-hubBMS-b3', 'hubBMS', 'bms3',       COLOR.bat, { sourceHandle: 'sr', targetHandle: 'tt', type: 'customBezier' }),
 ];
 
 function ESSFlow() {
@@ -969,7 +1115,7 @@ function ESSFlow() {
     setEdges(function (prev) {
       // ── Flux de puissance pour chaque arête doubleLine ──────────────────────
       const withFlow = prev.map(function (e) {
-        if (e.type !== 'doubleLine') return e;
+        if (e.type !== 'doubleLine' && e.type !== 'customBezier') return e;
         let fv = 0, rev = false;
         switch (e.id) {
           case 'e-ats-maison':
@@ -1003,7 +1149,7 @@ function ESSFlow() {
         };
       });
 
-      // ── Arêtes ATS dynamiques (type smoothstep, non doubleLine) ─────────────
+      // ── Arêtes ATS dynamiques (type tripleAts — 3 lignes pointillées parallèles) ──
       if (!ats) return withFlow;
 
       const sw1C   = (ats.sw1 || '').includes('Fermé');
@@ -1011,18 +1157,36 @@ function ESSFlow() {
       const midOff = (ats.middleOFF || '').includes('Activé');
       const atsEdges = [];
       if (!midOff) {
-        if (sw2C) atsEdges.push({
-          id: 'ats-e2', source: 'ats-reseau', target: 'ats-main',
-          sourceHandle: 'reseau-out', targetHandle: 'ats-in-reseau',
-          animated: true, type: 'smoothstep',
-          style: { stroke: sw1C ? '#6366f1' : '#10b981', strokeWidth: 2, strokeDasharray: '4 4' }
-        });
-        if (sw1C) atsEdges.push({
-          id: 'ats-e1', source: 'ats-onduleur', target: 'ats-main',
-          sourceHandle: 'onduleur-out', targetHandle: 'ats-in-onduleur',
-          animated: true, type: 'smoothstep',
-          style: { stroke: '#10b981', strokeWidth: 2, strokeDasharray: '4 4' }
-        });
+        if (sw2C) {
+          const e2pwr = Math.abs(et9?.power_w ?? 0);
+          atsEdges.push({
+            id: 'ats-e2', source: 'ats-reseau', target: 'ats-main',
+            sourceHandle: 'reseau-out', targetHandle: 'ats-in-reseau',
+            type: 'tripleAts',
+            style: { stroke: sw1C ? '#6366f1' : '#10b981', strokeWidth: 2 },
+            data: {
+              useBezier: true,
+              flowValue: e2pwr,
+              flowSpeed: Math.min(4, Math.max(0.4, e2pwr / 500)),
+              flowColor: sw1C ? '#6366f1' : '#10b981',
+            }
+          });
+        }
+        if (sw1C) {
+          const e1pwr = Math.abs(inverter?.ac_output_power_w ?? 0);
+          atsEdges.push({
+            id: 'ats-e1', source: 'ats-onduleur', target: 'ats-main',
+            sourceHandle: 'onduleur-out', targetHandle: 'ats-in-onduleur',
+            type: 'tripleAts',
+            style: { stroke: '#10b981', strokeWidth: 2 },
+            data: {
+              useBezier: false,
+              flowValue: e1pwr,
+              flowSpeed: Math.min(4, Math.max(0.4, e1pwr / 500)),
+              flowColor: '#10b981',
+            }
+          });
+        }
       }
       return [...withFlow.filter(function (e) { return !e.id.startsWith('ats-e'); }), ...atsEdges];
     });
