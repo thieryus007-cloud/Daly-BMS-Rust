@@ -540,7 +540,7 @@ function AtsOnduleurNode({ data }) {
 
   return h('div', { className: `pro-node${active ? ' active-source' : ''}` },
     mkHandle('source', Position.Top, 'onduleur-out'),
-    mkHandle('source', Position.Right, 'onduleur-right'),
+    mkHandle('target', Position.Right, 'onduleur-right'),
     mkHandle('source', Position.Bottom, 'onduleur-bottom'),       
     h('div', { className: 'pn-banner' },
       h('div', { className: 'pn-banner-left' },
