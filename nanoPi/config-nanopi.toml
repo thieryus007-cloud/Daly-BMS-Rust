@@ -139,7 +139,7 @@ device_instance = 60
 
 [[switches]]
 mqtt_index      = 2
-name            = "tongou_3BC764"
+name            = "tongou_3BC764"              # 192.168.1.115
 device_instance = 61
 command_topic   = "cmnd/tongou_3BC764/Power"   # → contrôlable depuis console Venus
 custom_name     = "Tongou 1"                   # nom affiché dans la console Venus OS
@@ -147,7 +147,7 @@ group           = "Tongou"                     # regroupe les 4 Tongou sur une m
 
 [[switches]]
 mqtt_index      = 3
-name            = "tongou_0A3FA0"
+name            = "tongou_0A3FA0"              # 192.168.1.72
 device_instance = 62
 command_topic   = "cmnd/tongou_0A3FA0/Power"
 custom_name     = "Tongou 2"
@@ -155,7 +155,7 @@ group           = "Tongou"
 
 [[switches]]
 mqtt_index      = 4
-name            = "tongou_0A3C14"
+name            = "tongou_0A3C14"              # 192.168.1.250
 device_instance = 63
 command_topic   = "cmnd/tongou_0A3C14/Power"
 custom_name     = "Tongou 3"
@@ -163,7 +163,7 @@ group           = "Tongou"
 
 [[switches]]
 mqtt_index      = 5
-name            = "tongou_0A4040"
+name            = "tongou_0A4040"              # 192.168.1.53
 device_instance = 64
 command_topic   = "cmnd/tongou_0A4040/Power"
 custom_name     = "Tongou 4"
