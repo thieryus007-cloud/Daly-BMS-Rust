@@ -215,8 +215,13 @@ impl SwitchValues {
                 DbusItem::i32(0b0010));  // 2 = toggle uniquement
             m.insert("/SwitchableOutput/0/Settings/CustomName".into(),
                 DbusItem::str(&self.custom_name));
-            m.insert("/SwitchableOutput/0/Settings/Group".into(),
-                DbusItem::str(&self.group));
+            // Group : omis si vide → Venus tombe en fallback par service D-Bus.
+            // Quand non-vide, tous les switches partageant la même valeur
+            // sont regroupés sur la même carte dans la console Venus OS.
+            if !self.group.is_empty() {
+                m.insert("/SwitchableOutput/0/Settings/Group".into(),
+                    DbusItem::str(&self.group));
+            }
             m.insert("/SwitchableOutput/0/Settings/ShowUIControl".into(),
                 DbusItem::i32(1));  // visible dans toutes les UI
         }
@@ -284,40 +289,60 @@ impl BusItemLeaf {
 
     /// Traite les écritures D-Bus depuis la console Venus OS.
     ///
-    /// Seul `/SwitchableOutput/0/State` est inscriptible.
+    /// Chemins inscriptibles :
+    /// - `/SwitchableOutput/0/State`               → commande ON/OFF vers Tasmota
+    /// - `/SwitchableOutput/0/Settings/CustomName` → renommage depuis la console (RW per spec)
+    /// - `/CustomName`                             → idem (chemin alternatif lu par Venus)
+    ///
     /// Retourne 0 (succès) ou 1 (non supporté / chemin en lecture seule).
     fn set_value(&self, val: zvariant::Value<'_>) -> i32 {
-        if self.path != PATH_SW_STATE {
-            return 1; // lecture seule
-        }
-        let Some(tx) = &self.cmd_tx else { return 1 };
+        // ── Commande ON/OFF ────────────────────────────────────────────────────
+        if self.path == PATH_SW_STATE {
+            let Some(tx) = &self.cmd_tx else { return 1 };
 
-        // Extraire la valeur entière (0=Off, 1=On) depuis le variant D-Bus
-        let state_val: i32 = match &val {
-            zvariant::Value::I32(v)  => *v,
-            zvariant::Value::U32(v)  => *v as i32,
-            zvariant::Value::I64(v)  => *v as i32,
-            zvariant::Value::U64(v)  => *v as i32,
-            zvariant::Value::I16(v)  => *v as i32,
-            zvariant::Value::U16(v)  => *v as i32,
-            zvariant::Value::U8(v)   => *v as i32,
-            _ => {
-                warn!(path = %self.path, "set_value : type D-Bus non supporté {:?}", val);
-                return 1;
+            // Extraire la valeur entière (0=Off, 1=On) depuis le variant D-Bus
+            let state_val: i32 = match &val {
+                zvariant::Value::I32(v)  => *v,
+                zvariant::Value::U32(v)  => *v as i32,
+                zvariant::Value::I64(v)  => *v as i32,
+                zvariant::Value::U64(v)  => *v as i32,
+                zvariant::Value::I16(v)  => *v as i32,
+                zvariant::Value::U16(v)  => *v as i32,
+                zvariant::Value::U8(v)   => *v as i32,
+                _ => {
+                    warn!(path = %self.path, "set_value : type D-Bus non supporté {:?}", val);
+                    return 1;
+                }
+            };
+
+            // Mise à jour optimiste locale (avant confirmation Tasmota)
+            if let Ok(mut guard) = self.values.lock() {
+                guard.switchable_state = if state_val != 0 { 1 } else { 0 };
+                guard.last_update = Instant::now();
             }
-        };
 
-        // Mise à jour optimiste locale (avant confirmation Tasmota)
-        if let Ok(mut guard) = self.values.lock() {
-            guard.switchable_state = if state_val != 0 { 1 } else { 0 };
-            guard.last_update = Instant::now();
+            // Transmettre la commande au SwitchManager → MQTT → Tasmota
+            let _ = tx.try_send(state_val);
+            debug!(path = %self.path, state = state_val, "Commande switch reçue depuis console Venus");
+            return 0; // succès D-Bus
         }
 
-        // Transmettre la commande au SwitchManager → MQTT → Tasmota
-        let _ = tx.try_send(state_val);
-        debug!(path = %self.path, state = state_val, "Commande switch reçue depuis console Venus");
+        // ── Renommage CustomName (RW par spec Victron) ─────────────────────────
+        if self.path == "/SwitchableOutput/0/Settings/CustomName"
+            || self.path == "/CustomName"
+        {
+            let new_name = match &val {
+                zvariant::Value::Str(s) => s.as_str().to_string(),
+                _ => return 0, // type inattendu → ignorer silencieusement
+            };
+            if let Ok(mut g) = self.values.lock() {
+                debug!(path = %self.path, name = %new_name, "CustomName mis à jour depuis console Venus");
+                g.custom_name = new_name;
+            }
+            return 0;
+        }
 
-        0 // succès D-Bus
+        1 // lecture seule pour tous les autres chemins
     }
 }
 
@@ -331,7 +356,6 @@ pub struct SwitchServiceHandle {
     pub values:          Arc<Mutex<SwitchValues>>,
     connection:          Connection,
     pub product_name:    String,
-    pub custom_name:     String,
     /// Récepteur de commandes ON/OFF (0=Off, 1=On) depuis D-Bus.
     /// Pris par le SwitchManager pour lancer la tâche de publication MQTT.
     pub cmd_rx:          Option<mpsc::Receiver<i32>>,
@@ -339,13 +363,16 @@ pub struct SwitchServiceHandle {
 
 impl SwitchServiceHandle {
     pub async fn update(&self, payload: &SwitchPayload) -> Result<()> {
-        let controllable = { self.values.lock().unwrap().controllable };
-        let group        = { self.values.lock().unwrap().group.clone() };
+        let controllable  = { self.values.lock().unwrap().controllable };
+        let group         = { self.values.lock().unwrap().group.clone() };
+        // Lire custom_name depuis le mutex : préserve les renommages effectués
+        // depuis la console Venus OS entre deux mises à jour MQTT.
+        let custom_name   = { self.values.lock().unwrap().custom_name.clone() };
         let new_values = SwitchValues::from_payload(
             payload,
             self.device_instance,
             self.product_name.clone(),
-            self.custom_name.clone(),
+            custom_name,
             group,
             controllable,
         );
@@ -481,7 +508,6 @@ pub async fn create_switch_service(
         values:     initial_values,
         connection: conn,
         product_name,
-        custom_name,
         cmd_rx,
     })
 }
