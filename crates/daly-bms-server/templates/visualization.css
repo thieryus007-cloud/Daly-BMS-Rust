@@ -272,6 +272,105 @@
     padding: 12px;
   }
 
+  /* ── WATERHEATER / CLIMATISATION NODE ───────────────────────────────── */
+  .waterheater-card {
+    width: 330px;
+    min-width: 330px;
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid #d6dce5;
+    box-shadow: 0 4px 12px rgba(15,23,42,.08);
+    overflow: hidden;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  .wh-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: linear-gradient(135deg, #0e7490 0%, #155e75 100%);
+    color: white;
+    border-bottom: 2px solid #0891b2;
+  }
+  .clim-header {
+    background: linear-gradient(135deg, #1d4ed8 0%, #1e3a8a 100%);
+    border-bottom-color: #3b82f6;
+  }
+  .wh-header-icon { font-size: 1.4rem; line-height: 1; }
+  .wh-header-title { font-weight: 700; font-size: 1rem; letter-spacing: 0.02em; }
+  .wh-header-dot {
+    margin-left: auto;
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.35);
+  }
+  .wh-header-dot.live { background: #86efac; box-shadow: 0 0 6px #4ade80; }
+  .wh-body { padding: 10px 14px; }
+  .wh-mode-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .wh-mode-badge {
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .wh-mode-badge.vacances { background: #e0f2fe; color: #0369a1; }
+  .wh-mode-badge.hp       { background: #dcfce7; color: #15803d; }
+  .wh-mode-badge.turbo    { background: #fef3c7; color: #b45309; }
+  .wh-mode-badge.unknown  { background: #f1f5f9; color: #64748b; }
+  .wh-temps-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .wh-temp-cell {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 7px 10px;
+    border: 1px solid #e2e8f0;
+  }
+  .wh-temp-lbl {
+    font-size: 0.54rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748b;
+    display: block;
+    margin-bottom: 3px;
+  }
+  .wh-temp-val {
+    font-size: 1.05rem;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    color: #0f172a;
+  }
+  .wh-et112-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px;
+    background: #f1f5f9;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+  }
+  .wh-et112-metric { display: flex; flex-direction: column; align-items: center; }
+  .wh-et112-lbl { font-size: 0.52rem; font-weight: 600; text-transform: uppercase; color: #64748b; letter-spacing: 0.04em; }
+  .wh-et112-val { font-size: 0.85rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: #0f172a; }
+  .wh-wait {
+    text-align: center;
+    font-size: 0.7rem;
+    color: #94a3b8;
+    font-style: italic;
+    padding: 16px;
+  }
+
   /* ── SMARTSHUNT NODE ─────────────────────────────────────────────── */
   .ss-card {
     width: 230px;

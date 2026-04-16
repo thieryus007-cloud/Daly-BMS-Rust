@@ -84,7 +84,16 @@
 
   {% endif %}
 
-  <div style="padding:0.5rem 0.75rem;display:flex;justify-content:flex-end;border-top:1px solid var(--border);">
+  <div style="padding:0.5rem 0.75rem;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);gap:0.5rem;">
+    <button
+      id="toggle-btn-{{ d.id }}"
+      onclick="toggleDevice({{ d.id }})"
+      class="btn {% if d.power_on %}btn-danger{% else %}btn-primary{% endif %}"
+      style="font-size:0.72rem;padding:0.3rem 0.9rem;min-width:90px;"
+      {% if !d.connected %}disabled{% endif %}
+    >
+      {% if d.connected %}{% if d.power_on %}🔴 Éteindre{% else %}🟢 Allumer{% endif %}{% else %}Hors ligne{% endif %}
+    </button>
     <a href="/dashboard/tasmota/{{ d.id }}" class="btn btn-outline" style="font-size:0.72rem;padding:0.3rem 0.7rem;">Détails →</a>
   </div>
 
@@ -98,6 +107,70 @@
 {% block scripts %}
 <script>
 const TASMOTA_IDS = [{% for d in devices %}{{ d.id }}{% if !loop.last %}, {% endif %}{% endfor %}];
+
+const devicePowerState = {};
+{% for d in devices %}
+devicePowerState[{{ d.id }}] = {{ d.power_on }};
+{% endfor %}
+
+function updateToggleBtn(id, isOn, connected) {
+  const btn = document.getElementById(`toggle-btn-${id}`);
+  if (!btn) return;
+  btn.disabled = !connected;
+  if (!connected) { btn.textContent = 'Hors ligne'; btn.className = 'btn btn-outline'; return; }
+  btn.textContent = isOn ? '🔴 Éteindre' : '🟢 Allumer';
+  btn.className = `btn ${isOn ? 'btn-danger' : 'btn-primary'}`;
+  btn.style.minWidth = '90px';
+  btn.style.fontSize = '0.72rem';
+  btn.style.padding = '0.3rem 0.9rem';
+}
+
+async function toggleDevice(id) {
+  const btn = document.getElementById(`toggle-btn-${id}`);
+  if (!btn || btn.disabled) return;
+  const currentOn = devicePowerState[id] ?? false;
+  const cmd = currentOn ? 'off' : 'on';
+
+  btn.disabled = true;
+  btn.textContent = '⏳';
+  btn.style.opacity = '0.7';
+
+  try {
+    const resp = await fetch(`/api/v1/tasmota/${id}/control`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state: cmd })
+    });
+    if (resp.ok) {
+      devicePowerState[id] = !currentOn;
+      updateToggleBtn(id, devicePowerState[id], true);
+      updateCardHeader(id, devicePowerState[id]);
+    } else {
+      updateToggleBtn(id, currentOn, true);
+    }
+  } catch(e) {
+    updateToggleBtn(id, currentOn, true);
+  } finally {
+    btn.style.opacity = '';
+  }
+}
+
+function updateCardHeader(id, isOn) {
+  const card = document.getElementById(`tasmota-card-${id}`);
+  if (!card) return;
+  const hdr = card.querySelector('.bms-hdr');
+  if (hdr) {
+    hdr.style.background = isOn
+      ? 'linear-gradient(135deg,#dcfce7 0%,#bbf7d0 100%)'
+      : 'linear-gradient(135deg,#fee2e2 0%,#fecaca 100%)';
+  }
+  const liveEl = card.querySelector('.bms-live');
+  if (liveEl) {
+    const dot = liveEl.querySelector('.live-dot');
+    if (dot) dot.style.background = isOn ? '' : 'var(--red)';
+    liveEl.childNodes.forEach(n => { if (n.nodeType === 3) n.textContent = isOn ? 'ON' : 'OFF'; });
+  }
+}
 
 async function updateAll() {
   const ts = new Date().toLocaleTimeString('fr-FR');
@@ -121,7 +194,14 @@ async function updateAll() {
       set(`ts-${id}`,   ts);
 
       const pw = document.getElementById(`p-${id}`);
-      if (pw) { pw.className = 'kpi4-val ' + (d.power_w > 0 ? 'chg' : 'muted'); }
+      if (pw) pw.className = 'kpi4-val ' + (d.power_w > 0 ? 'chg' : 'muted');
+
+      const prevOn = devicePowerState[id] ?? false;
+      if (prevOn !== d.power_on) {
+        devicePowerState[id] = d.power_on;
+        updateToggleBtn(id, d.power_on, true);
+        updateCardHeader(id, d.power_on);
+      }
     } catch(e) {}
   }
 }
