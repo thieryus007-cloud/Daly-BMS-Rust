@@ -16,7 +16,7 @@
 use crate::ats::AtsSnapshot;
 use crate::config::MqttConfig;
 use crate::et112::Et112Snapshot;
-use crate::state::{AppState, VenusMppt, VenusSmartShunt, VenusTemperature};
+use crate::state::{AppState, VenusHeatpump, VenusMppt, VenusSmartShunt, VenusTemperature};
 use crate::tasmota::TasmotaSnapshot;
 use chrono::Utc;
 use daly_bms_core::types::BmsSnapshot;
@@ -485,6 +485,15 @@ pub async fn start_venus_mqtt_subscriber(state: AppState, cfg: MqttConfig) {
     // Boucle de réception
     loop {
         match eventloop.poll().await {
+            Ok(rumqttc::Event::Incoming(rumqttc::Packet::ConnAck(_))) => {
+                // Reconnexion détectée — réabonnement obligatoire (clean_session=true)
+                info!("MQTT Venus connecté/reconnecté — réabonnement aux topics");
+                for (topic, qos) in &topics {
+                    if let Err(e) = client.subscribe(*topic, *qos).await {
+                        warn!("MQTT re-subscribe erreur pour {}: {:?}", topic, e);
+                    }
+                }
+            }
             Ok(rumqttc::Event::Incoming(rumqttc::Packet::Publish(p))) => {
                 let topic = &p.topic;
                 let payload = std::str::from_utf8(&p.payload).unwrap_or("");
@@ -498,8 +507,7 @@ pub async fn start_venus_mqtt_subscriber(state: AppState, cfg: MqttConfig) {
                     } else if topic.starts_with("santuario/heat/") && topic.ends_with("/venus") {
                         handle_temperature_topic(&state, &json).await;
                     } else if topic.starts_with("santuario/heatpump/") && topic.ends_with("/venus") {
-                        // Optionnel : traiter les heatpumps
-                        debug!("Heatpump topic reçu : {}", topic);
+                        handle_heatpump_topic(&state, topic, &json).await;
                     } else if topic == "santuario/system/venus" {
                         handle_system_topic(&state, &json).await;
                     } else if topic == "santuario/inverter/venus" {
@@ -511,7 +519,7 @@ pub async fn start_venus_mqtt_subscriber(state: AppState, cfg: MqttConfig) {
                 // Ignorer les ACK d'envoi
             }
             Err(e) => {
-                warn!("MQTT eventloop erreur : {:?}", e);
+                warn!("MQTT Venus eventloop erreur (reconnexion dans 5s) : {:?}", e);
                 tokio::time::sleep(Duration::from_secs(5)).await;
             }
             _ => {}
@@ -663,6 +671,49 @@ async fn handle_system_topic(state: &AppState, json: &Value) {
 
         state.on_venus_smartshunt(shunt).await;
     }
+}
+
+/// Traite les topics `santuario/heatpump/*/venus`
+///
+/// Payload (depuis Node-RED setwaterheater.json) :
+/// ```json
+/// { "State": 1, "Temperature": 52.5, "TargetTemperature": 55.0, "Position": 0,
+///   "Ac": { "Power": 0.0, "Energy": { "Forward": 0.0 } } }
+/// ```
+/// State : 0=Off/Vacances, 1=Pompe chaleur, 2=Turbo
+async fn handle_heatpump_topic(state: &AppState, topic: &str, json: &Value) {
+    // Extraire l'index depuis le topic : santuario/heatpump/{idx}/venus
+    let idx: u8 = topic
+        .split('/')
+        .nth(2)
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
+    if idx == 0 { return; }
+
+    let hp_state    = json.get("State").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+    let temperature = json.get("Temperature").and_then(|v| v.as_f64()).map(|v| v as f32);
+    let target_temp = json.get("TargetTemperature").and_then(|v| v.as_f64()).map(|v| v as f32);
+    let position    = json.get("Position").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+    let ac_power    = json.get("Ac").and_then(|a| a.get("Power")).and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
+    let ac_energy   = json
+        .get("Ac").and_then(|a| a.get("Energy"))
+        .and_then(|e| e.get("Forward")).and_then(|v| v.as_f64())
+        .unwrap_or(0.0) as f32;
+
+    let hp = VenusHeatpump {
+        mqtt_index:          idx,
+        state:               hp_state,
+        temperature,
+        target_temperature:  target_temp,
+        ac_power,
+        ac_energy_forward:   ac_energy,
+        position,
+        connected:           true,
+        timestamp:           Utc::now(),
+    };
+
+    debug!(index = idx, state = hp_state, "Heatpump MQTT reçu");
+    state.on_venus_heatpump(hp).await;
 }
 
 /// Traite le topic `santuario/inverter/venus`

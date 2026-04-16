@@ -258,6 +258,27 @@ pub async fn get_venus_temperatures(State(state): State<AppState>) -> impl IntoR
     })))
 }
 
+/// GET /api/v1/venus/heatpumps
+///
+/// Retourne toutes les pompes à chaleur / chauffe-eau actuels.
+pub async fn get_venus_heatpumps(State(state): State<AppState>) -> impl IntoResponse {
+    let hps = state.venus_heatpumps_all().await;
+    (StatusCode::OK, Json(json!({
+        "count": hps.len(),
+        "heatpumps": hps,
+    })))
+}
+
+/// GET /api/v1/monitor/status
+///
+/// Retourne le dernier snapshot de monitoring système Pi5.
+pub async fn get_monitor_status(State(state): State<AppState>) -> impl IntoResponse {
+    match state.monitor_latest().await {
+        Some(snap) => (StatusCode::OK, Json(json!({ "available": true, "monitor": snap }))),
+        None       => (StatusCode::OK, Json(json!({ "available": false, "monitor": null }))),
+    }
+}
+
 /// GET /api/v1/system/totals
 ///
 /// Retourne les totaux agrégés du système :

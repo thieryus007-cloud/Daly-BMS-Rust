@@ -24,6 +24,7 @@ mod api;
 mod bridges;
 mod simulator;
 mod dashboard;
+mod monitor;
 
 use crate::bridges::{alerts, influx, mqtt};
 use crate::config::AppConfig;
@@ -459,6 +460,9 @@ async fn main() -> anyhow::Result<()> {
             }
         }
     }
+
+    // ── Agent de monitoring Pi5 ────────────────────────────────────────────────
+    tokio::spawn(monitor::run_monitor_agent(state.clone()));
 
     // ── Serveur HTTP Axum ──────────────────────────────────────────────────────
     let router = api::build_router(state);

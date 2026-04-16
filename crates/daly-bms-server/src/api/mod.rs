@@ -43,6 +43,10 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/v1/venus/smartshunt",  get(system::get_venus_smartshunt))
         .route("/api/v1/venus/inverter",    get(system::get_venus_inverter))
         .route("/api/v1/venus/temperatures",get(system::get_venus_temperatures))
+        .route("/api/v1/venus/heatpumps",   get(system::get_venus_heatpumps))
+
+        // ── Monitoring système Pi5 ────────────────────────────────────────────
+        .route("/api/v1/monitor/status",    get(system::get_monitor_status))
 
         // ── BMS — Lecture ────────────────────────────────────────────────────
         .route("/api/v1/bms/:id/status",      get(bms::get_bms_status))

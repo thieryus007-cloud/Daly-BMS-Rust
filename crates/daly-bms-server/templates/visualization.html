@@ -460,6 +460,67 @@ const TongouGroupNode = memo(function TongouGroupNode({ data }) {
   );
 });
 
+// ── WATERHEATER / CLIMATISATION NODE ─────────────────────────────────────
+function WaterHeaterNode({ data }) {
+  const et    = data.live;
+  const hp    = data.heatpump;
+  const isClim = data.isClimatisation ?? false;
+
+  const connected = et?.connected ?? false;
+  const pwr       = et?.power_w   ?? null;
+  const nrj       = et?.energy_import_wh != null ? et.energy_import_wh / 1000 : null;
+
+  const hpState  = hp?.state               ?? null;
+  const currTemp = hp?.temperature         ?? null;
+  const targTemp = hp?.target_temperature  ?? null;
+  const hpLive   = hp?.connected           ?? false;
+
+  const modeLabel = hpState === 0 ? 'Vacances' : hpState === 1 ? 'HP Normal' : hpState === 2 ? 'Turbo' : '—';
+  const modeCls   = hpState === 0 ? 'vacances' : hpState === 1 ? 'hp' : hpState === 2 ? 'turbo' : 'unknown';
+
+  return h('div', { className: 'waterheater-card' },
+    mkHandle('target', Position.Top,    'tt'),
+    mkHandle('source', Position.Bottom, 'sb'),
+    mkHandle('target', Position.Left,   'tl'),
+    mkHandle('source', Position.Right,  'sr'),
+    mkHandle('target', Position.Right,  'tr', { top: '65%' }),
+    mkHandle('source', Position.Left,   'sl', { top: '65%' }),
+    h('div', { className: `wh-header${isClim ? ' clim-header' : ''}` },
+      h('span', { className: 'wh-header-icon' }, data.icon ?? (isClim ? '❄️' : '🚿')),
+      h('span', { className: 'wh-header-title' }, data.label),
+      h('div',  { className: `wh-header-dot${(connected || hpLive) ? ' live' : ''}` })
+    ),
+    h('div', { className: 'wh-body' },
+      h('div', { className: 'wh-mode-row' },
+        h('span', { className: `wh-mode-badge ${modeCls}` }, modeLabel),
+        h('span', { style: { fontSize: '0.62rem', color: '#64748b' } }, hpLive ? '● Venus' : '○ Venus')
+      ),
+      h('div', { className: 'wh-temps-row' },
+        h('div', { className: 'wh-temp-cell' },
+          h('span', { className: 'wh-temp-lbl' }, 'Temp. actuelle'),
+          h('span', { className: 'wh-temp-val' }, currTemp != null ? `${currTemp.toFixed(1)}°C` : '—')
+        ),
+        h('div', { className: 'wh-temp-cell' },
+          h('span', { className: 'wh-temp-lbl' }, 'Temp. cible'),
+          h('span', { className: 'wh-temp-val' }, targTemp != null ? `${targTemp.toFixed(1)}°C` : '—')
+        )
+      ),
+      connected && et
+        ? h('div', { className: 'wh-et112-row' },
+            h('div', { className: 'wh-et112-metric' },
+              h('span', { className: 'wh-et112-lbl' }, 'Puissance'),
+              h('span', { className: 'wh-et112-val' }, pwr != null ? `${pwr.toFixed(0)} W` : '—')
+            ),
+            h('div', { className: 'wh-et112-metric' },
+              h('span', { className: 'wh-et112-lbl' }, 'Énergie'),
+              h('span', { className: 'wh-et112-val' }, nrj != null ? `${nrj.toFixed(2)} kWh` : '—')
+            )
+          )
+        : h('div', { className: 'wh-wait' }, 'ET112 en attente…')
+    )
+  );
+}
+
 // ── ✅ ATS Nodes ─────────────────────────────────────────────
 function AtsReseauNode({ data }) {
   const active = (data.sw2 || '').includes('Fermé');
@@ -982,6 +1043,7 @@ const nodeTypes = {
   hub: HubNode, placeholder: PlaceholderNode, mpptGroup: MPPTGroupNode, smartshunt: SmartShuntNode,
   temperature: TemperatureNode,
   tongouGroup: TongouGroupNode,
+  waterheater: WaterHeaterNode,
   inverter: InverterNode,
   atsreseau: AtsReseauNode, atsonduleur: AtsOnduleurNode, atsmain: AtsMainNode
 };
@@ -992,8 +1054,8 @@ const NODES0 = [
   { id: 'batteries',   type: 'summary',     position: { x: -150,  y: 10  }, data: { label: 'Batteries',       icon: '🔋', value: '—',   sub: '360 Ah + 320 Ah',       dotClass: '' } },
   { id: 'meteo',       type: 'summary',     position: { x: 50, y: 10  }, data: { label: 'Météo',           icon: '🌤️',  value: '—',   sub: 'Irradiance solaire',     dotClass: '' } },
   { id: 'temp-ext',    type: 'temperature', position: { x: 250, y: 10 }, data: { label: 'Température', icon: '🌡️', live: null } },
-  { id: 'chauffe-eau',    type: 'device',   position: { x: 450, y: 10 }, data: { label: 'Chauffe-eau',   icon: '🚿', live: null } },
-  { id: 'climatisation',  type: 'device',   position: { x: 650, y: 10 }, data: { label: 'Climatisation', icon: '❄️',  live: null } },
+  { id: 'chauffe-eau',   type: 'waterheater', position: { x: 780,  y: 520 }, data: { label: 'Chauffe-eau',   icon: '🚿', live: null, heatpump: null, isClimatisation: false } },
+  { id: 'climatisation', type: 'waterheater', position: { x: 780,  y: 770 }, data: { label: 'Climatisation', icon: '❄️',  live: null, heatpump: null, isClimatisation: true  } },
   { id: 'micro-ond',   type: 'et112card',   position: { x: 400, y: 275 }, data: { label: 'Micro-onduleurs', address: 7, live: null } },
   { id: 'et112-reseau',   type: 'et112card', position: { x: -350, y: 469 }, data: { label: 'ET112-reseau', address: 9, live: null } },
   { id: 'et112-maison',   type: 'et112card', position: { x: 400, y: 112 }, data: { label: 'ET112-Maison', address: 8, live: null } },
@@ -1033,12 +1095,54 @@ const EDGES0 = [
   mkEdge('e-hubBMS-b3', 'hubBMS', 'bms3',       COLOR.bat, { sourceHandle: 'sr', targetHandle: 'tt', type: 'customBezier' }),
 ];
 
+function MonitorPanel({ data }) {
+  if (!data) return h('div', { className: 'viz-panel', style: { opacity: 0.5 } }, '⏳ Monitoring…');
+  const m = data;
+  const fmtUptime = (s) => {
+    if (s >= 86400) return `${Math.floor(s/86400)}j ${Math.floor((s%86400)/3600)}h`;
+    if (s >= 3600)  return `${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m`;
+    return `${Math.floor(s/60)}m`;
+  };
+  const barColor = (p) => p > 85 ? '#dc2626' : p > 65 ? '#ca8a04' : '#16a34a';
+
+  return h('div', { className: 'viz-panel', style: { minWidth: 210, fontSize: '0.72rem', lineHeight: 1.6 } },
+    h('div', { style: { fontWeight: 700, marginBottom: 5, fontSize: '0.78rem' } }, '🖥 Pi5 Monitor'),
+    ['cpu_percent','memory_percent','disk_percent'].map(key => {
+      const val = m[key] ?? 0;
+      const label = key === 'cpu_percent' ? 'CPU' : key === 'memory_percent' ? 'RAM' : 'Disque';
+      return h('div', { key, style: { marginBottom: 3 } },
+        h('div', { style: { display:'flex', justifyContent:'space-between' } },
+          h('span', { style: { color: '#64748b' } }, label),
+          h('span', { style: { fontFamily:'monospace', color: barColor(val) } }, `${val.toFixed(0)}%`)
+        ),
+        h('div', { style: { height: 4, background: '#e2e8f0', borderRadius: 2, overflow:'hidden' } },
+          h('div', { style: { height:'100%', width:`${val}%`, background: barColor(val), borderRadius:2, transition:'width 0.5s' } })
+        )
+      );
+    }),
+    h('div', { style: { marginTop: 5, color:'#64748b' } }, `⏱ ${fmtUptime(m.uptime_secs ?? 0)}`),
+    m.services && h('div', { style: { marginTop: 4, display:'flex', flexWrap:'wrap', gap: 3 } },
+      m.services.map(s => h('span', {
+        key: s.name,
+        title: s.status,
+        style: {
+          padding: '1px 6px', borderRadius: 10, fontSize: '0.6rem', fontWeight: 600,
+          background: s.active ? '#dcfce7' : '#fee2e2',
+          color: s.active ? '#15803d' : '#dc2626',
+          border: `1px solid ${s.active ? '#bbf7d0' : '#fecaca'}`
+        }
+      }, s.name))
+    )
+  );
+}
+
 function ESSFlow() {
   const [nodes, setNodes, onNodesChange] = useNodesState(NODES0);
   const [edges, setEdges, onEdgesChange] = useEdgesState(EDGES0);
   const [lastUpdate, setLastUpdate] = useState('—');
   const [atsProcessing, setAtsProcessing] = useState(false);
   const [atsRev, setAtsRev] = useState(0);
+  const [monitorData, setMonitorData] = useState(null);
   const atsExecRef = useRef(null);
   const atsBusyRef = useRef(false);
   
@@ -1083,14 +1187,17 @@ function ESSFlow() {
     const bms1 = d.bms1, bms2 = d.bms2;
     const et7  = d.et7,  et8  = d.et8, et9 = d.et9;
     const irr  = d.irr;
-    const mpptList       = d.mpptList       ?? [];
-    const mpptTotalPowerW = d.mpptTotalPowerW ?? 0;
-    const mpptTotalDcA   = d.mpptTotalDcA   ?? 0;
+    const mpptList        = d.mpptList        ?? [];
+    const mpptTotalPowerW = d.mpptTotalPowerW  ?? 0;
+    const mpptTotalDcA    = d.mpptTotalDcA     ?? 0;
     const shunt = d.shunt;
     const inverter = d.inverter;
     const temp = d.temp;
     const ats = d.ats;
     const tasmotaDevices = d.tasmotaDevices || [];
+    const heatpumps = d.heatpumps || [];
+    const hp8 = heatpumps.find(h => h.mqtt_index === 8) ?? null;
+    const hp9 = heatpumps.find(h => h.mqtt_index === 9) ?? null;
 
     const validBms = [bms1, bms2].filter(Boolean);
     const avgSoc   = validBms.length
@@ -1210,8 +1317,8 @@ function ESSFlow() {
         case 'et112-reseau': return { ...n, data: { ...n.data, live: et9 ?? null } };
         case 'et112-maison': return { ...n, data: { ...n.data, live: et8 ?? null } };
         case 'onduleur':    return { ...n, data: { ...n.data, live: inverter ?? null } };
-        case 'chauffe-eau': return { ...n, data: { ...n.data, live: et8  ?? null } };
-        case 'climatisation': return { ...n, data: { ...n.data, live: et9 ?? null } };
+        case 'chauffe-eau':   return { ...n, data: { ...n.data, live: et8 ?? null, heatpump: hp8 } };
+        case 'climatisation': return { ...n, data: { ...n.data, live: et9 ?? null, heatpump: hp9 } };
         case 'mppt':        return { ...n, data: { ...n.data, mppts: mpptList, totalPowerW: mpptTotalPowerW, totalDcA: mpptTotalDcA } };
         case 'smartshunt':  return { ...n, data: { ...n.data, live: shunt ?? null } };
         case 'temp-ext':    return { ...n, data: { ...n.data, live: temp ?? null } };
@@ -1259,6 +1366,20 @@ function ESSFlow() {
   }, [atsProcessing, atsRev, handleAtsReseauForce, handleAtsOnduleurForce, handleAtsToggleRemote, handleAtsForceOff]);
 
   useEffect(function() {
+    async function fetchMonitor() {
+      try {
+        const resp = await fetch('/api/v1/monitor/status');
+        if (!resp.ok) return;
+        const d = await resp.json();
+        if (d.available && d.monitor) setMonitorData(d.monitor);
+      } catch(_) {}
+    }
+    fetchMonitor();
+    const t = setInterval(fetchMonitor, 10000);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(function() {
     const safe = p => p.catch(() => null);
     async function fetchAll() {
       const [bms1, bms2, et7, et8, et9, irr, venusResp, tempResp, atsResp] = await Promise.all([
@@ -1298,15 +1419,19 @@ function ESSFlow() {
       const mpptList        = venusResp?.mppts         ?? [];
       const mpptTotalPowerW = venusResp?.total_power_w  ?? 0;
       const mpptTotalDcA    = venusResp?.total_dc_current_a ?? 0;
-      const shuntResp = await safe(fetch('/api/v1/venus/smartshunt').then(r => r.ok ? r.json() : null));
+      const [shuntResp, inverterResp, heatpumpsResp] = await Promise.all([
+        safe(fetch('/api/v1/venus/smartshunt').then(r => r.ok ? r.json() : null)),
+        safe(fetch('/api/v1/venus/inverter').then(r => r.ok ? r.json() : null)),
+        safe(fetch('/api/v1/venus/heatpumps').then(r => r.ok ? r.json() : null)),
+      ]);
       const shunt = shuntResp?.shunt ?? null;
-      const inverterResp = await safe(fetch('/api/v1/venus/inverter').then(r => r.ok ? r.json() : null));
       const inverter = inverterResp?.inverter ?? null;
+      const heatpumps = heatpumpsResp?.heatpumps ?? [];
       const temps = tempResp?.temperatures ?? [];
       const temp = temps.length > 0 ? temps[0] : null;
       const ats = atsResp?.values ?? null;
 
-      applyData({ bms1, bms2, et7, et8, et9, irr, mpptList, mpptTotalPowerW, mpptTotalDcA, shunt, inverter, temp, ats, tasmotaDevices });
+      applyData({ bms1, bms2, et7, et8, et9, irr, mpptList, mpptTotalPowerW, mpptTotalDcA, shunt, inverter, temp, ats, tasmotaDevices, heatpumps });
     }
     fetchAll();
     const timer = setInterval(fetchAll, 2000);
@@ -1336,6 +1461,9 @@ function ESSFlow() {
     ),
     h(Panel, { position: 'bottom-right' },
       h('div', { className: 'viz-panel' }, `Màj : ${lastUpdate}`)
+    ),
+    h(Panel, { position: 'top-right' },
+      h(MonitorPanel, { data: monitorData })
     )
   );
 }

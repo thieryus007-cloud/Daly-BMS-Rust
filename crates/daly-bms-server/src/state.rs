@@ -196,6 +196,49 @@ pub struct VenusTemperature {
     pub timestamp: DateTime<Utc>,
 }
 
+/// Snapshot Pompe à chaleur / Chauffe-eau (depuis MQTT santuario/heatpump/{n}/venus).
+#[derive(Clone, Serialize, Debug)]
+pub struct VenusHeatpump {
+    /// Index MQTT (1 = chauffe-eau LG ThinQ, 8/9 = ET112 PAC).
+    pub mqtt_index: u8,
+    /// État : 0=Off/Vacances, 1=Pompe chaleur, 2=Turbo.
+    pub state: i32,
+    /// Température eau courante en °C.
+    pub temperature: Option<f32>,
+    /// Température eau cible en °C.
+    pub target_temperature: Option<f32>,
+    /// Puissance consommée en W.
+    pub ac_power: f32,
+    /// Énergie totale consommée en kWh.
+    pub ac_energy_forward: f32,
+    /// Position : 0=AC Output, 1=AC Input.
+    pub position: i32,
+    pub connected: bool,
+    pub timestamp: DateTime<Utc>,
+}
+
+/// Statut d'un service système.
+#[derive(Clone, Serialize, Debug)]
+pub struct ServiceStatus {
+    pub name: String,
+    /// "active", "inactive", "failed", "unknown"
+    pub status: String,
+    pub active: bool,
+}
+
+/// Snapshot de monitoring système Pi5.
+#[derive(Clone, Serialize, Debug)]
+pub struct MonitorSnapshot {
+    pub timestamp: DateTime<Utc>,
+    pub services: Vec<ServiceStatus>,
+    pub cpu_percent: f32,
+    pub memory_percent: f32,
+    pub disk_percent: f32,
+    pub uptime_secs: u64,
+    /// Actions prises automatiquement (ex: "Redémarré mosquitto").
+    pub auto_actions: Vec<String>,
+}
+
 /// État global partagé de l'application.
 #[derive(Clone)]
 pub struct AppState {
@@ -254,6 +297,12 @@ pub struct AppState {
     /// Données Venus OS — Capteurs de température (indexés par instance).
     pub venus_temperatures: Arc<RwLock<BTreeMap<u32, VenusTemperature>>>,
 
+    /// Données Venus OS — Pompes à chaleur / chauffe-eau (indexés par mqtt_index).
+    pub venus_heatpumps: Arc<RwLock<BTreeMap<u8, VenusHeatpump>>>,
+
+    /// Dernier snapshot du monitoring système Pi5.
+    pub monitor_snapshot: Arc<RwLock<Option<MonitorSnapshot>>>,
+
     /// Dernier snapshot ATS CHINT (None si non configuré ou en attente).
     pub ats_snapshot: Arc<RwLock<Option<AtsSnapshot>>>,
 
@@ -304,6 +353,8 @@ impl AppState {
             venus_smartshunt: Arc::new(RwLock::new(None)),
             venus_inverter: Arc::new(RwLock::new(None)),
             venus_temperatures: Arc::new(RwLock::new(BTreeMap::new())),
+            venus_heatpumps: Arc::new(RwLock::new(BTreeMap::new())),
+            monitor_snapshot: Arc::new(RwLock::new(None)),
             ats_snapshot: Arc::new(RwLock::new(None)),
             ats_bus: Arc::new(RwLock::new(None)),
         }
@@ -499,6 +550,42 @@ impl AppState {
     /// Retourne les données actuelles de l'onduleur Victron.
     pub async fn venus_inverter_get(&self) -> Option<VenusInverter> {
         self.venus_inverter.read().await.clone()
+    }
+
+    // ==========================================================================
+    // Méthodes Heatpump
+    // ==========================================================================
+
+    /// Enregistre/met à jour un snapshot heatpump.
+    pub async fn on_venus_heatpump(&self, hp: VenusHeatpump) {
+        let mut hps = self.venus_heatpumps.write().await;
+        hps.insert(hp.mqtt_index, hp);
+    }
+
+    /// Retourne tous les heatpumps actuels.
+    pub async fn venus_heatpumps_all(&self) -> Vec<VenusHeatpump> {
+        let hps = self.venus_heatpumps.read().await;
+        hps.values().cloned().collect()
+    }
+
+    /// Retourne un heatpump par index MQTT.
+    pub async fn venus_heatpump_get(&self, idx: u8) -> Option<VenusHeatpump> {
+        let hps = self.venus_heatpumps.read().await;
+        hps.get(&idx).cloned()
+    }
+
+    // ==========================================================================
+    // Méthodes Monitor
+    // ==========================================================================
+
+    /// Enregistre le dernier snapshot de monitoring système.
+    pub async fn on_monitor_snapshot(&self, snap: MonitorSnapshot) {
+        *self.monitor_snapshot.write().await = Some(snap);
+    }
+
+    /// Retourne le dernier snapshot de monitoring système.
+    pub async fn monitor_latest(&self) -> Option<MonitorSnapshot> {
+        self.monitor_snapshot.read().await.clone()
     }
 
     // ==========================================================================
