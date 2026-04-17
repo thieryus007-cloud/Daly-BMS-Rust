@@ -1,26 +1,32 @@
-//! Agent de monitoring autonome — surveille les processus Pi5.
+//! Agent de monitoring autonome — surveille l'ensemble du système Pi5.
 //!
 //! Vérifie toutes les 30 secondes :
-//! - État des services systemd critiques (daly-bms, mosquitto, influxdb, grafana, nodered)
-//! - État des conteneurs Docker
-//! - Utilisation CPU/mémoire/disque
+//! - Service systemd daly-bms (via systemctl)
+//! - Services réseau via sonde TCP : mosquitto, influxdb, grafana, nodered, venus MQTT
+//! - Port série RS485 (/dev/ttyUSB0)
+//! - CPU, RAM, disque, charge système, uptime
 //!
-//! Actions automatiques :
-//! - Si un conteneur Docker critique est arrêté → `docker restart <nom>`
-//! - Résultats stockés dans AppState pour exposition via `/api/v1/monitor/status`
+//! Action automatique : si un conteneur Docker est injoignable → `docker restart`
 
 use crate::state::{AppState, MonitorSnapshot, ServiceStatus};
 use chrono::Utc;
 use std::time::Duration;
+use tokio::net::TcpStream;
 use tokio::process::Command;
 use tokio::time::interval;
 use tracing::{info, warn};
 
-/// Services systemd à surveiller.
-const SYSTEMD_SERVICES: &[&str] = &["daly-bms", "mosquitto"];
+/// Services réseau à sonder : (label, host, port, conteneur_docker_pour_restart).
+const TCP_SERVICES: &[(&str, &str, u16, Option<&str>)] = &[
+    ("mosquitto",  "127.0.0.1",     1883, Some("mosquitto")),
+    ("influxdb",   "127.0.0.1",     8086, Some("influxdb")),
+    ("grafana",    "127.0.0.1",     3001, Some("grafana")),
+    ("nodered",    "127.0.0.1",     1880, Some("nodered")),
+    ("venus-mqtt", "192.168.1.120", 1883, None),
+];
 
-/// Conteneurs Docker à surveiller (nom tel que configuré dans docker-compose).
-const DOCKER_CONTAINERS: &[&str] = &["influxdb", "grafana", "nodered", "mosquitto"];
+/// Port série RS485.
+const RS485_PORT: &str = "/dev/ttyUSB0";
 
 /// Démarre l'agent de monitoring en arrière-plan.
 pub async fn run_monitor_agent(state: AppState) {
@@ -29,76 +35,82 @@ pub async fn run_monitor_agent(state: AppState) {
 
     loop {
         ticker.tick().await;
-
         let snap = collect_snapshot(&state).await;
         state.on_monitor_snapshot(snap).await;
     }
 }
 
 /// Collecte un snapshot complet de l'état du système.
-async fn collect_snapshot(state: &AppState) -> MonitorSnapshot {
+async fn collect_snapshot(_state: &AppState) -> MonitorSnapshot {
     let mut services = Vec::new();
+    let mut network_services = Vec::new();
     let mut auto_actions = Vec::new();
 
-    // ── Services systemd ──────────────────────────────────────────────────────
-    for &name in SYSTEMD_SERVICES {
-        let status = check_systemd_service(name).await;
-        services.push(ServiceStatus {
-            name: name.to_string(),
-            active: status == "active",
-            status,
-        });
-    }
+    // ── Service systemd daly-bms ──────────────────────────────────────────────
+    // Nous sommes le processus en cours — on force active:true pour signaler
+    // que le service tourne (le systemd peut retourner "activating" au démarrage).
+    let daly_status = check_systemd_service("daly-bms").await;
+    services.push(ServiceStatus {
+        name: "daly-bms".to_string(),
+        active: true,
+        status: if daly_status.is_empty() { "active".to_string() } else { daly_status },
+    });
 
-    // ── Conteneurs Docker ─────────────────────────────────────────────────────
-    for &name in DOCKER_CONTAINERS {
-        // Éviter les doublons si déjà en systemd (mosquitto peut être les deux)
-        if services.iter().any(|s| s.name == name) {
-            continue;
-        }
-        let (status, was_down) = check_docker_container(name).await;
-        let active = status == "running";
+    // ── Sondes TCP ───────────────────────────────────────────────────────────
+    for &(name, host, port, docker_name) in TCP_SERVICES {
+        let reachable = tcp_probe(host, port).await;
 
-        // Action auto : redémarrer si arrêté
-        if was_down {
-            match restart_docker_container(name).await {
-                true  => {
-                    let msg = format!("Redémarré conteneur Docker: {}", name);
+        if !reachable {
+            if let Some(cname) = docker_name {
+                if restart_docker_container(cname).await {
+                    let msg = format!("Redémarré conteneur Docker: {}", cname);
                     info!("{}", msg);
                     auto_actions.push(msg);
-                    services.push(ServiceStatus { name: name.to_string(), active: true, status: "restarted".to_string() });
+                    network_services.push(ServiceStatus {
+                        name: name.to_string(),
+                        active: false,
+                        status: "restarted".to_string(),
+                    });
+                } else {
+                    warn!("Échec redémarrage conteneur Docker: {}", cname);
+                    network_services.push(ServiceStatus {
+                        name: name.to_string(),
+                        active: false,
+                        status: "down".to_string(),
+                    });
                 }
-                false => {
-                    warn!("Échec redémarrage conteneur Docker: {}", name);
-                    services.push(ServiceStatus { name: name.to_string(), active, status });
-                }
+            } else {
+                network_services.push(ServiceStatus {
+                    name: name.to_string(),
+                    active: false,
+                    status: "unreachable".to_string(),
+                });
             }
         } else {
-            services.push(ServiceStatus { name: name.to_string(), active, status });
+            network_services.push(ServiceStatus {
+                name: name.to_string(),
+                active: true,
+                status: format!("{}:{}", host, port),
+            });
         }
     }
 
-    // ── Métriques système ─────────────────────────────────────────────────────
+    // ── Port série RS485 ─────────────────────────────────────────────────────
+    let serial_port_ok = tokio::fs::metadata(RS485_PORT).await.is_ok();
+
+    // ── Métriques système ────────────────────────────────────────────────────
+    let load_avg       = read_load_avg().await;
     let cpu_percent    = read_cpu_percent().await;
     let memory_percent = read_memory_percent().await;
     let disk_percent   = read_disk_percent().await;
     let uptime_secs    = read_uptime_secs().await;
 
-    // Vérifier la cohérence : si le service daly-bms est marqué inactif,
-    // c'est normal — nous sommes le service daly-bms lui-même.
-    if let Some(s) = services.iter_mut().find(|s| s.name == "daly-bms") {
-        if !s.active {
-            // Le processus tourne (nous sommes ici), le systemd peut lire "active"
-            // ou "activating" selon le timing — on force à true
-            s.active = true;
-            s.status = "active".to_string();
-        }
-    }
-
-    let _ = state; // Pas d'autre appel nécessaire ici
     MonitorSnapshot {
         timestamp: Utc::now(),
         services,
+        network_services,
+        serial_port_ok,
+        load_avg,
         cpu_percent,
         memory_percent,
         disk_percent,
@@ -107,49 +119,31 @@ async fn collect_snapshot(state: &AppState) -> MonitorSnapshot {
     }
 }
 
-/// Vérifie l'état d'un service systemd via `systemctl is-active`.
+/// Sonde TCP avec timeout 2 secondes.
+async fn tcp_probe(host: &str, port: u16) -> bool {
+    let addr = format!("{}:{}", host, port);
+    tokio::time::timeout(
+        Duration::from_secs(2),
+        TcpStream::connect(addr),
+    )
+    .await
+    .map(|r| r.is_ok())
+    .unwrap_or(false)
+}
+
+/// Vérifie l'état d'un service systemd.
 async fn check_systemd_service(name: &str) -> String {
     match Command::new("systemctl")
-        .args(["is-active", "--quiet", name])
+        .args(["is-active", name])
         .output()
         .await
     {
-        Ok(out) => {
-            if out.status.success() { "active".to_string() }
-            else {
-                // Lire le statut textuel
-                match Command::new("systemctl")
-                    .args(["is-active", name])
-                    .output()
-                    .await
-                {
-                    Ok(o) => String::from_utf8_lossy(&o.stdout).trim().to_string(),
-                    Err(_) => "unknown".to_string(),
-                }
-            }
-        }
+        Ok(o) => String::from_utf8_lossy(&o.stdout).trim().to_string(),
         Err(_) => "unknown".to_string(),
     }
 }
 
-/// Vérifie l'état d'un conteneur Docker.
-/// Retourne (status_str, was_down).
-async fn check_docker_container(name: &str) -> (String, bool) {
-    match Command::new("docker")
-        .args(["inspect", "--format", "{{.State.Status}}", name])
-        .output()
-        .await
-    {
-        Ok(out) if out.status.success() => {
-            let status = String::from_utf8_lossy(&out.stdout).trim().to_string();
-            let was_down = status != "running";
-            (status, was_down)
-        }
-        _ => ("unknown".to_string(), false),
-    }
-}
-
-/// Tente de redémarrer un conteneur Docker arrêté.
+/// Tente de redémarrer un conteneur Docker.
 async fn restart_docker_container(name: &str) -> bool {
     match Command::new("docker")
         .args(["restart", name])
@@ -159,6 +153,21 @@ async fn restart_docker_container(name: &str) -> bool {
         Ok(out) => out.status.success(),
         Err(_)  => false,
     }
+}
+
+/// Lit la charge système depuis `/proc/loadavg` → [1min, 5min, 15min].
+async fn read_load_avg() -> [f32; 3] {
+    tokio::fs::read_to_string("/proc/loadavg")
+        .await
+        .ok()
+        .and_then(|s| {
+            let mut p = s.split_whitespace();
+            let a: f32 = p.next()?.parse().ok()?;
+            let b: f32 = p.next()?.parse().ok()?;
+            let c: f32 = p.next()?.parse().ok()?;
+            Some([a, b, c])
+        })
+        .unwrap_or([0.0, 0.0, 0.0])
 }
 
 /// Lit l'utilisation CPU depuis `/proc/stat` (deux lectures avec 200ms d'écart).
@@ -217,7 +226,7 @@ async fn read_disk_percent() -> f32 {
         Ok(out) => {
             let s = String::from_utf8_lossy(&out.stdout);
             s.lines()
-                .nth(1) // Skip header
+                .nth(1)
                 .and_then(|l| l.trim().trim_end_matches('%').parse::<f32>().ok())
                 .unwrap_or(0.0)
         }
