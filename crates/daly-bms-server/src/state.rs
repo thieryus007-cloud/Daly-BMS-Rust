@@ -230,7 +230,14 @@ pub struct ServiceStatus {
 #[derive(Clone, Serialize, Debug)]
 pub struct MonitorSnapshot {
     pub timestamp: DateTime<Utc>,
+    /// Services systemd (daly-bms).
     pub services: Vec<ServiceStatus>,
+    /// Services réseau vérifiés par sonde TCP (mosquitto, influxdb, grafana, nodered, venus).
+    pub network_services: Vec<ServiceStatus>,
+    /// Port série RS485 présent sur le système.
+    pub serial_port_ok: bool,
+    /// Charge système [1min, 5min, 15min].
+    pub load_avg: [f32; 3],
     pub cpu_percent: f32,
     pub memory_percent: f32,
     pub disk_percent: f32,
@@ -569,6 +576,7 @@ impl AppState {
     }
 
     /// Retourne un heatpump par index MQTT.
+    #[allow(dead_code)]
     pub async fn venus_heatpump_get(&self, idx: u8) -> Option<VenusHeatpump> {
         let hps = self.venus_heatpumps.read().await;
         hps.get(&idx).cloned()

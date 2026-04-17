@@ -720,6 +720,19 @@ pub async fn dashboard_ats(State(_state): State<AppState>) -> Response {
     render(AtsTemplate {})
 }
 
+// =============================================================================
+// Dashboard Monitoring système Pi5
+// =============================================================================
+
+#[derive(Template)]
+#[template(path = "monitor.html")]
+struct MonitorTemplate {}
+
+/// Page de monitoring système Pi5 (standalone, données via API JS).
+pub async fn dashboard_monitor() -> Response {
+    render(MonitorTemplate {})
+}
+
 /// Construit le routeur du dashboard (à fusionner dans le routeur principal).
 pub fn build_dashboard_router() -> Router<AppState> {
     Router::new()
@@ -733,6 +746,7 @@ pub fn build_dashboard_router() -> Router<AppState> {
         .route("/dashboard/tasmota",           get(dashboard_tasmota_list))
         .route("/dashboard/tasmota/:id",       get(dashboard_tasmota))
         .route("/dashboard/ats",               get(dashboard_ats))
+        .route("/dashboard/monitor",           get(dashboard_monitor))
         .route("/dashboard/visualization",     get(dashboard_visualization))
         .route("/visualization",               get(dashboard_visualization))
 }

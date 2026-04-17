@@ -1095,46 +1095,6 @@ const EDGES0 = [
   mkEdge('e-hubBMS-b3', 'hubBMS', 'bms3',       COLOR.bat, { sourceHandle: 'sr', targetHandle: 'tt', type: 'customBezier' }),
 ];
 
-function MonitorPanel({ data }) {
-  if (!data) return h('div', { className: 'viz-panel', style: { opacity: 0.5 } }, '⏳ Monitoring…');
-  const m = data;
-  const fmtUptime = (s) => {
-    if (s >= 86400) return `${Math.floor(s/86400)}j ${Math.floor((s%86400)/3600)}h`;
-    if (s >= 3600)  return `${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m`;
-    return `${Math.floor(s/60)}m`;
-  };
-  const barColor = (p) => p > 85 ? '#dc2626' : p > 65 ? '#ca8a04' : '#16a34a';
-
-  return h('div', { className: 'viz-panel', style: { minWidth: 210, fontSize: '0.72rem', lineHeight: 1.6 } },
-    h('div', { style: { fontWeight: 700, marginBottom: 5, fontSize: '0.78rem' } }, '🖥 Pi5 Monitor'),
-    ['cpu_percent','memory_percent','disk_percent'].map(key => {
-      const val = m[key] ?? 0;
-      const label = key === 'cpu_percent' ? 'CPU' : key === 'memory_percent' ? 'RAM' : 'Disque';
-      return h('div', { key, style: { marginBottom: 3 } },
-        h('div', { style: { display:'flex', justifyContent:'space-between' } },
-          h('span', { style: { color: '#64748b' } }, label),
-          h('span', { style: { fontFamily:'monospace', color: barColor(val) } }, `${val.toFixed(0)}%`)
-        ),
-        h('div', { style: { height: 4, background: '#e2e8f0', borderRadius: 2, overflow:'hidden' } },
-          h('div', { style: { height:'100%', width:`${val}%`, background: barColor(val), borderRadius:2, transition:'width 0.5s' } })
-        )
-      );
-    }),
-    h('div', { style: { marginTop: 5, color:'#64748b' } }, `⏱ ${fmtUptime(m.uptime_secs ?? 0)}`),
-    m.services && h('div', { style: { marginTop: 4, display:'flex', flexWrap:'wrap', gap: 3 } },
-      m.services.map(s => h('span', {
-        key: s.name,
-        title: s.status,
-        style: {
-          padding: '1px 6px', borderRadius: 10, fontSize: '0.6rem', fontWeight: 600,
-          background: s.active ? '#dcfce7' : '#fee2e2',
-          color: s.active ? '#15803d' : '#dc2626',
-          border: `1px solid ${s.active ? '#bbf7d0' : '#fecaca'}`
-        }
-      }, s.name))
-    )
-  );
-}
 
 function ESSFlow() {
   const [nodes, setNodes, onNodesChange] = useNodesState(NODES0);
@@ -1142,8 +1102,7 @@ function ESSFlow() {
   const [lastUpdate, setLastUpdate] = useState('—');
   const [atsProcessing, setAtsProcessing] = useState(false);
   const [atsRev, setAtsRev] = useState(0);
-  const [monitorData, setMonitorData] = useState(null);
-  const atsExecRef = useRef(null);
+const atsExecRef = useRef(null);
   const atsBusyRef = useRef(false);
   
   atsExecRef.current = async function(steps) {
@@ -1366,20 +1325,6 @@ function ESSFlow() {
   }, [atsProcessing, atsRev, handleAtsReseauForce, handleAtsOnduleurForce, handleAtsToggleRemote, handleAtsForceOff]);
 
   useEffect(function() {
-    async function fetchMonitor() {
-      try {
-        const resp = await fetch('/api/v1/monitor/status');
-        if (!resp.ok) return;
-        const d = await resp.json();
-        if (d.available && d.monitor) setMonitorData(d.monitor);
-      } catch(_) {}
-    }
-    fetchMonitor();
-    const t = setInterval(fetchMonitor, 10000);
-    return () => clearInterval(t);
-  }, []);
-
-  useEffect(function() {
     const safe = p => p.catch(() => null);
     async function fetchAll() {
       const [bms1, bms2, et7, et8, et9, irr, venusResp, tempResp, atsResp] = await Promise.all([
@@ -1462,9 +1407,6 @@ function ESSFlow() {
     h(Panel, { position: 'bottom-right' },
       h('div', { className: 'viz-panel' }, `Màj : ${lastUpdate}`)
     ),
-    h(Panel, { position: 'top-right' },
-      h(MonitorPanel, { data: monitorData })
-    )
   );
 }
 
