@@ -1155,7 +1155,7 @@ const atsExecRef = useRef(null);
     const ats = d.ats;
     const tasmotaDevices = d.tasmotaDevices || [];
     const heatpumps = d.heatpumps || [];
-    const hp8 = heatpumps.find(h => h.mqtt_index === 8) ?? null;
+    const hp1 = heatpumps.find(h => h.mqtt_index === 1) ?? null;  // LG ThinQ chauffe-eau (temp/mode)
     const hp9 = heatpumps.find(h => h.mqtt_index === 9) ?? null;
 
     const validBms = [bms1, bms2].filter(Boolean);
@@ -1276,7 +1276,7 @@ const atsExecRef = useRef(null);
         case 'et112-reseau': return { ...n, data: { ...n.data, live: et9 ?? null } };
         case 'et112-maison': return { ...n, data: { ...n.data, live: et8 ?? null } };
         case 'onduleur':    return { ...n, data: { ...n.data, live: inverter ?? null } };
-        case 'chauffe-eau':   return { ...n, data: { ...n.data, live: et8 ?? null, heatpump: hp8 } };
+        case 'chauffe-eau':   return { ...n, data: { ...n.data, live: et8 ?? null, heatpump: hp1 } };
         case 'climatisation': return { ...n, data: { ...n.data, live: et9 ?? null, heatpump: hp9 } };
         case 'mppt':        return { ...n, data: { ...n.data, mppts: mpptList, totalPowerW: mpptTotalPowerW, totalDcA: mpptTotalDcA } };
         case 'smartshunt':  return { ...n, data: { ...n.data, live: shunt ?? null } };
