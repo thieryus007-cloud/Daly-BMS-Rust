@@ -1,6 +1,7 @@
 #!/bin/bash
 # Quick diagnostic script for onduleur/smartshunt issues
 # Run on Pi5: bash ~/Daly-BMS-Rust/debug.sh
+set -euo pipefail
 
 echo "🔍 DIAGNOSTIC RAPIDE - ONDULEUR & SMARTSHUNT"
 echo "=============================================="

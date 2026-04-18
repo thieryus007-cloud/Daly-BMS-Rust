@@ -165,6 +165,9 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
+    // Validation des prérequis de configuration
+    config.influxdb.validate()?;
+
     // ── Override port série depuis CLI ─────────────────────────────────────────
     if let Some(ref port) = args.port {
         config.serial.port = port.clone();

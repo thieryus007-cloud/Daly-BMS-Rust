@@ -2,7 +2,7 @@
 # SCRIPT DE DÉPLOIEMENT COMPLET & VALIDATION
 # À exécuter sur Pi5: bash ~/Daly-BMS-Rust/DEPLOY.sh
 
-set -e
+set -euo pipefail
 
 echo "════════════════════════════════════════════════════════════════════════"
 echo "DÉPLOIEMENT COMPLET - RealTime Metrics Dashboard"

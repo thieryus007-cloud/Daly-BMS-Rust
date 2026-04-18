@@ -175,7 +175,6 @@ pub async fn set_mppt_yield(
 /// Lance une découverte live sur le bus RS485.
 /// ⚠️ Bloquant pendant la durée du scan (peut prendre plusieurs secondes).
 pub async fn discover(State(_state): State<AppState>) -> impl IntoResponse {
-    // TODO: Phase 2 — utiliser DalyBusManager::discover()
     (
         StatusCode::NOT_IMPLEMENTED,
         Json(json!({

@@ -1,6 +1,7 @@
 #!/bin/bash
 # Script de diagnostic rapide MQTT — À exécuter sur le Pi5
 # Affiche 5 vérifications essentielles
+set -euo pipefail
 
 echo "═══════════════════════════════════════════════════════════════"
 echo "  DIAGNOSTIC MQTT RAPIDE — Daly-BMS-Rust Pi5 (2026-04-10)"

@@ -174,7 +174,7 @@ uninstall:
 
 PI_HOST ?= pi5compute@192.168.1.141
 PI_BIN_PATH ?= /usr/local/bin/daly-bms-server
-BRANCH ?= claude/integrate-ats-modbus-q0wyn
+BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)
 
 # sync : utiliser sur Pi5 à la place de git pull
 # Écrase les fichiers locaux sans créer de commits.
