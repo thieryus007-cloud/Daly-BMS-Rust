@@ -115,13 +115,15 @@ fn validate_fc06_response(addr: u8, response: &[u8]) -> anyhow::Result<()> {
 // Polling principal
 // =============================================================================
 
-pub async fn run_ats_poll_loop<F>(
+pub async fn run_ats_poll_loop<F, E>(
     bus: Arc<SharedBus>,
     cfg: AtsConfig,
     mut on_snapshot: F,
+    mut on_result: E,
 )
 where
     F: FnMut(AtsSnapshot) + Send + 'static,
+    E: FnMut(u8, &str, Result<(), String>) + Send + 'static,
 {
     let addr = cfg.address;
     let poll_interval = Duration::from_millis(cfg.poll_interval_ms);
@@ -149,17 +151,20 @@ where
                     "ATS snapshot OK"
                 );
                 consecutive_errors = 0;
+                on_result(addr, &cfg.name, Ok(()));
                 on_snapshot(snap);
             }
             Err(e) => {
                 consecutive_errors += 1;
+                let msg = format!("{:#}", e);
                 if consecutive_errors == 1 || consecutive_errors % 10 == 0 {
                     warn!(
                         addr   = format!("{:#04x}", addr),
                         errors = consecutive_errors,
-                        "ATS erreur lecture : {:#}", e
+                        "ATS erreur lecture : {}", msg
                     );
                 }
+                on_result(addr, &cfg.name, Err(msg));
             }
         }
 

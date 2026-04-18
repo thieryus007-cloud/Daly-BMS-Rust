@@ -39,20 +39,40 @@ impl Default for PollConfig {
     }
 }
 
+/// Catégorie d'erreur RS485 exposée à l'appelant via le callback `on_error`.
+#[derive(Clone, Copy, Debug)]
+pub enum PollErrorKind {
+    /// Timeout : aucune réponse du BMS dans le délai imparti.
+    Timeout,
+    /// CRC / trame invalide (checksum, start flag, adresse inattendue…).
+    Crc,
+    /// Autre erreur non-fatale (ReadOnly, VerifyFailed, etc).
+    Other,
+    /// Erreur port série (backoff déclenché). L'appelant peut tracer une
+    /// dégradation globale du bus.
+    Serial,
+}
+
 /// Exécute la boucle de polling infinie pour tous les BMS du manager.
 ///
 /// Pour chaque BMS, toutes les commandes de lecture sont émises séquentiellement.
 /// Le snapshot résultant est passé au callback `on_snapshot`.
 ///
+/// Le callback `on_error` reçoit `(adresse_bms, catégorie, message)` pour chaque
+/// erreur non-fatale et permet de tenir des compteurs de santé RS485.
+///
 /// En cas d'erreur série (port perdu), la boucle attend `backoff` ms et retente.
-pub async fn poll_loop<F>(
+pub async fn poll_loop<F, E>(
     manager: Arc<DalyBusManager>,
     config: PollConfig,
     on_snapshot: F,
+    on_error: E,
 ) where
     F: Fn(BmsSnapshot) + Send + Sync + 'static,
+    E: Fn(u8, PollErrorKind, String) + Send + Sync + 'static,
 {
     let on_snapshot = Arc::new(on_snapshot);
+    let on_error = Arc::new(on_error);
     let mut backoff_ms = config.backoff_initial_ms;
     // Cache des versions firmware (lues une seule fois par BMS)
     let mut fw_cache: HashMap<u8, (String, String)> = HashMap::new();
@@ -93,18 +113,31 @@ pub async fn poll_loop<F>(
                         bms = format!("{:#04x}", device.address),
                         "Timeout — BMS peut-être hors ligne"
                     );
+                    on_error(device.address, PollErrorKind::Timeout, "timeout".to_string());
                 }
                 Err(DalyError::Serial(e)) => {
+                    let msg = e.to_string();
                     error!("Erreur port série : {} — backoff {}ms", e, backoff_ms);
+                    on_error(device.address, PollErrorKind::Serial, msg);
                     tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
                     backoff_ms = (backoff_ms * 2).min(config.backoff_max_ms);
                     break; // sortir de la boucle devices et réessayer le cycle
                 }
                 Err(e) => {
+                    let msg = format!("{:?}", e);
                     warn!(
                         bms = format!("{:#04x}", device.address),
-                        "Erreur : {:?}", e
+                        "Erreur : {}", msg
                     );
+                    let kind = match &e {
+                        DalyError::Checksum { .. }
+                        | DalyError::InvalidFrame { .. }
+                        | DalyError::InvalidStartFlag(_)
+                        | DalyError::UnexpectedAddress { .. }
+                        | DalyError::UnexpectedDataId { .. } => PollErrorKind::Crc,
+                        _ => PollErrorKind::Other,
+                    };
+                    on_error(device.address, kind, msg);
                 }
             }
         }

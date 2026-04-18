@@ -104,6 +104,21 @@
     </div>
   </div>
 
+  <!-- ── Santé bus RS485 (timeouts/CRC par appareil) ─────────── -->
+  <div class="bms-card" id="card-rs485" style="grid-column:1/-1">
+    <div class="bms-hdr" style="background:linear-gradient(135deg,#eef2ff 0%,#e0e7ff 100%)">
+      <div class="bms-hdr-left">
+        <span class="bms-hdr-name">🔌 Santé bus RS485</span>
+      </div>
+      <div class="bms-hdr-right">
+        <span id="rs485-totals" class="bms-badge">—</span>
+      </div>
+    </div>
+    <div id="rs485-table-wrap" style="padding:0.25rem 0.25rem 0.5rem 0.25rem;overflow-x:auto;">
+      <div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">Chargement…</div></div>
+    </div>
+  </div>
+
   <!-- ── Journal des actions automatiques ──────────────────── -->
   <div class="bms-card" id="card-actions">
     <div class="bms-hdr" style="background:linear-gradient(135deg,#fffbeb 0%,#fef3c7 100%)">
@@ -222,7 +237,105 @@ async function fetchMonitor() {
   } catch(e) {}
 }
 
+function fmtRs485Age(iso) {
+  if (!iso) return '—';
+  const ts = new Date(iso).getTime();
+  if (isNaN(ts)) return '—';
+  const age = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+  if (age < 60)    return age + 's';
+  if (age < 3600)  return Math.floor(age / 60) + 'min';
+  if (age < 86400) return Math.floor(age / 3600) + 'h';
+  return Math.floor(age / 86400) + 'j';
+}
+
+function kindBadge(kind) {
+  const palette = {
+    'BMS':     { bg: '#dbeafe', fg: '#1d4ed8' },
+    'ET112':   { bg: '#fef3c7', fg: '#a16207' },
+    'ATS':     { bg: '#f3e8ff', fg: '#7e22ce' },
+    'PRALRAN': { bg: '#dcfce7', fg: '#15803d' },
+  };
+  const c = palette[kind] || { bg: '#e2e8f0', fg: '#475569' };
+  return `<span style="background:${c.bg};color:${c.fg};padding:2px 6px;border-radius:4px;font-size:0.65rem;font-weight:600">${kind}</span>`;
+}
+
+function renderRs485Health(payload) {
+  const el = document.getElementById('rs485-table-wrap');
+  if (!el) return;
+  const devices = (payload && payload.devices) || [];
+  if (devices.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">—</div><div class="empty-title">Aucun appareil instrumenté</div></div>';
+    return;
+  }
+
+  const rows = devices.map(d => {
+    const total   = (d.successful_polls || 0) + (d.timeout_count || 0) + (d.crc_error_count || 0) + (d.other_error_count || 0);
+    const success = d.successful_polls || 0;
+    const rate    = total > 0 ? (success / total) * 100 : 0;
+    const rateCol = rate >= 95 ? '#16a34a' : rate >= 80 ? '#ca8a04' : '#dc2626';
+    const lastErr = d.last_error_ts
+      ? `<span title="${(d.last_error_message || '').replace(/"/g,'&quot;')}">${fmtRs485Age(d.last_error_ts)}</span>`
+      : '—';
+    const addrHex = '0x' + (d.address != null ? d.address.toString(16).padStart(2,'0') : '?');
+    return `
+      <tr>
+        <td style="padding:0.4rem 0.6rem;font-family:monospace;font-weight:600">${addrHex}</td>
+        <td style="padding:0.4rem 0.6rem">${kindBadge(d.kind || '—')}</td>
+        <td style="padding:0.4rem 0.6rem">${d.name || '—'}</td>
+        <td style="padding:0.4rem 0.6rem;text-align:right;font-family:monospace;color:${rateCol};font-weight:600">${rate.toFixed(1)}%</td>
+        <td style="padding:0.4rem 0.6rem;text-align:right;font-family:monospace">${success}</td>
+        <td style="padding:0.4rem 0.6rem;text-align:right;font-family:monospace;color:${d.timeout_count > 0 ? '#dc2626' : 'inherit'}">${d.timeout_count || 0}</td>
+        <td style="padding:0.4rem 0.6rem;text-align:right;font-family:monospace;color:${d.crc_error_count > 0 ? '#dc2626' : 'inherit'}">${d.crc_error_count || 0}</td>
+        <td style="padding:0.4rem 0.6rem;text-align:right;font-family:monospace;color:${d.other_error_count > 0 ? '#ca8a04' : 'inherit'}">${d.other_error_count || 0}</td>
+        <td style="padding:0.4rem 0.6rem;text-align:right;font-size:0.7rem;color:var(--muted2)">${fmtRs485Age(d.last_success_ts)}</td>
+        <td style="padding:0.4rem 0.6rem;text-align:right;font-size:0.7rem;color:var(--muted2)">${lastErr}</td>
+      </tr>
+    `;
+  }).join('');
+
+  el.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:0.78rem">
+      <thead>
+        <tr style="background:var(--bg2);color:var(--muted2);text-align:left;font-size:0.7rem">
+          <th style="padding:0.4rem 0.6rem">Addr</th>
+          <th style="padding:0.4rem 0.6rem">Type</th>
+          <th style="padding:0.4rem 0.6rem">Nom</th>
+          <th style="padding:0.4rem 0.6rem;text-align:right">Succès</th>
+          <th style="padding:0.4rem 0.6rem;text-align:right">OK</th>
+          <th style="padding:0.4rem 0.6rem;text-align:right">Timeout</th>
+          <th style="padding:0.4rem 0.6rem;text-align:right">CRC</th>
+          <th style="padding:0.4rem 0.6rem;text-align:right">Autre</th>
+          <th style="padding:0.4rem 0.6rem;text-align:right">Dern. OK</th>
+          <th style="padding:0.4rem 0.6rem;text-align:right">Dern. err.</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+
+  const t = (payload && payload.totals) || {};
+  const badge = document.getElementById('rs485-totals');
+  if (badge) {
+    const tot = (t.successful_polls||0) + (t.timeout_count||0) + (t.crc_error_count||0) + (t.other_error_count||0);
+    const rate = tot > 0 ? ((t.successful_polls||0) / tot) * 100 : 0;
+    badge.textContent = `${rate.toFixed(1)}% (${t.successful_polls||0}/${tot})`;
+    badge.style.background = rate >= 95 ? '#dcfce7' : rate >= 80 ? '#fef3c7' : '#fee2e2';
+    badge.style.color      = rate >= 95 ? '#15803d' : rate >= 80 ? '#a16207' : '#dc2626';
+  }
+}
+
+async function fetchRs485Health() {
+  try {
+    const resp = await fetch('/api/v1/monitor/rs485-health');
+    if (!resp.ok) return;
+    const d = await resp.json();
+    renderRs485Health(d);
+  } catch(e) {}
+}
+
 fetchMonitor();
+fetchRs485Health();
 setInterval(fetchMonitor, 10000);
+setInterval(fetchRs485Health, 10000);
 </script>
 {% endblock %}

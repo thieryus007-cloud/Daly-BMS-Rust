@@ -278,6 +278,32 @@ pub async fn get_monitor_status(State(state): State<AppState>) -> impl IntoRespo
     }
 }
 
+/// GET /api/v1/monitor/rs485-health
+///
+/// Retourne les compteurs de santé par appareil RS485 (BMS, ET112, ATS, PRALRAN).
+/// Contient : polls réussis, timeouts, erreurs CRC, autres erreurs, horodatages
+/// du dernier succès et de la dernière erreur.
+pub async fn get_rs485_health(State(state): State<AppState>) -> impl IntoResponse {
+    let stats = state.rs485_stats_all().await;
+    let total_success: u64 = stats.iter().map(|s| s.successful_polls).sum();
+    let total_timeouts: u64 = stats.iter().map(|s| s.timeout_count).sum();
+    let total_crc: u64 = stats.iter().map(|s| s.crc_error_count).sum();
+    let total_other: u64 = stats.iter().map(|s| s.other_error_count).sum();
+    (
+        StatusCode::OK,
+        Json(json!({
+            "count": stats.len(),
+            "devices": stats,
+            "totals": {
+                "successful_polls":  total_success,
+                "timeout_count":     total_timeouts,
+                "crc_error_count":   total_crc,
+                "other_error_count": total_other,
+            },
+        })),
+    )
+}
+
 /// GET /api/v1/system/totals
 ///
 /// Retourne les totaux agrégés du système :
