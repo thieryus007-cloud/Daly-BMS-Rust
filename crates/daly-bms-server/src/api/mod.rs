@@ -46,7 +46,8 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/v1/venus/heatpumps",   get(system::get_venus_heatpumps))
 
         // ── Monitoring système Pi5 ────────────────────────────────────────────
-        .route("/api/v1/monitor/status",    get(system::get_monitor_status))
+        .route("/api/v1/monitor/status",        get(system::get_monitor_status))
+        .route("/api/v1/monitor/rs485-health",  get(system::get_rs485_health))
 
         // ── BMS — Lecture ────────────────────────────────────────────────────
         .route("/api/v1/bms/:id/status",      get(bms::get_bms_status))

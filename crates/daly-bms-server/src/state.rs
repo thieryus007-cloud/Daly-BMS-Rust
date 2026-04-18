@@ -226,6 +226,62 @@ pub struct ServiceStatus {
     pub active: bool,
 }
 
+/// Compteurs de santé par appareil RS485 (BMS, ET112, ATS, PRALRAN).
+///
+/// Les compteurs sont monotones depuis le démarrage du serveur ; l'UI
+/// peut calculer un taux de succès = `successful_polls / (successful_polls
+/// + timeout_count + crc_error_count + other_error_count)`.
+#[derive(Clone, Serialize, Debug, Default)]
+pub struct Rs485DeviceStats {
+    pub address: u8,
+    pub name: String,
+    /// Catégorie d'appareil : "BMS", "ET112", "PRALRAN", "ATS".
+    pub kind: String,
+    pub successful_polls:  u64,
+    pub timeout_count:     u64,
+    pub crc_error_count:   u64,
+    pub other_error_count: u64,
+    pub last_success_ts:   Option<DateTime<Utc>>,
+    pub last_error_ts:     Option<DateTime<Utc>>,
+    /// Catégorie de la dernière erreur : "timeout", "crc", "other".
+    pub last_error_kind:    Option<String>,
+    pub last_error_message: Option<String>,
+}
+
+impl Rs485DeviceStats {
+    pub fn new(address: u8, name: String, kind: &str) -> Self {
+        Self {
+            address,
+            name,
+            kind: kind.to_string(),
+            ..Default::default()
+        }
+    }
+
+    pub fn record_success(&mut self) {
+        self.successful_polls += 1;
+        self.last_success_ts = Some(Utc::now());
+    }
+
+    /// Classe une erreur à partir de son message (heuristique).
+    pub fn record_error(&mut self, err_msg: &str) {
+        let lc = err_msg.to_lowercase();
+        let kind = if lc.contains("timeout") || lc.contains("aucune réponse") {
+            self.timeout_count += 1;
+            "timeout"
+        } else if lc.contains("crc") {
+            self.crc_error_count += 1;
+            "crc"
+        } else {
+            self.other_error_count += 1;
+            "other"
+        };
+        self.last_error_ts = Some(Utc::now());
+        self.last_error_kind = Some(kind.to_string());
+        self.last_error_message = Some(err_msg.chars().take(200).collect());
+    }
+}
+
 /// Snapshot de monitoring système Pi5.
 #[derive(Clone, Serialize, Debug)]
 pub struct MonitorSnapshot {
@@ -315,6 +371,10 @@ pub struct AppState {
 
     /// Bus RS485 dédié à l'ATS (parité Even) — pour les commandes d'écriture via API.
     pub ats_bus: Arc<RwLock<Option<Arc<rs485_bus::SharedBus>>>>,
+
+    /// Compteurs de santé par appareil RS485 (indexés par adresse).
+    /// Alimenté par les boucles de polling BMS / ET112 / irradiance / ATS.
+    pub rs485_stats: Arc<RwLock<BTreeMap<u8, Rs485DeviceStats>>>,
 }
 
 impl AppState {
@@ -364,7 +424,34 @@ impl AppState {
             monitor_snapshot: Arc::new(RwLock::new(None)),
             ats_snapshot: Arc::new(RwLock::new(None)),
             ats_bus: Arc::new(RwLock::new(None)),
+            rs485_stats: Arc::new(RwLock::new(BTreeMap::new())),
         }
+    }
+
+    /// Incrémente le compteur de polls réussis pour un appareil RS485.
+    /// Crée l'entrée si elle n'existe pas.
+    pub async fn record_rs485_success(&self, addr: u8, kind: &str, name: &str) {
+        let mut stats = self.rs485_stats.write().await;
+        stats
+            .entry(addr)
+            .or_insert_with(|| Rs485DeviceStats::new(addr, name.to_string(), kind))
+            .record_success();
+    }
+
+    /// Incrémente le compteur d'erreurs pour un appareil RS485 (timeout/CRC/autre).
+    /// Crée l'entrée si elle n'existe pas.
+    pub async fn record_rs485_error(&self, addr: u8, kind: &str, name: &str, err_msg: &str) {
+        let mut stats = self.rs485_stats.write().await;
+        stats
+            .entry(addr)
+            .or_insert_with(|| Rs485DeviceStats::new(addr, name.to_string(), kind))
+            .record_error(err_msg);
+    }
+
+    /// Retourne la liste actuelle des statistiques RS485 (triée par adresse).
+    pub async fn rs485_stats_all(&self) -> Vec<Rs485DeviceStats> {
+        let stats = self.rs485_stats.read().await;
+        stats.values().cloned().collect()
     }
 
     /// Enregistre le port série ouvert (mode hardware uniquement).

@@ -28,13 +28,15 @@ use tracing::{debug, info, warn};
 /// - `bus`         : bus RS485 partagé (même instance que le bus Daly BMS)
 /// - `cfg`         : configuration du capteur
 /// - `on_snapshot` : callback appelé à chaque mesure valide
-pub async fn run_irradiance_poll_loop<F>(
+pub async fn run_irradiance_poll_loop<F, E>(
     bus: Arc<SharedBus>,
     cfg: IrradianceConfig,
     mut on_snapshot: F,
+    mut on_result: E,
 )
 where
     F: FnMut(IrradianceSnapshot) + Send + 'static,
+    E: FnMut(u8, &str, Result<(), String>) + Send + 'static,
 {
     let addr = cfg.parsed_address();
     let poll_interval = Duration::from_millis(cfg.poll_interval_ms);
@@ -57,19 +59,22 @@ where
                     "Irradiance OK"
                 );
                 consecutive_errors = 0;
+                on_result(addr, &cfg.name, Ok(()));
                 on_snapshot(snap);
             }
             Err(e) => {
                 consecutive_errors += 1;
+                let msg = format!("{:#}", e);
                 // Log seulement à la 1ère erreur, puis toutes les 12 (même fréquence que Python)
                 if consecutive_errors == 1 || consecutive_errors % 12 == 0 {
                     warn!(
                         addr   = format!("{:#04x}", addr),
                         errors = consecutive_errors,
-                        "Irradiance erreur lecture : {:#}",
-                        e
+                        "Irradiance erreur lecture : {}",
+                        msg
                     );
                 }
+                on_result(addr, &cfg.name, Err(msg));
             }
         }
 

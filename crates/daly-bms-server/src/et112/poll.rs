@@ -46,14 +46,16 @@ fn regs_to_i32(lo: u16, hi: u16) -> i32 {
 /// - `devices`       : liste des ET112 configurés (adresse + nom + ...)
 /// - `poll_interval` : intervalle entre deux cycles complets
 /// - `on_snapshot`   : callback appelé pour chaque snapshot valide
-pub async fn run_et112_poll_loop<F>(
+pub async fn run_et112_poll_loop<F, E>(
     bus: Arc<SharedBus>,
     devices: Vec<Et112DeviceConfig>,
     poll_interval: Duration,
     mut on_snapshot: F,
+    mut on_result: E,
 )
 where
     F: FnMut(Et112Snapshot) + Send + 'static,
+    E: FnMut(u8, &str, Result<(), String>) + Send + 'static,
 {
     if devices.is_empty() {
         info!("ET112 : aucun appareil configuré, polling désactivé");
@@ -76,15 +78,18 @@ where
                         power_w = snap.power_w,
                         "ET112 snapshot OK"
                     );
+                    on_result(address, &dev.name, Ok(()));
                     on_snapshot(snap);
                 }
                 Err(e) => {
+                    let msg = format!("{:#}", e);
                     warn!(
                         addr = format!("{:#04x}", address),
                         name = %dev.name,
-                        "ET112 erreur lecture : {:#}",
-                        e
+                        "ET112 erreur lecture : {}",
+                        msg
                     );
+                    on_result(address, &dev.name, Err(msg));
                 }
             }
         }

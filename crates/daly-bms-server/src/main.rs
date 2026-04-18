@@ -30,7 +30,7 @@ use crate::bridges::{alerts, influx, mqtt};
 use crate::config::AppConfig;
 use crate::state::{AppState, LogBuffer, LogEntry};
 use daly_bms_core::bus::{BmsConfig, DalyBusManager, DalyPort};
-use daly_bms_core::poll::{poll_loop, PollConfig};
+use daly_bms_core::poll::{poll_loop, PollConfig, PollErrorKind};
 use std::collections::VecDeque;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
@@ -338,7 +338,8 @@ async fn main() -> anyhow::Result<()> {
                             count = config.et112.devices.len(),
                             "Démarrage polling ET112 (bus RS485 unifié)"
                         );
-                        let state_et  = state.clone();
+                        let state_et     = state.clone();
+                        let state_et_err = state.clone();
                         let bus_et    = shared_bus.clone();
                         let et112_cfg = config.et112.clone();
                         tokio::spawn(async move {
@@ -349,6 +350,16 @@ async fn main() -> anyhow::Result<()> {
                                 move |snap| {
                                     let s = state_et.clone();
                                     tokio::spawn(async move { s.on_et112_snapshot(snap).await });
+                                },
+                                move |addr, name, res| {
+                                    let s = state_et_err.clone();
+                                    let name = name.to_string();
+                                    tokio::spawn(async move {
+                                        match res {
+                                            Ok(()) => s.record_rs485_success(addr, "ET112", &name).await,
+                                            Err(msg) => s.record_rs485_error(addr, "ET112", &name, &msg).await,
+                                        }
+                                    });
                                 },
                             )
                             .await;
@@ -361,7 +372,8 @@ async fn main() -> anyhow::Result<()> {
                             addr = %irrad_cfg.address,
                             "Démarrage polling irradiance PRALRAN (bus RS485 unifié)"
                         );
-                        let state_irrad = state.clone();
+                        let state_irrad     = state.clone();
+                        let state_irrad_err = state.clone();
                         let bus_irrad   = shared_bus.clone();
                         tokio::spawn(async move {
                             irradiance::run_irradiance_poll_loop(
@@ -370,6 +382,16 @@ async fn main() -> anyhow::Result<()> {
                                 move |snap| {
                                     let s = state_irrad.clone();
                                     tokio::spawn(async move { s.on_irradiance_snapshot(snap).await });
+                                },
+                                move |addr, name, res| {
+                                    let s = state_irrad_err.clone();
+                                    let name = name.to_string();
+                                    tokio::spawn(async move {
+                                        match res {
+                                            Ok(()) => s.record_rs485_success(addr, "PRALRAN", &name).await,
+                                            Err(msg) => s.record_rs485_error(addr, "PRALRAN", &name, &msg).await,
+                                        }
+                                    });
                                 },
                             )
                             .await;
@@ -386,7 +408,8 @@ async fn main() -> anyhow::Result<()> {
                                 name = %ats_cfg.name,
                                 "Démarrage polling ATS CHINT (bus RS485 unifié)"
                             );
-                            let state_ats = state.clone();
+                            let state_ats     = state.clone();
+                            let state_ats_err = state.clone();
                             let bus_ats   = shared_bus.clone();
                             state.set_ats_bus(shared_bus.clone()).await;
                             tokio::spawn(async move {
@@ -396,6 +419,16 @@ async fn main() -> anyhow::Result<()> {
                                     move |snap| {
                                         let s = state_ats.clone();
                                         tokio::spawn(async move { s.on_ats_snapshot(snap).await });
+                                    },
+                                    move |addr, name, res| {
+                                        let s = state_ats_err.clone();
+                                        let name = name.to_string();
+                                        tokio::spawn(async move {
+                                            match res {
+                                                Ok(()) => s.record_rs485_success(addr, "ATS", &name).await,
+                                                Err(msg) => s.record_rs485_error(addr, "ATS", &name, &msg).await,
+                                            }
+                                        });
                                     },
                                 )
                                 .await;
@@ -440,17 +473,50 @@ async fn main() -> anyhow::Result<()> {
                         info!("Polling de {} BMS : {:?}", devices.len(),
                               devices.iter().map(|d| format!("{:#04x}", d.address)).collect::<Vec<_>>());
 
+                        // Map adresse → nom pour enrichir les stats RS485.
+                        let bms_names: std::collections::BTreeMap<u8, String> = devices
+                            .iter()
+                            .map(|d| (d.address, d.name.clone()))
+                            .collect();
+
                         let manager  = Arc::new(DalyBusManager::new(port, devices));
                         let poll_cfg = PollConfig {
                             interval_ms: config.serial.poll_interval_ms,
                             ..Default::default()
                         };
                         let state_poll = state.clone();
+                        let state_err  = state.clone();
                         tokio::spawn(async move {
-                            poll_loop(manager, poll_cfg, move |snap| {
-                                let s = state_poll.clone();
-                                tokio::spawn(async move { s.on_snapshot(snap).await });
-                            })
+                            poll_loop(
+                                manager,
+                                poll_cfg,
+                                move |snap| {
+                                    let s = state_poll.clone();
+                                    let addr = snap.address;
+                                    let name = snap.name.clone();
+                                    tokio::spawn(async move {
+                                        s.record_rs485_success(addr, "BMS", &name).await;
+                                        s.on_snapshot(snap).await;
+                                    });
+                                },
+                                move |addr, kind, msg| {
+                                    let s = state_err.clone();
+                                    let name = bms_names
+                                        .get(&addr)
+                                        .cloned()
+                                        .unwrap_or_else(|| format!("BMS {:#04x}", addr));
+                                    let err_tag = match kind {
+                                        PollErrorKind::Timeout => "timeout",
+                                        PollErrorKind::Crc     => "crc",
+                                        PollErrorKind::Serial  => "timeout", // port série → traité comme timeout
+                                        PollErrorKind::Other   => "other",
+                                    };
+                                    let err_msg = format!("{}: {}", err_tag, msg);
+                                    tokio::spawn(async move {
+                                        s.record_rs485_error(addr, "BMS", &name, &err_msg).await;
+                                    });
+                                },
+                            )
                             .await;
                         });
                     }
