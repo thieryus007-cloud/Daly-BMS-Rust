@@ -7,6 +7,17 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use anyhow::{Context, Result};
 
+/// Parse une adresse Modbus au format "0x05" ou "5" en u8.
+/// Retourne `None` si le format est invalide (overflow u8 ou non-numérique).
+fn parse_modbus_address(s: &str) -> Option<u8> {
+    let s = s.trim();
+    if let Some(hex) = s.strip_prefix("0x").or_else(|| s.strip_prefix("0X")) {
+        u8::from_str_radix(hex, 16).ok()
+    } else {
+        s.parse::<u8>().ok()
+    }
+}
+
 // =============================================================================
 // Structure principale
 // =============================================================================
@@ -93,12 +104,7 @@ pub struct BmsDeviceConfig {
 impl BmsDeviceConfig {
     /// Parse l'adresse en u8 (supporte "0x28", "40", "1")
     pub fn parsed_address(&self) -> Option<u8> {
-        let s = self.address.trim();
-        if s.starts_with("0x") || s.starts_with("0X") {
-            u8::from_str_radix(&s[2..], 16).ok()
-        } else {
-            s.parse::<u8>().ok()
-        }
+        parse_modbus_address(&self.address)
     }
 }
 
@@ -232,11 +238,12 @@ pub struct Et112DeviceConfig {
 }
 
 fn default_et112_position() -> u8 { 1 }
-fn default_et112_service_type() -> String { "pvinverter".to_string() }
 
-fn default_et112_name() -> String {
-    "ET112".to_string()
-}
+const DEFAULT_ET112_SERVICE_TYPE: &str = "pvinverter";
+fn default_et112_service_type() -> String { DEFAULT_ET112_SERVICE_TYPE.to_string() }
+
+const DEFAULT_ET112_NAME: &str = "ET112";
+fn default_et112_name() -> String { DEFAULT_ET112_NAME.to_string() }
 
 // =============================================================================
 // Configuration ATS CHINT
@@ -289,7 +296,10 @@ pub struct AtsConfig {
 
 fn default_ats_enabled()         -> bool   { true }
 fn default_ats_address()         -> u8     { 6 }
-fn default_ats_name()            -> String { "ATS CHINT".to_string() }
+
+const DEFAULT_ATS_NAME: &str = "ATS CHINT";
+fn default_ats_name()            -> String { DEFAULT_ATS_NAME.to_string() }
+
 fn default_ats_interval()        -> u64    { 5000 }
 fn default_ats_mqtt_index()      -> u8     { 1 }
 fn default_ats_device_instance() -> u16    { 60 }
@@ -297,12 +307,10 @@ fn default_ats_device_instance() -> u16    { 60 }
 impl Et112DeviceConfig {
     /// Parse l'adresse en u8 (supporte "0x03", "3").
     pub fn parsed_address(&self) -> u8 {
-        let s = self.address.trim();
-        if s.starts_with("0x") || s.starts_with("0X") {
-            u8::from_str_radix(&s[2..], 16).unwrap_or(3)
-        } else {
-            s.parse::<u8>().unwrap_or(3)
-        }
+        parse_modbus_address(&self.address).unwrap_or_else(|| {
+            tracing::warn!(addr = %self.address, "ET112 adresse invalide, fallback 0x03");
+            3
+        })
     }
 }
 
@@ -402,6 +410,21 @@ pub struct InfluxConfig {
 }
 
 impl InfluxConfig {
+    /// Valide la configuration au démarrage.
+    /// Erreur uniquement si `enabled = true` et un champ critique est vide.
+    pub fn validate(&self) -> anyhow::Result<()> {
+        if !self.enabled {
+            return Ok(());
+        }
+        if self.url.trim().is_empty() {
+            anyhow::bail!("InfluxDB activé mais [influxdb].url est vide dans la config");
+        }
+        if self.token.trim().is_empty() {
+            anyhow::bail!("InfluxDB activé mais [influxdb].token est vide dans la config");
+        }
+        Ok(())
+    }
+
     #[allow(dead_code)]
     pub fn default_enabled() -> Self {
         Self {
@@ -444,16 +467,26 @@ pub struct AlertThresholds {
     pub current_high_a: f32,
 }
 
+// Seuils d'alerte par défaut — valeurs de production (voir CLAUDE.md §5).
+// Ne pas modifier sans mettre à jour la documentation.
+const DEFAULT_CELL_OVP_V:           f32 = 3.60;
+const DEFAULT_CELL_UVP_V:           f32 = 2.90;
+const DEFAULT_CELL_DELTA_MV:        f32 = 100.0;
+const DEFAULT_SOC_LOW_PERCENT:      f32 = 20.0;
+const DEFAULT_SOC_CRITICAL_PERCENT: f32 = 10.0;
+const DEFAULT_TEMP_HIGH_C:          f32 = 45.0;
+const DEFAULT_CURRENT_HIGH_A:       f32 = 80.0;
+
 impl Default for AlertThresholds {
     fn default() -> Self {
         Self {
-            cell_ovp_v:            3.60,
-            cell_uvp_v:            2.90,
-            cell_delta_mv:         100.0,
-            soc_low_percent:       20.0,
-            soc_critical_percent:  10.0,
-            temp_high_c:           45.0,
-            current_high_a:        80.0,
+            cell_ovp_v:            DEFAULT_CELL_OVP_V,
+            cell_uvp_v:            DEFAULT_CELL_UVP_V,
+            cell_delta_mv:         DEFAULT_CELL_DELTA_MV,
+            soc_low_percent:       DEFAULT_SOC_LOW_PERCENT,
+            soc_critical_percent:  DEFAULT_SOC_CRITICAL_PERCENT,
+            temp_high_c:           DEFAULT_TEMP_HIGH_C,
+            current_high_a:        DEFAULT_CURRENT_HIGH_A,
         }
     }
 }
@@ -490,22 +523,17 @@ pub struct IrradianceConfig {
     pub poll_interval_ms: u64,
 }
 
-fn default_irradiance_name() -> String {
-    "Irradiance PRALRAN".to_string()
-}
-fn default_irradiance_interval() -> u64 {
-    5000
-}
+const DEFAULT_IRRADIANCE_NAME: &str = "Irradiance PRALRAN";
+fn default_irradiance_name() -> String { DEFAULT_IRRADIANCE_NAME.to_string() }
+fn default_irradiance_interval() -> u64 { 5000 }
 
 impl IrradianceConfig {
     /// Parse l'adresse en u8 (supporte "0x05", "5")
     pub fn parsed_address(&self) -> u8 {
-        let s = self.address.trim();
-        if s.starts_with("0x") || s.starts_with("0X") {
-            u8::from_str_radix(&s[2..], 16).unwrap_or(5)
-        } else {
-            s.parse::<u8>().unwrap_or(5)
-        }
+        parse_modbus_address(&self.address).unwrap_or_else(|| {
+            tracing::warn!(addr = %self.address, "Irradiance adresse invalide, fallback 0x05");
+            5
+        })
     }
 }
 
@@ -568,9 +596,14 @@ pub struct TasmotaDeviceConfig {
     pub device_instance: Option<u16>,
 }
 
-fn default_tasmota_name()         -> String { "Tasmota".to_string() }
-fn default_tasmota_service_type() -> String { "switch".to_string() }
-fn default_shelly_name()          -> String { "Shelly".to_string() }
+const DEFAULT_TASMOTA_NAME: &str = "Tasmota";
+fn default_tasmota_name()         -> String { DEFAULT_TASMOTA_NAME.to_string() }
+
+const DEFAULT_TASMOTA_SERVICE_TYPE: &str = "switch";
+fn default_tasmota_service_type() -> String { DEFAULT_TASMOTA_SERVICE_TYPE.to_string() }
+
+const DEFAULT_SHELLY_NAME: &str = "Shelly";
+fn default_shelly_name()          -> String { DEFAULT_SHELLY_NAME.to_string() }
 
 // =============================================================================
 // Configuration Shelly (stub — implémentation future)
@@ -592,6 +625,55 @@ impl Default for ShellyConfig {
             ring_buffer_size: 720,
             devices:          Vec::new(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_modbus_address_hex_lowercase() {
+        assert_eq!(parse_modbus_address("0x05"), Some(5));
+        assert_eq!(parse_modbus_address("0xff"), Some(255));
+    }
+
+    #[test]
+    fn parse_modbus_address_hex_uppercase() {
+        assert_eq!(parse_modbus_address("0X05"), Some(5));
+        assert_eq!(parse_modbus_address("0XFF"), Some(255));
+    }
+
+    #[test]
+    fn parse_modbus_address_decimal() {
+        assert_eq!(parse_modbus_address("5"), Some(5));
+        assert_eq!(parse_modbus_address("255"), Some(255));
+    }
+
+    #[test]
+    fn parse_modbus_address_whitespace_trimmed() {
+        assert_eq!(parse_modbus_address("  0x07 "), Some(7));
+        assert_eq!(parse_modbus_address(" 40 "), Some(40));
+    }
+
+    #[test]
+    fn parse_modbus_address_invalid_returns_none() {
+        assert_eq!(parse_modbus_address(""), None);
+        assert_eq!(parse_modbus_address("0xZZ"), None);
+        assert_eq!(parse_modbus_address("300"), None); // overflow u8
+        assert_eq!(parse_modbus_address("not-a-number"), None);
+    }
+
+    #[test]
+    fn alert_thresholds_defaults_unchanged() {
+        let t = AlertThresholds::default();
+        assert_eq!(t.cell_ovp_v, 3.60);
+        assert_eq!(t.cell_uvp_v, 2.90);
+        assert_eq!(t.cell_delta_mv, 100.0);
+        assert_eq!(t.soc_low_percent, 20.0);
+        assert_eq!(t.soc_critical_percent, 10.0);
+        assert_eq!(t.temp_high_c, 45.0);
+        assert_eq!(t.current_high_a, 80.0);
     }
 }
 

@@ -39,7 +39,12 @@ pub async fn run_mqtt_bridge(state: AppState, cfg: MqttConfig, addr_map: HashMap
         return;
     }
 
-    info!(host = %cfg.host, port = cfg.port, "Démarrage MQTT bridge");
+    info!(
+        host = %cfg.host,
+        port = cfg.port,
+        authenticated = cfg.username.is_some() && cfg.password.is_some(),
+        "Démarrage MQTT bridge"
+    );
 
     let mut opts = MqttOptions::new(
         format!("daly-bms-{}", uuid::Uuid::new_v4()),
@@ -49,6 +54,7 @@ pub async fn run_mqtt_bridge(state: AppState, cfg: MqttConfig, addr_map: HashMap
     opts.set_keep_alive(Duration::from_secs(30));
 
     if let (Some(user), Some(pass)) = (&cfg.username, &cfg.password) {
+        debug!(username = %user, "MQTT credentials configurés");
         opts.set_credentials(user, pass);
     }
 
