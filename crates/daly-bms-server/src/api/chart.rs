@@ -2,6 +2,9 @@
 //!
 //! GET /api/v1/chart/history?minutes=60
 //! Retourne { solar:[{t,v}], soc:[{t,v}], load:[{t,v}] }
+//!
+//! GET /api/v1/chart/edge-history?measurement=bms_status&field=current&address=0x01&minutes=360
+//! Retourne { ok, series:[{t,v}], unit }
 
 use axum::{
     extract::{Query, State},
@@ -15,6 +18,14 @@ use crate::state::AppState;
 
 #[derive(Deserialize)]
 pub struct HistoryParams {
+    pub minutes: Option<u32>,
+}
+
+#[derive(Deserialize)]
+pub struct EdgeHistoryParams {
+    pub measurement: String,
+    pub field: String,
+    pub address: String,
     pub minutes: Option<u32>,
 }
 
@@ -159,4 +170,77 @@ fn sum_by_time(rows: Vec<(String, f64)>) -> Vec<Value> {
     map.into_iter()
         .map(|(t, v)| json!({"t": t, "v": v.round()}))
         .collect()
+}
+
+/// GET /api/v1/chart/edge-history?measurement=...&field=...&address=...&minutes=360
+///
+/// Renvoie la série temporelle brute d'un champ (courant) pour un appareil donné.
+/// Utilisé par les overlays de graphique sur les edges de la page visualisation.
+pub async fn get_edge_history(
+    State(state): State<AppState>,
+    Query(q): Query<EdgeHistoryParams>,
+) -> impl IntoResponse {
+    let minutes = q.minutes.unwrap_or(360).clamp(1, 1440);
+    let cfg = &state.config.influxdb;
+
+    if !cfg.enabled || cfg.token.is_empty() {
+        return Json(json!({ "ok": false, "series": [], "reason": "influxdb_disabled" }));
+    }
+
+    // Whitelist stricte pour éviter l'injection Flux.
+    let measurement = match q.measurement.as_str() {
+        "bms_status"      => "bms_status",
+        "et112_status"    => "et112_status",
+        _ => return Json(json!({ "ok": false, "series": [], "reason": "bad_measurement" })),
+    };
+    let field = match q.field.as_str() {
+        "current"   => "current",
+        "current_a" => "current_a",
+        _ => return Json(json!({ "ok": false, "series": [], "reason": "bad_field" })),
+    };
+    // Adresse : accepte "0x01" / "0x01" ou décimal — on re-normalise au format "0x%02x".
+    let addr_num: u32 = if let Some(hex) = q.address.strip_prefix("0x").or_else(|| q.address.strip_prefix("0X")) {
+        match u32::from_str_radix(hex, 16) {
+            Ok(n) => n,
+            Err(_) => return Json(json!({ "ok": false, "series": [], "reason": "bad_address" })),
+        }
+    } else {
+        match q.address.parse::<u32>() {
+            Ok(n) => n,
+            Err(_) => return Json(json!({ "ok": false, "series": [], "reason": "bad_address" })),
+        }
+    };
+    let address = format!("{:#04x}", addr_num);
+
+    let window = if minutes <= 60 { "1m" } else if minutes <= 360 { "3m" } else { "10m" };
+    let b = &cfg.bucket;
+
+    let flux = format!(
+        "from(bucket: \"{b}\") |> range(start: -{minutes}m) \
+         |> filter(fn: (r) => r._measurement == \"{measurement}\" and r._field == \"{field}\" and r.address == \"{address}\") \
+         |> aggregateWindow(every: {window}, fn: mean, createEmpty: false)"
+    );
+
+    let url  = format!("{}/api/v2/query?org={}", cfg.url, cfg.org);
+    let auth = format!("Token {}", cfg.token);
+    let client = reqwest::Client::new();
+
+    let series: Vec<Value> = match influx_query(&client, &url, &auth, &flux).await {
+        Some(rows) => rows.into_iter()
+            .map(|(t, v)| json!({ "t": t, "v": (v * 100.0).round() / 100.0 }))
+            .collect(),
+        None => Vec::new(),
+    };
+
+    let unit = if field == "current" || field == "current_a" { "A" } else { "" };
+
+    Json(json!({
+        "ok":      true,
+        "series":  series,
+        "unit":    unit,
+        "address": address,
+        "field":   field,
+        "measurement": measurement,
+        "minutes": minutes,
+    }))
 }

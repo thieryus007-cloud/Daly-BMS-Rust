@@ -93,6 +93,7 @@ pub fn build_router(state: AppState) -> Router {
 
         // ── Chart historique InfluxDB ─────────────────────────────────────────
         .route("/api/v1/chart/history",           get(chart::get_chart_history))
+        .route("/api/v1/chart/edge-history",      get(chart::get_edge_history))
 
         // ── Tasmota ──────────────────────────────────────────────────────────
         .route("/api/v1/tasmota",                 get(tasmota::list_tasmota))
