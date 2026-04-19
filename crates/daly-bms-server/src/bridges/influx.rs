@@ -7,9 +7,10 @@
 use crate::config::InfluxConfig;
 use crate::et112::Et112Snapshot;
 use crate::irradiance::IrradianceSnapshot;
-use crate::state::AppState;
+use crate::state::{AppState, VenusInverter, VenusSmartShunt};
 use crate::tasmota::TasmotaSnapshot;
 use daly_bms_core::types::BmsSnapshot;
+use chrono::Utc;
 use influxdb2::Client;
 use influxdb2::models::DataPoint;
 use tracing::{error, info, warn};
@@ -41,6 +42,9 @@ pub async fn run_influx_bridge(state: AppState, cfg: InfluxConfig) {
     let mut tasmota_ticker = tokio::time::interval(tasmota_interval);
     let irradiance_interval = Duration::from_secs(30);
     let mut irradiance_ticker = tokio::time::interval(irradiance_interval);
+    // Ticker Venus OS (MPPT total + SmartShunt + Inverter) — pour historique des edges DC/AC.
+    let venus_interval = Duration::from_secs(10);
+    let mut venus_ticker = tokio::time::interval(venus_interval);
 
     loop {
         tokio::select! {
@@ -79,6 +83,27 @@ pub async fn run_influx_bridge(state: AppState, cfg: InfluxConfig) {
             _ = irradiance_ticker.tick() => {
                 if let Some(snap) = state.latest_irradiance().await {
                     if let Ok(p) = irradiance_snapshot_to_point(&snap) {
+                        batch.push(p);
+                    }
+                }
+                if !batch.is_empty() {
+                    flush_batch(&client, &cfg.bucket, &mut batch).await;
+                }
+            }
+            _ = venus_ticker.tick() => {
+                // Total MPPT (somme de toutes les instances SolarCharger).
+                let mppt_power   = state.venus_mppt_total_power().await;
+                let mppt_current = state.venus_mppt_total_dc_current().await;
+                if let Ok(p) = venus_mppt_total_to_point(mppt_power, mppt_current) {
+                    batch.push(p);
+                }
+                if let Some(shunt) = state.venus_smartshunt_get().await {
+                    if let Ok(p) = venus_smartshunt_to_point(&shunt) {
+                        batch.push(p);
+                    }
+                }
+                if let Some(inv) = state.venus_inverter_get().await {
+                    if let Ok(p) = venus_inverter_to_point(&inv) {
                         batch.push(p);
                     }
                 }
@@ -196,6 +221,53 @@ fn snapshot_to_points(snap: &BmsSnapshot) -> Vec<DataPoint> {
     }
 
     points
+}
+
+/// Point InfluxDB « total MPPT » — somme des instances SolarCharger actives.
+///
+/// Measurement : `venus_mppt_total`
+/// Pas de tag — singleton.
+fn venus_mppt_total_to_point(power_w: f32, current_a: f32) -> anyhow::Result<DataPoint> {
+    let ts_ns = Utc::now().timestamp_nanos_opt().unwrap_or(0);
+    let point = DataPoint::builder("venus_mppt_total")
+        .field("power_w",   power_w as f64)
+        .field("current_a", current_a as f64)
+        .timestamp(ts_ns)
+        .build()?;
+    Ok(point)
+}
+
+/// Point InfluxDB SmartShunt.
+///
+/// Measurement : `venus_smartshunt`
+/// Pas de tag — singleton.
+fn venus_smartshunt_to_point(s: &VenusSmartShunt) -> anyhow::Result<DataPoint> {
+    let ts_ns = s.timestamp.timestamp_nanos_opt().unwrap_or(0);
+    let mut b = DataPoint::builder("venus_smartshunt");
+    if let Some(v) = s.voltage_v      { b = b.field("voltage_v",   v as f64); }
+    if let Some(v) = s.current_a      { b = b.field("current_a",   v as f64); }
+    if let Some(v) = s.power_w        { b = b.field("power_w",     v as f64); }
+    if let Some(v) = s.soc_percent    { b = b.field("soc_percent", v as f64); }
+    if let Some(v) = s.energy_in_kwh  { b = b.field("energy_in_kwh",  v as f64); }
+    if let Some(v) = s.energy_out_kwh { b = b.field("energy_out_kwh", v as f64); }
+    Ok(b.timestamp(ts_ns).build()?)
+}
+
+/// Point InfluxDB Onduleur/Charger Victron.
+///
+/// Measurement : `venus_inverter`
+/// Pas de tag — singleton.
+fn venus_inverter_to_point(i: &VenusInverter) -> anyhow::Result<DataPoint> {
+    let ts_ns = i.timestamp.timestamp_nanos_opt().unwrap_or(0);
+    let mut b = DataPoint::builder("venus_inverter");
+    if let Some(v) = i.voltage_v            { b = b.field("voltage_v",            v as f64); }
+    if let Some(v) = i.current_a            { b = b.field("current_a",            v as f64); }
+    if let Some(v) = i.power_w              { b = b.field("power_w",              v as f64); }
+    if let Some(v) = i.ac_output_voltage_v  { b = b.field("ac_output_voltage_v",  v as f64); }
+    if let Some(v) = i.ac_output_current_a  { b = b.field("ac_output_current_a",  v as f64); }
+    if let Some(v) = i.ac_output_power_w    { b = b.field("ac_output_power_w",    v as f64); }
+    if let Some(v) = i.ac_out_frequency_hz  { b = b.field("ac_out_frequency_hz",  v as f64); }
+    Ok(b.timestamp(ts_ns).build()?)
 }
 
 /// Convertit un [`Et112Snapshot`] en un point InfluxDB.
