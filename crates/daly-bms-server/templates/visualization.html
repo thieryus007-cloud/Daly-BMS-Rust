@@ -838,10 +838,10 @@ function EdgeChartOverlay({ labelX, labelY, history, color }) {
     if (!hover || !measurement) return;
     let cancelled = false;
     setLoading(true);
-    const url = '/api/v1/chart/edge-history?measurement=' + encodeURIComponent(measurement)
+    let url = '/api/v1/chart/edge-history?measurement=' + encodeURIComponent(measurement)
       + '&field='   + encodeURIComponent(field)
-      + '&address=' + encodeURIComponent(addr)
       + '&minutes=360';
+    if (addr) url += '&address=' + encodeURIComponent(addr);
     fetch(url)
       .then(r => r.json())
       .then(j => { if (!cancelled) { setPayload(j); setLoading(false); } })
@@ -1321,24 +1321,29 @@ function mkEdge(id, src, tgt, color, opts = {}) {
 
 // Descripteurs d'historique InfluxDB par edge (courant 6h).
 // measurement + field + address correspondent aux tags stockés par bridges/influx.rs.
-const HIST_ET112_7 = { measurement: 'et112_status', field: 'current_a', address: '0x07', label: 'Micro-Onduleurs — I (6h)' };
-const HIST_ET112_8 = { measurement: 'et112_status', field: 'current_a', address: '0x08', label: 'Chauffe-eau — I (6h)' };
-const HIST_ET112_9 = { measurement: 'et112_status', field: 'current_a', address: '0x09', label: 'Climatisation — I (6h)' };
-const HIST_BMS_1   = { measurement: 'bms_status',   field: 'current',   address: '0x01', label: 'BMS-360Ah — I (6h)' };
-const HIST_BMS_2   = { measurement: 'bms_status',   field: 'current',   address: '0x02', label: 'BMS-320Ah — I (6h)' };
-const HIST_BMS_3   = { measurement: 'bms_status',   field: 'current',   address: '0x03', label: 'BMS-3 — I (6h)' };
+const HIST_ET112_7 = { measurement: 'et112_status',     field: 'current_a',           address: '0x07', label: 'Micro-Onduleurs — I (6h)' };
+const HIST_ET112_8 = { measurement: 'et112_status',     field: 'current_a',           address: '0x08', label: 'Chauffe-eau — I (6h)' };
+const HIST_ET112_9 = { measurement: 'et112_status',     field: 'current_a',           address: '0x09', label: 'Climatisation — I (6h)' };
+const HIST_BMS_1   = { measurement: 'bms_status',       field: 'current',             address: '0x01', label: 'BMS-360Ah — I (6h)' };
+const HIST_BMS_2   = { measurement: 'bms_status',       field: 'current',             address: '0x02', label: 'BMS-320Ah — I (6h)' };
+const HIST_BMS_3   = { measurement: 'bms_status',       field: 'current',             address: '0x03', label: 'BMS-3 — I (6h)' };
+// Venus OS (singletons D-Bus) — pas de tag address.
+const HIST_MPPT    = { measurement: 'venus_mppt_total', field: 'current_a',           label: 'MPPT total — I DC (6h)' };
+const HIST_INV_DC  = { measurement: 'venus_inverter',   field: 'current_a',           label: 'Onduleur — I DC (6h)' };
+const HIST_INV_AC  = { measurement: 'venus_inverter',   field: 'ac_output_current_a', label: 'Onduleur — I AC sortie (6h)' };
+const HIST_SHUNT   = { measurement: 'venus_smartshunt', field: 'current_a',           label: 'SmartShunt — I batterie (6h)' };
 
 const EDGES0 = [
   mkEdge('e-ats-maison', 'ats-main', 'et112-maison',   COLOR.ac,  { sourceHandle: 'main-right', targetHandle: 'tl', type: 'customBezier', history: HIST_ET112_8 }),
   mkEdge('e-ats-micro', 'micro-ond', 'ats-onduleur',   COLOR.ac,  { sourceHandle: 'sl', targetHandle: 'onduleur-right', type: 'customBezier', history: HIST_ET112_7 }),
-  mkEdge('e-onduleur-ats', 'ats-onduleur', 'onduleur',   COLOR.ac,  { sourceHandle: 'onduleur-bottom', targetHandle: 'tt' }),
+  mkEdge('e-onduleur-ats', 'ats-onduleur', 'onduleur',   COLOR.ac,  { sourceHandle: 'onduleur-bottom', targetHandle: 'tt', history: HIST_INV_AC }),
   mkEdge('e-maison-switchs', 'et112-maison', 'tongou-group',   COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tl', type: 'customBezier', history: HIST_ET112_8 }),
   mkEdge('e-ats-reseau', 'ats-reseau', 'et112-reseau',   COLOR.ac,  { sourceHandle: 'reseau-et112reseau', targetHandle: 'tt', history: HIST_ET112_9 }),
   mkEdge('e-reseau-onduleur', 'et112-reseau', 'onduleur',   COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tl', history: HIST_ET112_9 }),
-  mkEdge('e-mppt-shu', 'mppt',      'hubMPPT', COLOR.dc,  { sourceHandle: 'sl', targetHandle: 'tr', type: 'customBezier' }),
-  mkEdge('e-ond-shu',  'onduleur',  'hubMPPT', COLOR.dc,  { sourceHandle: 'sb', targetHandle: 'tt' }),
-  mkEdge('e-hub-shu',  'hubMPPT',  'smartshunt', COLOR.dc,  { sourceHandle: 'sb', targetHandle: 'tt' }),
-  mkEdge('e-shu-hubBMS', 'smartshunt','hubBMS',       COLOR.bat, { sourceHandle: 'sb', targetHandle: 'tt' }),
+  mkEdge('e-mppt-shu', 'mppt',      'hubMPPT', COLOR.dc,  { sourceHandle: 'sl', targetHandle: 'tr', type: 'customBezier', history: HIST_MPPT }),
+  mkEdge('e-ond-shu',  'onduleur',  'hubMPPT', COLOR.dc,  { sourceHandle: 'sb', targetHandle: 'tt', history: HIST_INV_DC }),
+  mkEdge('e-hub-shu',  'hubMPPT',  'smartshunt', COLOR.dc,  { sourceHandle: 'sb', targetHandle: 'tt', history: HIST_SHUNT }),
+  mkEdge('e-shu-hubBMS', 'smartshunt','hubBMS',       COLOR.bat, { sourceHandle: 'sb', targetHandle: 'tt', history: HIST_SHUNT }),
   mkEdge('e-hubBMS-b1',  'hubBMS', 'bms1',       COLOR.bat, { sourceHandle: 'sl', targetHandle: 'tt', type: 'customBezier', history: HIST_BMS_1 }),
   mkEdge('e-hubBMS-b2', 'hubBMS', 'bms2',       COLOR.bat, { sourceHandle: 'sb', targetHandle: 'tt', history: HIST_BMS_2 }),
   mkEdge('e-hubBMS-b3', 'hubBMS', 'bms3',       COLOR.bat, { sourceHandle: 'sr', targetHandle: 'tt', type: 'customBezier', history: HIST_BMS_3 }),

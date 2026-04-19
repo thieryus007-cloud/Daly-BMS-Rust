@@ -25,7 +25,9 @@ pub struct HistoryParams {
 pub struct EdgeHistoryParams {
     pub measurement: String,
     pub field: String,
-    pub address: String,
+    /// Optionnel — requis uniquement pour les measurements taggés par adresse
+    /// (`bms_status`, `et112_status`). Absent pour les singletons Venus.
+    pub address: Option<String>,
     pub minutes: Option<u32>,
 }
 
@@ -188,36 +190,55 @@ pub async fn get_edge_history(
     }
 
     // Whitelist stricte pour éviter l'injection Flux.
-    let measurement = match q.measurement.as_str() {
-        "bms_status"      => "bms_status",
-        "et112_status"    => "et112_status",
+    // address_required indique si le filtre `r.address == …` doit être appliqué.
+    let (measurement, address_required) = match q.measurement.as_str() {
+        "bms_status"        => ("bms_status",        true),
+        "et112_status"      => ("et112_status",      true),
+        "venus_mppt_total"  => ("venus_mppt_total",  false),
+        "venus_smartshunt"  => ("venus_smartshunt",  false),
+        "venus_inverter"    => ("venus_inverter",    false),
         _ => return Json(json!({ "ok": false, "series": [], "reason": "bad_measurement" })),
     };
     let field = match q.field.as_str() {
-        "current"   => "current",
-        "current_a" => "current_a",
+        "current"              => "current",
+        "current_a"            => "current_a",
+        "ac_output_current_a"  => "ac_output_current_a",
+        "power_w"              => "power_w",
         _ => return Json(json!({ "ok": false, "series": [], "reason": "bad_field" })),
     };
-    // Adresse : accepte "0x01" / "0x01" ou décimal — on re-normalise au format "0x%02x".
-    let addr_num: u32 = if let Some(hex) = q.address.strip_prefix("0x").or_else(|| q.address.strip_prefix("0X")) {
-        match u32::from_str_radix(hex, 16) {
-            Ok(n) => n,
-            Err(_) => return Json(json!({ "ok": false, "series": [], "reason": "bad_address" })),
-        }
+
+    // Adresse : requise (et re-normalisée) seulement pour les measurements tagués.
+    let address = if address_required {
+        let raw = match q.address.as_deref() {
+            Some(s) if !s.is_empty() => s,
+            _ => return Json(json!({ "ok": false, "series": [], "reason": "missing_address" })),
+        };
+        let addr_num: u32 = if let Some(hex) = raw.strip_prefix("0x").or_else(|| raw.strip_prefix("0X")) {
+            match u32::from_str_radix(hex, 16) {
+                Ok(n) => n,
+                Err(_) => return Json(json!({ "ok": false, "series": [], "reason": "bad_address" })),
+            }
+        } else {
+            match raw.parse::<u32>() {
+                Ok(n) => n,
+                Err(_) => return Json(json!({ "ok": false, "series": [], "reason": "bad_address" })),
+            }
+        };
+        Some(format!("{:#04x}", addr_num))
     } else {
-        match q.address.parse::<u32>() {
-            Ok(n) => n,
-            Err(_) => return Json(json!({ "ok": false, "series": [], "reason": "bad_address" })),
-        }
+        None
     };
-    let address = format!("{:#04x}", addr_num);
 
     let window = if minutes <= 60 { "1m" } else if minutes <= 360 { "3m" } else { "10m" };
     let b = &cfg.bucket;
 
+    let addr_filter = match &address {
+        Some(a) => format!(" and r.address == \"{a}\""),
+        None    => String::new(),
+    };
     let flux = format!(
         "from(bucket: \"{b}\") |> range(start: -{minutes}m) \
-         |> filter(fn: (r) => r._measurement == \"{measurement}\" and r._field == \"{field}\" and r.address == \"{address}\") \
+         |> filter(fn: (r) => r._measurement == \"{measurement}\" and r._field == \"{field}\"{addr_filter}) \
          |> aggregateWindow(every: {window}, fn: mean, createEmpty: false)"
     );
 
@@ -232,7 +253,11 @@ pub async fn get_edge_history(
         None => Vec::new(),
     };
 
-    let unit = if field == "current" || field == "current_a" { "A" } else { "" };
+    let unit = match field {
+        "current" | "current_a" | "ac_output_current_a" => "A",
+        "power_w" => "W",
+        _ => "",
+    };
 
     Json(json!({
         "ok":      true,
