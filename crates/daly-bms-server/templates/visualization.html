@@ -927,6 +927,17 @@ function EdgeChartOverlay({ labelX, labelY, history, color }) {
     chartRef.current.resize();
   }, [hover, payload, color]);
 
+  // Le popup est démonté quand hover=false : l'instance ECharts garde alors un
+  // handle vers un DOM décroché. On la détruit explicitement pour que le survol
+  // suivant ré-initialise une instance neuve sur le nouveau <div>.
+  useEffect(function () {
+    if (hover) return;
+    if (chartRef.current) {
+      try { chartRef.current.dispose(); } catch (_) {}
+      chartRef.current = null;
+    }
+  }, [hover]);
+
   useEffect(function () {
     return function () {
       if (chartRef.current) {
