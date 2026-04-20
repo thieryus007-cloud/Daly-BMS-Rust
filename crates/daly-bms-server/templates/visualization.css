@@ -523,3 +523,135 @@
   .inv-kpi-val.ac { color: #2563eb; }
   .inv-kpi-val.dc { color: #ea580c; }
   .inv-wait { text-align: center; font-size: 0.7rem; color: #94a3b8; font-style: italic; padding: 14px; }
+
+  /* ═══════════════════════════════════════════════════════════
+     DARK MODE — Visualization nodes
+     ═══════════════════════════════════════════════════════════ */
+  html.dark .react-flow { background: #0d1117; }
+  html.dark .react-flow__controls { border-color: #30363d; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+  html.dark .react-flow__controls-button { background: #1c2128; border-color: #30363d; color: #8b949e; }
+  html.dark .react-flow__controls-button:hover { background: #22272e; }
+
+  /* Summary node */
+  html.dark .sn { background: #1c2128; border-color: #30363d; box-shadow: 0 1px 3px rgba(0,0,0,.3),0 2px 8px rgba(0,0,0,.2); }
+  html.dark .sn-value { color: #e6edf3; }
+  html.dark .sn-label { color: #6e7681; }
+  html.dark .sn-sub   { color: #6e7681; }
+
+  /* BMS node */
+  html.dark .bms-nd { background: #1c2128; border-color: #30363d; box-shadow: 0 1px 3px rgba(0,0,0,.3),0 2px 8px rgba(0,0,0,.2); }
+  html.dark .bms-nd.alarm { border-color: rgba(248,81,73,.4); background: #1f1515; }
+  html.dark .bms-nd .bms-name  { color: #e6edf3; }
+  html.dark .bms-nd .bms-temp  { color: #8b949e; border-top-color: #30363d; }
+  html.dark .bms-nd .bms-pwr   { color: #8b949e; border-top-color: #30363d; }
+  html.dark .bms-bar-bg         { background: #30363d; }
+  html.dark .bms-kpi  { background: #22272e; border-color: #30363d; }
+  html.dark .bms-kpi-v { color: #e6edf3; }
+  html.dark .bms-kpi-l { color: #6e7681; }
+
+  /* Device node */
+  html.dark .dev-nd  { background: #1c2128; border-color: #30363d; }
+  html.dark .dev-lbl { color: #e6edf3; }
+  html.dark .dev-pwr { color: #e6edf3; }
+  html.dark .dev-nrj { color: #6e7681; }
+  html.dark .dev-wait { color: #6e7681; }
+
+  /* Hub node */
+  html.dark .hub-nd  { background: #1c2128; border-color: #444c56; }
+  html.dark .hub-lbl { color: #e6edf3; }
+  html.dark .hub-sub { color: #6e7681; }
+
+  /* Placeholder node */
+  html.dark .ph-nd    { background: #22272e; border-color: #444c56; }
+  html.dark .ph-lbl   { color: #8b949e; }
+  html.dark .ph-badge { background: #2d333b; color: #6e7681; }
+
+  /* ATS Pro nodes */
+  html.dark .pro-node { background: #1c2128; border-color: #30363d; }
+  html.dark .pro-node.active-source { border-color: #3fb950; box-shadow: 0 0 0 3px rgba(63,185,80,.15); }
+  html.dark .pn-banner { background: #22272e; border-bottom-color: #30363d; }
+  html.dark .pn-volt   { color: #e6edf3; }
+  html.dark .pn-strip  { background: #22272e; }
+  html.dark .pn-chip   { background: #2d333b; border-color: #444c56; }
+  html.dark .pn-chip-lbl { color: #6e7681; }
+  html.dark .pn-chip-val { color: #e6edf3; }
+  html.dark .pn-foot   { background: #1c2128; border-top-color: #30363d; }
+  html.dark .pn-bar-row { background: #30363d; }
+  html.dark .pn-ats-sw { }
+  html.dark .pn-sw-card { background: #22272e; border-color: #30363d; }
+  html.dark .pn-sw-label { color: #6e7681; }
+  html.dark .pn-info-row { border-bottom-color: #30363d; }
+  html.dark .pn-info-key { color: #6e7681; }
+  html.dark .pn-info-val { color: #e6edf3; }
+  html.dark .pn-toggle  { background: #30363d; }
+  html.dark [style*="background:#f8fafc"] { background: #22272e !important; }
+  html.dark [style*="background: #f8fafc"] { background: #22272e !important; }
+
+  /* Tongou group */
+  html.dark .tongou-group-card { background: #1c2128; border-color: #30363d; }
+  html.dark .tg-switch-item    { border-bottom-color: #30363d; }
+  html.dark .tg-name           { color: #e6edf3; }
+  html.dark .tg-id             { background: #2d333b; color: #8b949e; }
+  html.dark .tg-row2           { background: transparent; }
+  html.dark .tg-row2.on        { background: rgba(63,185,80,.12); }
+  html.dark .tg-row2.off       { background: rgba(248,81,73,.10); }
+  html.dark .tg-metric-label   { color: #6e7681; }
+  html.dark .tg-metric-value   { color: #e6edf3; }
+  html.dark .tg-wait           { color: #6e7681; }
+
+  /* WaterHeater / Clim */
+  html.dark .waterheater-card  { background: #1c2128; border-color: #30363d; }
+  html.dark .wh-body           { }
+  html.dark .wh-mode-row [style*="color: #64748b"]  { color: #6e7681 !important; }
+  html.dark .wh-temp-cell { background: #22272e; border-color: #30363d; }
+  html.dark .wh-temp-lbl  { color: #6e7681; }
+  html.dark .wh-temp-val  { color: #e6edf3; }
+  html.dark .wh-et112-row { background: #22272e; border-color: #30363d; }
+  html.dark .wh-et112-lbl { color: #6e7681; }
+  html.dark .wh-et112-val { color: #e6edf3; }
+  html.dark .wh-wait      { color: #6e7681; }
+
+  /* SmartShunt */
+  html.dark .ss-card  { background: #1c2128; border-color: #30363d; }
+  html.dark .ss-bar-bg { background: #30363d; }
+  html.dark .ss-grid  { border-bottom-color: #30363d; }
+  html.dark .ss-cell  { border-right-color: #30363d; }
+  html.dark .ss-cell-lbl { color: #6e7681; }
+  html.dark .ss-cell-val { color: #e6edf3; }
+  html.dark .ss-row   { border-bottom-color: #30363d; }
+  html.dark .ss-row-lbl { color: #8b949e; }
+  html.dark .ss-row-val { color: #e6edf3; }
+  html.dark .ss-wait  { color: #6e7681; }
+
+  /* MPPT group */
+  html.dark .mppt-group-card { background: #1c2128; border-color: #30363d; }
+  html.dark .mg-totals       { background: #22272e; border-bottom-color: #30363d; }
+  html.dark .mg-total-chip   { background: #2d333b; border-color: #444c56; }
+  html.dark .mg-total-lbl    { color: #8b949e; }
+  html.dark .mg-total-val    { color: #e6edf3; }
+  html.dark .mg-mppt-row     { border-bottom-color: #30363d; }
+  html.dark .mg-mppt-name    { color: #e6edf3; }
+  html.dark .mg-mppt-state   { background: #2d333b; color: #3fb950; }
+  html.dark .mg-mppt-state.off   { background: #2d333b; color: #6e7681; }
+  html.dark .mg-mppt-state.fault { background: rgba(248,81,73,.15); color: #f85149; }
+  html.dark .mg-metric-lbl  { color: #6e7681; }
+  html.dark .mg-metric-val  { color: #e6edf3; }
+  html.dark .mg-wait        { color: #6e7681; }
+
+  /* Inverter AC node */
+  html.dark .inv-card { background: #1c2128; border-color: #30363d; }
+  html.dark .inv-ignore-bar { background: #22272e; border-bottom-color: #30363d; }
+  html.dark .inv-ignore-lbl { color: #8b949e; }
+  html.dark .inv-section-hdr { background: #22272e; border-bottom-color: #30363d; color: #6e7681; }
+  html.dark .inv-kpi-row { border-bottom-color: #30363d; }
+  html.dark .inv-kpi { border-right-color: #30363d; }
+  html.dark .inv-kpi-lbl { color: #6e7681; }
+  html.dark .inv-kpi-val { color: #e6edf3; }
+  html.dark .inv-kpi-val.ac { color: #58a6ff; }
+  html.dark .inv-kpi-val.dc { color: #db6d28; }
+  html.dark .inv-wait { color: #6e7681; }
+  html.dark .inv-freq-badge { box-shadow: 0 2px 6px rgba(37,99,235,.25); }
+
+  /* Viz panel + legend */
+  html.dark .viz-panel { background: rgba(28,33,40,.95); border-color: #30363d; color: #8b949e; }
+  html.dark .viz-leg-item { color: #6e7681; }
