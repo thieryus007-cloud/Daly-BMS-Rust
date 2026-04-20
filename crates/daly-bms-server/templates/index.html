@@ -208,10 +208,27 @@ window.onBmsUpdate = function(snaps) {
   snaps.forEach(function(s) {
     const a = s.address;
     function el(id) { return document.getElementById(id + '-' + a); }
-    function set(id, txt) { const e = el(id); if (e) e.textContent = txt; }
     function f1(n) { return (+n).toFixed(1); }
     function f0(n) { return (+n).toFixed(0); }
     function f3(n) { return (+n).toFixed(3); }
+
+    // Animated set: flashes green/red/blue when value changes
+    function set(id, txt, num) {
+      const e = el(id);
+      if (!e) return;
+      if (e.textContent === txt) return;
+      e.textContent = txt;
+      e.classList.remove('vf-up', 'vf-down', 'vf-neu');
+      void e.offsetWidth; // force reflow
+      if (num !== undefined) {
+        const prev = parseFloat(e.dataset.prev);
+        e.dataset.prev = num;
+        const delta = isNaN(prev) ? 0 : num - prev;
+        e.classList.add(delta > 0.5 ? 'vf-up' : delta < -0.5 ? 'vf-down' : 'vf-neu');
+      } else {
+        e.classList.add('vf-neu');
+      }
+    }
 
     // Timestamp
     const tsEl = el('ts');
@@ -221,21 +238,43 @@ window.onBmsUpdate = function(snaps) {
     }
 
     // KPI ligne 1
-    set('v',   f1(s.Dc.Voltage) + ' V');
-    set('soc', f1(s.Soc) + '%');
-    set('soc-pct', f0(s.Soc) + '%');
+    set('v',   f1(s.Dc.Voltage) + ' V',  +s.Dc.Voltage);
+    set('soc', f1(s.Soc) + '%',           +s.Soc);
+    set('soc-pct', f0(s.Soc) + '%',       +s.Soc);
 
     const cur = s.Dc.Current;
     const curEl = el('i');
     if (curEl) {
-      curEl.textContent = (cur >= 0 ? '+' : '') + f1(cur) + ' A';
-      curEl.className = 'kpi4-val' + (cur > 0.1 ? ' chg' : cur < -0.1 ? ' dch' : '');
+      const curTxt = (cur >= 0 ? '+' : '') + f1(cur) + ' A';
+      const curCls = 'kpi4-val' + (cur > 0.1 ? ' chg' : cur < -0.1 ? ' dch' : '');
+      if (curEl.textContent !== curTxt) {
+        const prevCur = parseFloat(curEl.dataset.prev || '0');
+        curEl.dataset.prev = cur;
+        const vfCls = Math.abs(cur - prevCur) > 0.3 ? (cur > prevCur ? 'vf-up' : 'vf-down') : 'vf-neu';
+        curEl.textContent = curTxt;
+        curEl.className = curCls;
+        void curEl.offsetWidth;
+        curEl.classList.add(vfCls);
+      } else {
+        curEl.className = curCls;
+      }
     }
     const pow = s.Dc.Power;
     const powEl = el('p');
     if (powEl) {
-      powEl.textContent = f0(pow) + ' W';
-      powEl.className = 'kpi4-val' + (pow > 0.1 ? ' chg' : pow < -0.1 ? ' dch' : '');
+      const powTxt = f0(pow) + ' W';
+      const powCls = 'kpi4-val' + (pow > 0.1 ? ' chg' : pow < -0.1 ? ' dch' : '');
+      if (powEl.textContent !== powTxt) {
+        const prevPow = parseFloat(powEl.dataset.prev || '0');
+        powEl.dataset.prev = pow;
+        const vfCls = Math.abs(pow - prevPow) > 10 ? (pow > prevPow ? 'vf-up' : 'vf-down') : 'vf-neu';
+        powEl.textContent = powTxt;
+        powEl.className = powCls;
+        void powEl.offsetWidth;
+        powEl.classList.add(vfCls);
+      } else {
+        powEl.className = powCls;
+      }
     }
 
     // KPI ligne 2
@@ -243,7 +282,7 @@ window.onBmsUpdate = function(snaps) {
     if (chgE) { const on = s.Io.AllowToCharge; chgE.textContent = on ? 'ON' : 'OFF'; chgE.className = 'kpi4-val ' + (on ? 'mos-on' : 'mos-off'); }
     const dsgE = el('dsg');
     if (dsgE) { const on = s.Io.AllowToDischarge; dsgE.textContent = on ? 'ON' : 'OFF'; dsgE.className = 'kpi4-val ' + (on ? 'mos-on' : 'mos-off'); }
-    set('cap', f1(s.Capacity) + ' Ah');
+    set('cap', f1(s.Capacity) + ' Ah', +s.Capacity);
     const bc = document.getElementById('bmscap-' + a);
     if (bc) bc.textContent = s.BmsCapacity > 0.1 ? f1(s.BmsCapacity) + ' Ah' : '—';
 
@@ -256,8 +295,8 @@ window.onBmsUpdate = function(snaps) {
     }
 
     // Températures
-    set('tmin', f1(s.System.MinCellTemperature) + ' °C');
-    set('tmax', f1(s.System.MaxCellTemperature) + ' °C');
+    set('tmin', f1(s.System.MinCellTemperature) + ' °C', +s.System.MinCellTemperature);
+    set('tmax', f1(s.System.MaxCellTemperature) + ' °C', +s.System.MaxCellTemperature);
 
     // Alarme carte
     const card = document.querySelector('.bms-card[data-addr="' + a + '"]');

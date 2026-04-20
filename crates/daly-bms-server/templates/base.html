@@ -40,6 +40,139 @@
       --shadow-lg: 0 8px 32px rgba(15,23,42,.10);
     }
 
+    /* ─── Dark theme ─────────────────────────────────────────── */
+    html.dark {
+      --bg:        #0d1117;
+      --bg2:       #161b22;
+      --surface:   #1c2128;
+      --surface2:  #22272e;
+      --surface3:  #2d333b;
+      --border:    #30363d;
+      --border2:   #444c56;
+      --text:      #e6edf3;
+      --text2:     #cdd9e5;
+      --muted:     #8b949e;
+      --muted2:    #6e7681;
+      --accent:    #58a6ff;
+      --accent2:   #1f6feb;
+      --green:     #3fb950;
+      --green2:    #2ea043;
+      --yellow:    #d29922;
+      --orange:    #db6d28;
+      --red:       #f85149;
+      --purple:    #a371f7;
+      --cyan:      #39c5cf;
+      --shadow:    0 1px 3px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.3);
+      --shadow-lg: 0 8px 32px rgba(0,0,0,.5);
+      color-scheme: dark;
+    }
+
+    /* ─── Theme transitions ───────────────────────────────────── */
+    body, .sidebar, .topbar, .card, .bms-card, .nav-link,
+    .kpi-box, .kpi4-cell, .chart-card, .modal-box, .badge,
+    .btn, .bms-hdr, .cells-section, .istrip, .icell, .soc-row,
+    .cell-box, .kpi4, .sidebar-footer, .section-rule {
+      transition: background-color 0.25s ease, color 0.25s ease,
+                  border-color 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    /* ─── Dark mode: BMS card header ─────────────────────────── */
+    html.dark .bms-hdr {
+      background: linear-gradient(135deg, #1a2f4e 0%, #1e3a5f 100%);
+    }
+    html.dark .bms-hdr.alarm-hdr {
+      background: linear-gradient(135deg, #3b1212 0%, #4c1a1a 100%);
+    }
+    html.dark .bms-hdr-name  { color: #93c5fd; }
+    html.dark .bms-live       { color: rgba(147,197,253,.65); }
+    html.dark .bms-badge      { background: rgba(147,197,253,.08); border-color: rgba(147,197,253,.18); color: rgba(147,197,253,.85); }
+    html.dark .bms-ts         { color: rgba(147,197,253,.45); }
+    html.dark tbody tr:hover  { background: rgba(34,39,46,.8); }
+    html.dark code            { background: var(--surface2); color: var(--text2); }
+
+    /* ─── Value flash animations ─────────────────────────────── */
+    @keyframes vf-up   { 0%,100%{background:transparent} 35%{background:rgba(63,185,80,.22);border-radius:4px} }
+    @keyframes vf-down { 0%,100%{background:transparent} 35%{background:rgba(248,81,73,.18);border-radius:4px} }
+    @keyframes vf-neu  { 0%,100%{background:transparent} 35%{background:rgba(88,166,255,.16);border-radius:4px} }
+    .vf-up   { animation: vf-up   0.75s ease-out; }
+    .vf-down { animation: vf-down 0.75s ease-out; }
+    .vf-neu  { animation: vf-neu  0.75s ease-out; }
+
+    /* ─── Toast system ───────────────────────────────────────── */
+    #toast-container {
+      position: fixed;
+      top: calc(var(--topbar-h) + 14px);
+      right: 18px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+      max-width: 360px;
+      width: calc(100vw - 36px);
+    }
+    .toast {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      padding: 10px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      box-shadow: var(--shadow-lg);
+      font-size: 0.8rem;
+      color: var(--text);
+      pointer-events: all;
+      transform: translateX(calc(100% + 30px));
+      opacity: 0;
+      transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1), opacity 0.25s ease;
+    }
+    .toast.show { transform: translateX(0); opacity: 1; }
+    .toast-success { border-left: 3px solid var(--green); }
+    .toast-error   { border-left: 3px solid var(--red); }
+    .toast-warn    { border-left: 3px solid var(--yellow); }
+    .toast-info    { border-left: 3px solid var(--accent); }
+    .toast-icon { font-size: 0.92rem; flex-shrink: 0; margin-top: 1px; }
+    .toast-msg  { flex: 1; line-height: 1.4; }
+    .toast-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1.1rem; padding: 0; line-height: 1; flex-shrink: 0; }
+    .toast-close:hover { color: var(--text); }
+
+    /* ─── Alarm banner ───────────────────────────────────────── */
+    .alarm-banner {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 16px;
+      background: rgba(220,38,38,.92);
+      color: #fff;
+      font-size: 0.8rem;
+      font-weight: 600;
+      position: sticky;
+      top: var(--topbar-h);
+      z-index: 99;
+      backdrop-filter: blur(4px);
+    }
+    @keyframes slide-down { from{transform:translateY(-100%);opacity:0} to{transform:translateY(0);opacity:1} }
+    .alarm-banner.visible { display: flex; animation: slide-down 0.28s ease; }
+    .alarm-banner a { color: rgba(255,255,255,.85); text-decoration: underline; margin-left: auto; font-size: 0.75rem; }
+    .alarm-banner-close { background: none; border: none; color: rgba(255,255,255,.65); cursor: pointer; font-size: 1.1rem; line-height: 1; padding: 0 0 0 6px; }
+    .alarm-banner-close:hover { color: #fff; }
+
+    /* ─── Toolbar icon buttons ───────────────────────────────── */
+    .tb-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.95rem;
+      width: 30px; height: 30px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .tb-btn:hover { background: var(--surface2); color: var(--text); border-color: var(--border2); }
+
     /* ─── Reset ─────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { font-size: 14px; scroll-behavior: smooth; }
@@ -733,8 +866,17 @@
   <header class="topbar">
     <button class="topbar-burger" onclick="toggleSidebar()">☰</button>
     <div class="topbar-title">{% block page_title %}Monitoring{% endblock %}</div>
+    <button class="tb-btn" id="fs-btn" onclick="toggleFullscreen()" title="Plein écran [F]">⛶</button>
+    <button class="tb-btn" id="theme-btn" onclick="toggleTheme()" title="Thème sombre [D]">🌙</button>
     <div class="topbar-clock" id="tb-clock"></div>
   </header>
+
+  <div id="alarm-banner" class="alarm-banner">
+    <span>⚠️</span>
+    <span id="alarm-text">Alarme BMS active</span>
+    <a id="alarm-link" href="/dashboard">Voir batteries →</a>
+    <button class="alarm-banner-close" onclick="dismissAlarm()" title="Fermer">×</button>
+  </div>
 
   <main>
     {% block content %}{% endblock %}
@@ -792,6 +934,18 @@ function closeSidebar() {
       try { snaps = JSON.parse(ev.data); } catch { return; }
       if (!Array.isArray(snaps)) return;
       if (typeof window.onBmsUpdate === 'function') window.onBmsUpdate(snaps);
+      // Détection alarmes BMS
+      const alarmed = snaps.filter(s =>
+        s.Alarms && Object.values(s.Alarms).some(v => v !== 0)
+      );
+      if (alarmed.length > 0) {
+        const names = alarmed.map(s => s.Name || 'BMS').join(', ');
+        showAlarmBanner('Alarme : ' + names, '/dashboard');
+        dot.className = 'ws-dot alarm';
+      } else if (dot.className.includes('alarm')) {
+        dot.className = 'ws-dot live';
+        dismissAlarm();
+      }
     };
     sock.onclose = () => {
       dot.className   = 'ws-dot';
@@ -803,9 +957,92 @@ function closeSidebar() {
   }
   connect();
 })();
+
+// ── Thème clair / sombre ───────────────────────────────────────────────
+function toggleTheme() {
+  const dark = document.documentElement.classList.toggle('dark');
+  localStorage.setItem('theme', dark ? 'dark' : 'light');
+  const btn = document.getElementById('theme-btn');
+  if (btn) btn.textContent = dark ? '☀️' : '🌙';
+}
+(function initTheme() {
+  const saved = localStorage.getItem('theme');
+  const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  if (saved === 'dark' || (!saved && sysDark)) {
+    document.documentElement.classList.add('dark');
+    // Defer to let DOM render first
+    requestAnimationFrame(function() {
+      const btn = document.getElementById('theme-btn');
+      if (btn) btn.textContent = '☀️';
+    });
+  }
+})();
+
+// ── Plein écran ────────────────────────────────────────────────────────
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(function() {});
+  } else {
+    document.exitFullscreen();
+  }
+}
+document.addEventListener('fullscreenchange', function() {
+  const btn = document.getElementById('fs-btn');
+  if (btn) btn.textContent = document.fullscreenElement ? '⊡' : '⛶';
+});
+
+// ── Raccourcis clavier ─────────────────────────────────────────────────
+document.addEventListener('keydown', function(e) {
+  const tag = document.activeElement ? document.activeElement.tagName : '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  if (document.activeElement && document.activeElement.isContentEditable) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === 'd' || e.key === 'D') toggleTheme();
+  if (e.key === 'f' || e.key === 'F') toggleFullscreen();
+  if (e.key === 'Escape' && document.fullscreenElement) document.exitFullscreen();
+});
+
+// ── Bannière alarme ────────────────────────────────────────────────────
+function showAlarmBanner(text, href) {
+  const b = document.getElementById('alarm-banner');
+  const t = document.getElementById('alarm-text');
+  const l = document.getElementById('alarm-link');
+  if (!b) return;
+  if (t) t.textContent = text;
+  if (l && href) l.href = href;
+  b.classList.add('visible');
+}
+function dismissAlarm() {
+  const b = document.getElementById('alarm-banner');
+  if (b) b.classList.remove('visible');
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────
+window.showToast = function(msg, type, duration) {
+  type = type || 'info';
+  duration = duration || 3500;
+  var c = document.getElementById('toast-container');
+  if (!c) return;
+  var t = document.createElement('div');
+  t.className = 'toast toast-' + type;
+  var icons = { success: '✓', error: '✕', warn: '⚠', info: 'ℹ' };
+  t.innerHTML =
+    '<span class="toast-icon">' + (icons[type] || 'ℹ') + '</span>' +
+    '<span class="toast-msg">' + msg + '</span>' +
+    '<button class="toast-close" onclick="this.parentElement.remove()">×</button>';
+  c.appendChild(t);
+  requestAnimationFrame(function() {
+    requestAnimationFrame(function() { t.classList.add('show'); });
+  });
+  setTimeout(function() {
+    t.classList.remove('show');
+    setTimeout(function() { if (t.parentElement) t.remove(); }, 400);
+  }, duration);
+};
 </script>
 
 {% block scripts %}{% endblock %}
 
+<div id="toast-container"></div>
 </body>
 </html>
