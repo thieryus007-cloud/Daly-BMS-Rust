@@ -655,3 +655,110 @@
   /* Viz panel + legend */
   html.dark .viz-panel { background: rgba(28,33,40,.95); border-color: #30363d; color: #8b949e; }
   html.dark .viz-leg-item { color: #6e7681; }
+
+/* ═══ SPIRAL RACE NODE ═══════════════════════════════════════════════════════ */
+.spiral-node {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 14px;
+  padding: 10px 12px 8px;
+  width: 300px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+  position: relative;
+}
+.spiral-hdr {
+  display: flex;
+  align-items: center;
+  padding: 0 2px 6px;
+  border-bottom: 1px solid rgba(148,163,184,0.12);
+  margin-bottom: 4px;
+}
+.spiral-title {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.spiral-chart {
+  width: 276px;
+  height: 220px;
+  margin: 0 auto;
+  display: block;
+}
+.spiral-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 6px 4px 2px;
+}
+.spiral-leg-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.spiral-leg-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.spiral-leg-lbl {
+  font-size: 0.65rem;
+  color: #64748b;
+  flex: 1;
+}
+.spiral-leg-val {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: -0.02em;
+}
+
+/* light mode override — keep dark card even in light theme (ECharts needs it) */
+html:not(.dark) .spiral-node { background: #0f172a; border-color: #1e293b; }
+
+/* ═══ SANKEY NODE ═══════════════════════════════════════════════════════════ */
+.sankey-node {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 14px;
+  padding: 10px 12px 8px;
+  width: 280px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+  position: relative;
+}
+.sankey-hdr {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 2px 7px;
+  border-bottom: 1px solid rgba(148,163,184,0.12);
+  margin-bottom: 4px;
+}
+.sankey-icon {
+  font-size: 0.85rem;
+}
+.sankey-title {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  flex: 1;
+}
+.sankey-total {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #fbbf24;
+  font-family: 'JetBrains Mono', monospace;
+}
+.sankey-chart {
+  width: 256px;
+  height: 195px;
+  margin: 0 auto;
+  display: block;
+}
+
+html:not(.dark) .sankey-node { background: #0f172a; border-color: #1e293b; }
