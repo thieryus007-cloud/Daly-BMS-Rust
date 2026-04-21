@@ -20,28 +20,32 @@ const SpiralRaceNode = function SpiralRaceNode({ data }) {
 
     const socCol = soc > 60 ? '#22c55e' : soc > 30 ? '#f59e0b' : '#ef4444';
 
-    // Cercles complets (90° = haut, -270° = tour complet horaire)
-    // La valeur remplit le cercle proportionnellement à value/max
-    const mkGauge = (radius, max, value, color, label, unit) => ({
+    // Arc 270° (220° → -40°) : espace en bas pour afficher les labels de chaque anneau
+    // Traits fins, animation très progressive
+    const mkGauge = (radius, max, value, color, label, unit, titleY, detailY) => ({
       type: 'gauge',
       radius,
-      startAngle: 90,
-      endAngle:   -270,
+      startAngle: 220,
+      endAngle:   -40,
       min: 0, max,
       clockwise: true,
       animation: true,
       animationDuration: 3000,
       animationDurationUpdate: 800,
+      animationDuration: 2500,
+      animationDurationUpdate: 1500,
       animationEasing: 'cubicOut',
-      animationEasingUpdate: 'cubicOut',
+      animationEasingUpdate: 'cubicInOut',
       pointer: { show: false },
       progress: {
         show: true, width: 8, roundCap: true, clip: false,
+        show: true, width: 6, roundCap: true, clip: false,
         itemStyle: { color }
       },
       axisLine: {
         show: true,
         lineStyle: { width: 8, color: [[1, 'rgba(148,163,184,0.12)']] }
+        lineStyle: { width: 6, color: [[1, 'rgba(148,163,184,0.12)']] }
       },
       axisTick: { show: false }, splitLine: { show: false },
       axisLabel: { show: false },
@@ -50,15 +54,16 @@ const SpiralRaceNode = function SpiralRaceNode({ data }) {
         text: label,
         color: '#94a3b8',
         fontSize: 8,
-        offsetCenter: [0, '-45%']
+        offsetCenter: ['0%', titleY]
       },
       detail: {
         show: true,
-        formatter: function(v) { return Math.round(v.value * 10) / 10 + ' ' + unit; },
+        formatter: function(v) { return (Math.round(v.value * 10) / 10) + ' ' + unit; },
         color: color,
         fontSize: 8,
+        fontSize: 10,
         fontWeight: 'bold',
-        offsetCenter: [0, '-20%']
+        offsetCenter: ['0%', detailY]
       },
       data: [{ value: Math.max(0, value) }]
     });
@@ -66,9 +71,9 @@ const SpiralRaceNode = function SpiralRaceNode({ data }) {
     chart.setOption({
       backgroundColor: 'transparent',
       series: [
-        mkGauge('88%',  18,  prodKwh, '#fbbf24', 'Production', 'kWh'),
-        mkGauge('65%', 100,  soc,     socCol,    'SOC', '%'),
-        mkGauge('42%', 900,  irrWm2,  '#38bdf8', 'Irradiance', 'W/m²'),
+        mkGauge('88%',  18,  prodKwh, '#fbbf24', 'Production',  'kWh',  '78%', '90%'),
+        mkGauge('65%', 100,  soc,     socCol,    'SOC',         '%',    '48%', '60%'),
+        mkGauge('42%', 900,  irrWm2,  '#38bdf8', 'Irradiance',  'W/m²', '18%', '30%'),
       ]
     }, { notMerge: false, lazyUpdate: false });
   }, [prodKwh, soc, irrWm2]);
@@ -84,11 +89,6 @@ const SpiralRaceNode = function SpiralRaceNode({ data }) {
 
   const socCol = soc > 60 ? '#22c55e' : soc > 30 ? '#f59e0b' : '#ef4444';
 
-  // Progression journée 07:30 → 19:30 pour affichage info
-  const now    = new Date();
-  const nowMin = now.getHours() * 60 + now.getMinutes();
-  const prog   = Math.round(Math.min(100, Math.max(0, (nowMin - 450) / 720 * 100)));
-
   return h('div', { className: 'spiral-node' },
     mkHandle('target', Position.Top,    'tt'),
     mkHandle('source', Position.Bottom, 'sb'),
@@ -96,27 +96,9 @@ const SpiralRaceNode = function SpiralRaceNode({ data }) {
     mkHandle('target', Position.Left,   'tl'),
     mkHandle('source', Position.Left,   'sl', { top: '68%' }),
     h('div', { className: 'spiral-hdr' },
-      h('span', { className: 'spiral-title' }, '☀ Production · SOC · Météo'),
-      h('span', { className: 'spiral-day-prog' }, `${prog}% jour`)
+      h('span', { className: 'spiral-title' }, '☀ Production · SOC · Météo')
     ),
-    h('div', { ref: chartRef, className: 'spiral-chart' }),
-    h('div', { className: 'spiral-legend' },
-      h('div', { className: 'spiral-leg-item' },
-        h('div', { className: 'spiral-leg-dot', style: { background: '#fbbf24' } }),
-        h('span', { className: 'spiral-leg-lbl' }, 'Production'),
-        h('span', { className: 'spiral-leg-val' }, prodKwh > 0 ? prodKwh.toFixed(1) + ' kWh' : '—')
-      ),
-      h('div', { className: 'spiral-leg-item' },
-        h('div', { className: 'spiral-leg-dot', style: { background: socCol } }),
-        h('span', { className: 'spiral-leg-lbl' }, 'SOC Batteries'),
-        h('span', { className: 'spiral-leg-val' }, soc > 0 ? soc.toFixed(0) + '%' : '—')
-      ),
-      h('div', { className: 'spiral-leg-item' },
-        h('div', { className: 'spiral-leg-dot', style: { background: '#38bdf8' } }),
-        h('span', { className: 'spiral-leg-lbl' }, 'Irradiance'),
-        h('span', { className: 'spiral-leg-val' }, irrWm2 > 0 ? irrWm2.toFixed(0) + ' W/m²' : '—')
-      )
-    )
+    h('div', { ref: chartRef, className: 'spiral-chart' })
   );
 };
 
