@@ -18,7 +18,7 @@ function MPPTGroupNode({ data }) {
     mkHandle('target', Position.Left,   'tl'),
     mkHandle('source', Position.Right,  'sr'),
     mkHandle('target', Position.Right,  'tr', { top: '65%' }),
-    mkHandle('source', Position.Left,   'sl', { top: '30%' }),
+    mkHandle('source', Position.Left,   'sl', { top: '20%' }),
     h('div', { className: 'mg-header' },
       h('span', { className: 'mg-header-icon' }, '☀️'),
       h('span', { className: 'mg-header-title' }, 'SmartSolar MPPT'),
