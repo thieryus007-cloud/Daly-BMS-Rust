@@ -108,7 +108,7 @@ const EDGES0 = [
   mkEdge('e-maison-switchs', 'et112-maison', 'tongou-group',   COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tl', type: 'customBezier', history: HIST_ET112_8 }),
   mkEdge('e-ats-reseau', 'ats-reseau', 'et112-reseau',   COLOR.ac,  { sourceHandle: 'reseau-et112reseau', targetHandle: 'tt', history: HIST_ET112_9 }),
   mkEdge('e-reseau-onduleur', 'et112-reseau', 'onduleur',   COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tl', history: HIST_ET112_9 }),
-  mkEdge('e-mppt-shu', 'mppt',      'hubMPPT', COLOR.dc,  { sourceHandle: 'sl', targetHandle: 'tr', history: HIST_MPPT }),
+  mkEdge('e-mppt-shu', 'mppt',      'hubMPPT', COLOR.dc,  { sourceHandle: 'sl', targetHandle: 'tr', type: 'customBezier', history: HIST_MPPT }),
   mkEdge('e-ond-shu',  'onduleur',  'hubMPPT', COLOR.dc,  { sourceHandle: 'sb', targetHandle: 'tt', history: HIST_INV_DC }),
   mkEdge('e-hub-shu',  'hubMPPT',  'smartshunt', COLOR.dc,  { sourceHandle: 'sb', targetHandle: 'tt', history: HIST_SHUNT }),
   mkEdge('e-shu-hubBMS', 'hubBMS', 'smartshunt',  COLOR.bat, { sourceHandle: 'sr', targetHandle: 'tl', history: HIST_SHUNT }),

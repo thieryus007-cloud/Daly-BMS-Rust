@@ -66,9 +66,28 @@ const SpiralRaceNode = function SpiralRaceNode({ data }) {
     chart.setOption({
       backgroundColor: 'transparent',
       series: [
-        mkGauge('88%',  18,  prodKwh, '#fbbf24', 'Production',  'kWh',  '78%', '90%'),
-        mkGauge('65%', 100,  soc,     socCol,    'SOC',         '%',    '48%', '60%'),
-        mkGauge('42%', 900,  irrWm2,  '#38bdf8', 'Irradiance',  'W/m²', '18%', '30%'),
+        mkGauge('88%',  18,   prodKwh, '#fbbf24', 'Production', 'kWh',  '78%', '90%'),
+        mkGauge('65%', 100,   soc,     socCol,    'SOC',        '%',    '48%', '60%'),
+        mkGauge('42%', 2000,  irrWm2,  '#38bdf8', 'Irradiance', 'W/m²', '18%', '30%'),
+        // Tick marks radiaux fins traversant les 3 anneaux sans atteindre le centre
+        {
+          type: 'gauge', radius: '88%',
+          startAngle: 220, endAngle: -40,
+          min: 0, max: 100, splitNumber: 8,
+          clockwise: true, animation: false,
+          pointer: { show: false },
+          progress: { show: false },
+          axisLine: { show: false },
+          axisTick: { show: false },
+          splitLine: {
+            show: true, length: 55, distance: 0,
+            lineStyle: { width: 0.5, color: 'rgba(148,163,184,0.28)' }
+          },
+          axisLabel: { show: false },
+          title: { show: false },
+          detail: { show: false },
+          data: [{ value: 0 }]
+        },
       ]
     }, { notMerge: false, lazyUpdate: false });
   }, [prodKwh, soc, irrWm2]);

@@ -147,7 +147,6 @@ function TemperatureNode({ data }) {
   const humidity = live?.humidity_percent ?? null;
   const tempStr  = temp     != null ? `${temp.toFixed(1)}°C`       : '—';
   const humStr   = humidity != null ? `${humidity.toFixed(0)}% HR` : null;
-  const valueStr = humStr   != null ? `${tempStr}  ${humStr}`      : tempStr;
 
   return h('div', { className: 'sn', style: { minWidth: '260px' } },
     mkHandle('target', Position.Top,    'tt'),
@@ -159,7 +158,10 @@ function TemperatureNode({ data }) {
     h('div', { className: 'sn-icon' }, data.icon ?? '🌡️'),
     h('div', { className: 'sn-body' },
       h('div', { className: 'sn-label' }, data.label),
-      h('div', { className: 'sn-value' }, valueStr),
+      h('div', { className: 'sn-value', style: { display: 'flex', alignItems: 'baseline', gap: '1.2rem' } },
+        h('span', null, tempStr),
+        humStr != null ? h('span', null, humStr) : null
+      ),
       h('div', { className: 'sn-sub'   }, live ? 'Ext.' : 'En attente…')
     ),
     h('div', { className: `sn-dot${live ? ' live' : ''}` })
