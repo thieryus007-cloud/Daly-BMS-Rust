@@ -679,6 +679,15 @@
   color: #94a3b8;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  flex: 1;
+}
+.spiral-day-prog {
+  font-size: 0.6rem;
+  color: #475569;
+  background: rgba(148,163,184,0.12);
+  border-radius: 4px;
+  padding: 1px 5px;
+  margin-left: auto;
 }
 .spiral-chart {
   width: 276px;
