@@ -30,13 +30,13 @@ const SpiralRaceNode = function SpiralRaceNode({ data }) {
       min: 0, max,
       clockwise: true,
       animation: true,
-      animationDuration: 1200,
+      animationDuration: 3000,
       animationDurationUpdate: 800,
       animationEasing: 'cubicOut',
       animationEasingUpdate: 'cubicOut',
       pointer: { show: false },
       progress: {
-        show: true, width: 12, roundCap: true, clip: false,
+        show: true, width: 8, roundCap: true, clip: false,
         itemStyle: { color }
       },
       axisLine: {
