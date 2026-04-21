@@ -22,7 +22,7 @@ const SpiralRaceNode = function SpiralRaceNode({ data }) {
 
     // Cercles complets (90° = haut, -270° = tour complet horaire)
     // La valeur remplit le cercle proportionnellement à value/max
-    const mkGauge = (radius, max, value, color) => ({
+    const mkGauge = (radius, max, value, color, label, unit) => ({
       type: 'gauge',
       radius,
       startAngle: 90,
@@ -44,16 +44,31 @@ const SpiralRaceNode = function SpiralRaceNode({ data }) {
         lineStyle: { width: 12, color: [[1, 'rgba(148,163,184,0.12)']] }
       },
       axisTick: { show: false }, splitLine: { show: false },
-      axisLabel: { show: false }, detail: { show: false }, title: { show: false },
+      axisLabel: { show: false },
+      title: {
+        show: true,
+        text: label,
+        color: '#94a3b8',
+        fontSize: 8,
+        offsetCenter: [0, '-45%']
+      },
+      detail: {
+        show: true,
+        formatter: function(v) { return Math.round(v.value * 10) / 10 + ' ' + unit; },
+        color: color,
+        fontSize: 11,
+        fontWeight: 'bold',
+        offsetCenter: [0, '-20%']
+      },
       data: [{ value: Math.max(0, value) }]
     });
 
     chart.setOption({
       backgroundColor: 'transparent',
       series: [
-        mkGauge('88%',  18,  prodKwh, '#fbbf24'),
-        mkGauge('65%', 100,  soc,     socCol),
-        mkGauge('42%', 900,  irrWm2,  '#38bdf8'),
+        mkGauge('88%',  18,  prodKwh, '#fbbf24', 'Production', 'kWh'),
+        mkGauge('65%', 100,  soc,     socCol,    'SOC', '%'),
+        mkGauge('42%', 900,  irrWm2,  '#38bdf8', 'Irradiance', 'W/m²'),
       ]
     }, { notMerge: false, lazyUpdate: false });
   }, [prodKwh, soc, irrWm2]);
