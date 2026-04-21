@@ -112,9 +112,9 @@ const EDGES0 = [
   mkEdge('e-ond-shu',  'onduleur',  'hubMPPT', COLOR.dc,  { sourceHandle: 'sb', targetHandle: 'tt', history: HIST_INV_DC }),
   mkEdge('e-hub-shu',  'hubMPPT',  'smartshunt', COLOR.dc,  { sourceHandle: 'sb', targetHandle: 'tt', history: HIST_SHUNT }),
   mkEdge('e-shu-hubBMS', 'smartshunt','hubBMS',       COLOR.bat, { sourceHandle: 'sl', targetHandle: 'tr', history: HIST_SHUNT }),
-  mkEdge('e-hubBMS-b1',  'hubBMS', 'bms1',       COLOR.bat, { sourceHandle: 'sl', targetHandle: 'tr', history: HIST_BMS_1 }),
-  mkEdge('e-hubBMS-b2', 'hubBMS', 'bms2',       COLOR.bat, { sourceHandle: 'sl', targetHandle: 'tr', history: HIST_BMS_2 }),
-  mkEdge('e-hubBMS-b3', 'hubBMS', 'bms3',       COLOR.bat, { sourceHandle: 'sl', targetHandle: 'tr', history: HIST_BMS_3 }),
+  mkEdge('e-hubBMS-b1',  'hubBMS', 'bms1',       COLOR.bat, { sourceHandle: 'sr', targetHandle: 'tl', history: HIST_BMS_1 }),
+  mkEdge('e-hubBMS-b2', 'hubBMS', 'bms2',       COLOR.bat, { sourceHandle: 'sr', targetHandle: 'tl', history: HIST_BMS_2 }),
+  mkEdge('e-hubBMS-b3', 'hubBMS', 'bms3',       COLOR.bat, { sourceHandle: 'sr', targetHandle: 'tl', history: HIST_BMS_3 }),
 ];
 
 
