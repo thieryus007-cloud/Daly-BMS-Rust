@@ -111,10 +111,10 @@ const EDGES0 = [
   mkEdge('e-mppt-shu', 'mppt',      'hubMPPT', COLOR.dc,  { sourceHandle: 'sl', targetHandle: 'tr', history: HIST_MPPT }),
   mkEdge('e-ond-shu',  'onduleur',  'hubMPPT', COLOR.dc,  { sourceHandle: 'sb', targetHandle: 'tt', history: HIST_INV_DC }),
   mkEdge('e-hub-shu',  'hubMPPT',  'smartshunt', COLOR.dc,  { sourceHandle: 'sb', targetHandle: 'tt', history: HIST_SHUNT }),
-  mkEdge('e-shu-hubBMS', 'smartshunt','hubBMS',       COLOR.bat, { sourceHandle: 'sl', targetHandle: 'tr', history: HIST_SHUNT }),
-  mkEdge('e-hubBMS-b1',  'hubBMS', 'bms1',       COLOR.bat, { sourceHandle: 'sr', targetHandle: 'tl', history: HIST_BMS_1 }),
-  mkEdge('e-hubBMS-b2', 'hubBMS', 'bms2',       COLOR.bat, { sourceHandle: 'sr', targetHandle: 'tl', history: HIST_BMS_2 }),
-  mkEdge('e-hubBMS-b3', 'hubBMS', 'bms3',       COLOR.bat, { sourceHandle: 'sr', targetHandle: 'tl', history: HIST_BMS_3 }),
+  mkEdge('e-shu-hubBMS', 'hubBMS', 'smartshunt',  COLOR.bat, { sourceHandle: 'sr', targetHandle: 'tl', history: HIST_SHUNT }),
+  mkEdge('e-hubBMS-b1',  'bms1', 'hubBMS',       COLOR.bat, { sourceHandle: 'sr', targetHandle: 'tl', history: HIST_BMS_1 }),
+  mkEdge('e-hubBMS-b2',  'bms2', 'hubBMS',       COLOR.bat, { sourceHandle: 'sr', targetHandle: 'tl', history: HIST_BMS_2 }),
+  mkEdge('e-hubBMS-b3',  'bms3', 'hubBMS',       COLOR.bat, { sourceHandle: 'sr', targetHandle: 'tl', history: HIST_BMS_3 }),
 ];
 
 
@@ -214,13 +214,13 @@ const atsExecRef = useRef(null);
           case 'e-ond-shu':         fv = Math.abs(inverter?.power_w         ?? 0); break;
           case 'e-hub-shu':         fv = mpptTotalPowerW + Math.abs(inverter?.power_w ?? 0); break;
           case 'e-shu-hubBMS': {
-            const pw = shunt?.power_w ?? 0; fv = Math.abs(pw); rev = pw < 0; break;
+            const pw = shunt?.power_w ?? 0; fv = Math.abs(pw); rev = pw > 0; break;
           }
           case 'e-hubBMS-b1': {
-            const pw = bms1?.Dc?.Power ?? 0; fv = Math.abs(pw); rev = pw < 0; break;
+            const pw = bms1?.Dc?.Power ?? 0; fv = Math.abs(pw); rev = pw > 0; break;
           }
           case 'e-hubBMS-b2': {
-            const pw = bms2?.Dc?.Power ?? 0; fv = Math.abs(pw); rev = pw < 0; break;
+            const pw = bms2?.Dc?.Power ?? 0; fv = Math.abs(pw); rev = pw > 0; break;
           }
         }
         return {

@@ -28,7 +28,8 @@ function BmsNode({ data }) {
   const alarm = live?.Alarms ? Object.values(live.Alarms).some(v => v > 0) : false;
 
   return h('div', { className: `bms-nd${alarm ? ' alarm' : ''}` },
-    mkHandle('target', Position.Top, 'tt'),
+    mkHandle('target', Position.Top,   'tt'),
+    mkHandle('source', Position.Right, 'sr'),
     h('div', { className: 'bms-hdr' },
       h('span', null, '🔋'),
       h('span', { className: 'bms-name' }, data.label),

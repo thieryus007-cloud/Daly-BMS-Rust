@@ -18,7 +18,7 @@ function MPPTGroupNode({ data }) {
     mkHandle('target', Position.Left,   'tl'),
     mkHandle('source', Position.Right,  'sr'),
     mkHandle('target', Position.Right,  'tr', { top: '65%' }),
-    mkHandle('source', Position.Left,   'sl', { top: '65%' }),
+    mkHandle('source', Position.Left,   'sl', { top: '30%' }),
     h('div', { className: 'mg-header' },
       h('span', { className: 'mg-header-icon' }, '☀️'),
       h('span', { className: 'mg-header-title' }, 'SmartSolar MPPT'),
@@ -149,7 +149,7 @@ function TemperatureNode({ data }) {
   const humStr   = humidity != null ? `${humidity.toFixed(0)}% HR` : null;
   const valueStr = humStr   != null ? `${tempStr}  ${humStr}`      : tempStr;
 
-  return h('div', { className: 'sn' },
+  return h('div', { className: 'sn', style: { minWidth: '260px' } },
     mkHandle('target', Position.Top,    'tt'),
     mkHandle('source', Position.Bottom, 'sb'),
     mkHandle('target', Position.Left,   'tl'),
