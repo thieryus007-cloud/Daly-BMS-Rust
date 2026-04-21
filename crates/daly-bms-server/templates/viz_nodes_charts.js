@@ -30,21 +30,17 @@ const SpiralRaceNode = function SpiralRaceNode({ data }) {
       min: 0, max,
       clockwise: true,
       animation: true,
-      animationDuration: 3000,
-      animationDurationUpdate: 800,
       animationDuration: 2500,
       animationDurationUpdate: 1500,
       animationEasing: 'cubicOut',
       animationEasingUpdate: 'cubicInOut',
       pointer: { show: false },
       progress: {
-        show: true, width: 8, roundCap: true, clip: false,
         show: true, width: 6, roundCap: true, clip: false,
         itemStyle: { color }
       },
       axisLine: {
         show: true,
-        lineStyle: { width: 8, color: [[1, 'rgba(148,163,184,0.12)']] }
         lineStyle: { width: 6, color: [[1, 'rgba(148,163,184,0.12)']] }
       },
       axisTick: { show: false }, splitLine: { show: false },
@@ -60,7 +56,6 @@ const SpiralRaceNode = function SpiralRaceNode({ data }) {
         show: true,
         formatter: function(v) { return (Math.round(v.value * 10) / 10) + ' ' + unit; },
         color: color,
-        fontSize: 8,
         fontSize: 10,
         fontWeight: 'bold',
         offsetCenter: ['0%', detailY]
