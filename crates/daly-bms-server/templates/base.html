@@ -944,7 +944,7 @@ function closeSidebar() {
         dot.className = 'ws-dot alarm';
       } else if (dot.className.includes('alarm')) {
         dot.className = 'ws-dot live';
-        dismissAlarm();
+        dismissAlarm(true);
       }
     };
     sock.onclose = () => {
@@ -1003,18 +1003,30 @@ document.addEventListener('keydown', function(e) {
 });
 
 // ── Bannière alarme ────────────────────────────────────────────────────
+let _alarmAcked = false;
+let _ackedKey   = '';
+let _currentAlarmKey = '';
+
 function showAlarmBanner(text, href) {
   const b = document.getElementById('alarm-banner');
   const t = document.getElementById('alarm-text');
   const l = document.getElementById('alarm-link');
   if (!b) return;
+  const key = text + '|' + (href || '');
+  _currentAlarmKey = key;
+  if (_alarmAcked && _ackedKey === key) return;
   if (t) t.textContent = text;
   if (l && href) l.href = href;
   b.classList.add('visible');
 }
-function dismissAlarm() {
+function dismissAlarm(resetAck) {
   const b = document.getElementById('alarm-banner');
   if (b) b.classList.remove('visible');
+  if (resetAck) {
+    _alarmAcked = false; _ackedKey = ''; _currentAlarmKey = '';
+  } else {
+    _alarmAcked = true; _ackedKey = _currentAlarmKey;
+  }
 }
 
 // ── Toast ──────────────────────────────────────────────────────────────

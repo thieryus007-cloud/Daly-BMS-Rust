@@ -31,1255 +31,12 @@ function mkHandle(type, pos, id, style) {
   return h(Handle, { type, position: pos, id, style: { background: '#94a3b8', width: 8, height: 8, ...style } });
 }
 
-function SummaryNode({ data }) {
-  return h('div', { className: 'sn' },
-    mkHandle('target', Position.Top,    'tt'),
-    mkHandle('source', Position.Bottom, 'sb'),
-    mkHandle('target', Position.Left,   'tl'),
-    mkHandle('source', Position.Right,  'sr'),
-    mkHandle('target', Position.Right,  'tr', { top: '68%' }),
-    mkHandle('source', Position.Left,   'sl', { top: '68%' }),
-    h('div', { className: 'sn-icon' }, data.icon),
-    h('div', { className: 'sn-body' },
-      h('div', { className: 'sn-label' }, data.label),
-      h('div', { className: 'sn-value' }, data.value ?? '—'),
-      h('div', { className: 'sn-sub'   }, data.sub   ?? '\u00a0')
-    ),
-    h('div', { className: `sn-dot ${data.dotClass ?? ''}` })
-  );
-}
-
-function BmsNode({ data }) {
-  const live  = data.live;
-  const soc   = live?.Soc   ?? null;
-  const cur   = live?.Dc?.Current ?? null;
-  const pwr   = live?.Dc?.Power   ?? null;
-  const volt  = live?.Dc?.Voltage ?? null;
-  const tmax  = live?.System?.MaxCellTemperature ?? null;
-  const alarm = live?.Alarms ? Object.values(live.Alarms).some(v => v > 0) : false;
-
-  return h('div', { className: `bms-nd${alarm ? ' alarm' : ''}` },
-    mkHandle('target', Position.Top, 'tt'),
-    h('div', { className: 'bms-hdr' },
-      h('span', null, '🔋'),
-      h('span', { className: 'bms-name' }, data.label),
-      tmax != null ? h('span', { className: 'bms-temp' }, `🌡 ${tmax.toFixed(1)}°C`) : null,
-      h('div',  { className: `bms-live-dot${live ? ' on' : ''}` })
-    ),
-    h('div', { className: 'bms-bar-bg' },
-      h('div', {
-        className: 'bms-bar-fill',
-        style: { width: `${soc ?? 0}%`, background: soc != null ? socColor(soc) : '#e2e8f0' }
-      })
-    ),
-    h('div', { className: 'bms-kpis' },
-      h('div', { className: 'bms-kpi' },
-        h('div', { className: 'bms-kpi-v' }, soc != null ? `${soc.toFixed(0)}%` : '—'),
-        h('div', { className: 'bms-kpi-l' }, 'SOC')
-      ),
-      h('div', { className: 'bms-kpi' },
-        h('div', { className: 'bms-kpi-v' }, volt != null ? `${volt.toFixed(2)}V` : '—'),
-        h('div', { className: 'bms-kpi-l' }, 'Tension')
-      ),
-      h('div', { className: 'bms-kpi' },
-        h('div', {
-          className: 'bms-kpi-v',
-          style: { color: cur != null ? (cur < 0 ? '#dc2626' : cur > 0 ? '#2563eb' : '#0f172a') : undefined }
-        }, cur != null ? `${cur > 0 ? '+' : ''}${cur.toFixed(1)}A` : '—'),
-        h('div', { className: 'bms-kpi-l' }, 'Courant')
-      ),
-      h('div', { className: 'bms-kpi' },
-        h('div', { className: 'bms-kpi-v' }, pwr != null ? `${pwr > 0 ? '+' : ''}${(pwr / 1000).toFixed(0)}` : '—'),
-        h('div', { className: 'bms-kpi-l' }, 'kW')
-      )
-    )
-  );
-}
-  
-function Et112CardNode({ data }) {
-  const live = data.live;
-  const connected = live?.connected ?? false;
-  const pwr  = live?.power_w ?? null;
-  const volt = live?.voltage_v ?? null;
-  const cur  = live?.current_a ?? null;
-  const imp  = live?.energy_import_wh != null ? live.energy_import_wh / 1000 : null;
-  const expW = live?.energy_export_wh != null ? live.energy_export_wh / 1000 : null;
-  const addr = data.address ?? 7;
-  const icon = data.icon || '☀';
-
-  return h('div', { className: 'et112-card-wrapper' },
-    mkHandle('target', Position.Left,   'tl'),
-    mkHandle('source', Position.Left,   'sl', { top: '50%' }),
-    mkHandle('target', Position.Top,    'tt'),
-    mkHandle('source', Position.Bottom, 'sb'),
-    mkHandle('source', Position.Right,  'sr'),
-    mkHandle('target', Position.Right,  'tr', { top: '50%' }),
-    h('div', { className: `bms-card-in-viz ${connected ? '' : 'offline-card'}`, style: { opacity: connected ? 1 : 0.7 } },
-      h('div', { className: `bms-hdr ${connected ? '' : 'offline'}` },
-        h('div', { className: 'bms-hdr-left' },
-          connected ? h('div', { className: 'bms-live' }, h('div', { className: 'live-dot' }), 'LIVE') : h('span', { style: { fontSize: '0.62rem', color: 'var(--muted2)' } }, 'Hors ligne'),
-          h('span', { className: 'bms-hdr-name' }, `${icon} `, data.label)
-        ),
-        h('div', { className: 'bms-hdr-right' }, h('span', { className: 'bms-badge' }, `0x0${addr.toString(16).toUpperCase()}`))
-      ),
-      connected && live ? h('div', { className: 'kpi4' },
-        h('div', { className: 'kpi4-cell t-yellow' },
-          h('div', { className: 'kpi4-lbl' }, 'Puissance'),
-          h('div', { className: `kpi4-val ${(pwr ?? 0) >= 0 ? 'chg' : 'dch'}` }, pwr != null ? `${pwr.toFixed(0)} W` : '—')
-        ),
-        h('div', { className: 'kpi4-cell t-blue' },
-          h('div', { className: 'kpi4-lbl' }, 'Tension'),
-          h('div', { className: 'kpi4-val' }, volt != null ? `${volt.toFixed(1)} V` : '—')
-        ),
-        h('div', { className: 'kpi4-cell t-orange' },
-          h('div', { className: 'kpi4-lbl' }, 'Courant'),
-          h('div', { className: 'kpi4-val' }, cur != null ? `${cur.toFixed(2)} A` : '—')
-        )
-      ) : h('div', { className: 'empty-state' },
-        h('div', { className: 'empty-icon' }, '⏳'),
-        h('div', { className: 'empty-title' }, 'En attente de données')
-      ),
-      connected && live ? h('div', { className: 'istrip' },
-        h('div', { className: 'icell' },
-          h('span', { className: 'i-lbl' }, '⬇ Importée'),
-          h('span', { className: 'i-val ok' }, imp != null ? `${imp.toFixed(2)} kWh` : '—')
-        ),
-        h('div', { className: 'icell' },
-          h('span', { className: 'i-lbl' }, '⬆ Exportée'),
-          h('span', { className: 'i-val blue' }, expW != null ? `${expW.toFixed(2)} kWh` : '—')
-        )
-      ) : null
-      
-    )
-  );
-}
-
-function DeviceNode({ data }) {
-  const live = data.live;
-  const pwr  = live?.power_w;
-  const nrj  = live?.energy_import_kwh;
-  return h('div', { className: 'dev-nd' },
-    mkHandle('target', Position.Top,    'tt'),
-    mkHandle('source', Position.Bottom, 'sb'),
-    mkHandle('target', Position.Left,   'tl'),
-    mkHandle('source', Position.Right,  'sr'),
-    mkHandle('source', Position.Left,   'sl', { top: '65%' }),
-    mkHandle('target', Position.Right,  'tr', { top: '65%' }),
-    h('div', { className: 'dev-hdr' },
-      h('span', null, data.icon ?? '⚡'),
-      h('span', { className: 'dev-lbl' }, data.label),
-      h('div',  { className: `dev-dot${live?.connected ? ' on' : ''}` })
-    ),
-    live ? h('div', null,
-      h('div', { className: 'dev-pwr' }, pwr != null ? `${(pwr / 1000).toFixed(2)} kW` : '—'),
-      h('div', { className: 'dev-nrj' }, nrj != null ? `${nrj.toFixed(1)} kWh total` : '\u00a0')
-    ) : h('div', { className: 'dev-wait' }, 'En attente…')
-  );
-}
-
-function HubNode({ data }) {
-  return h('div', { className: 'hub-nd' },
-    mkHandle('target', Position.Top,    'tt'),
-    mkHandle('source', Position.Bottom, 'sb'),
-    mkHandle('target', Position.Left,   'tl'),
-    mkHandle('source', Position.Right,  'sr'),
-    mkHandle('target', Position.Right,  'tr', { top: '68%' }),
-    mkHandle('source', Position.Left,   'sl', { top: '68%' }),
-    h('div', { className: 'hub-icon' }, data.icon),
-    h('div', { className: 'hub-lbl'  }, data.label),
-    data.sub && h('div', { className: 'hub-sub' }, data.sub)
-  );
-}
-
-function PlaceholderNode({ data }) {
-  return h('div', { className: 'ph-nd' },
-    mkHandle('target', Position.Top,    'tt'),
-    mkHandle('source', Position.Bottom, 'sb'),
-    mkHandle('target', Position.Left,   'tl'),
-    mkHandle('source', Position.Right,  'sr'),
-    mkHandle('target', Position.Right,  'tr', { top: '68%' }),
-    mkHandle('source', Position.Left,   'sl', { top: '68%' }),
-    data.icon && h('span', { className: 'ph-icon' }, data.icon),
-    h('div', { className: 'ph-lbl'   }, data.label),
-    h('div', { className: 'ph-badge' }, 'À venir')
-  );
-}
-
-function MPPTGroupNode({ data }) {
-  const mppts       = data.mppts       ?? [];
-  const totalPowerW = data.totalPowerW ?? 0;
-  const totalDcA    = data.totalDcA    ?? 0;
-
-  const stateClass = (s) => {
-    if (!s) return '';
-    const l = s.toLowerCase();
-    if (l === 'off')   return 'off';
-    if (l === 'fault') return 'fault';
-    return '';
-  };
-
-  return h('div', { className: 'mppt-group-card' },
-    mkHandle('target', Position.Top,    'tt'),
-    mkHandle('source', Position.Bottom, 'sb'),
-    mkHandle('target', Position.Left,   'tl'),
-    mkHandle('source', Position.Right,  'sr'),
-    mkHandle('target', Position.Right,  'tr', { top: '65%' }),
-    mkHandle('source', Position.Left,   'sl', { top: '65%' }),
-    h('div', { className: 'mg-header' },
-      h('span', { className: 'mg-header-icon' }, '☀️'),
-      h('span', { className: 'mg-header-title' }, 'SmartSolar MPPT'),
-      h('span', { style: { fontSize:'0.65rem', opacity:0.8, marginLeft:'auto' } }, `${mppts.length} chargeur${mppts.length > 1 ? 's' : ''}`)
-    ),
-    h('div', { className: 'mg-totals' },
-      h('div', { className: 'mg-total-chip' },
-        h('span', { className: 'mg-total-lbl' }, 'Total Puissance'),
-        h('span', { className: 'mg-total-val' }, `${Math.round(totalPowerW)} W`)
-      ),
-      h('div', { className: 'mg-total-chip' },
-        h('span', { className: 'mg-total-lbl' }, 'Total DC'),
-        h('span', { className: 'mg-total-val' }, `${Math.round(totalDcA)} A`)
-      )
-    ),
-    mppts.length > 0 ? h('div', { className: 'mg-mppt-list' },
-      mppts.map((m, i) => {
-        const inst  = m.instance ?? i;
-        const name  = inst > 0 ? `MPPT-${inst}` : `MPPT-${i+1}`;
-        const s     = m.state ?? null;
-        const pvV   = m.pv_voltage_v ?? null;
-        const dcA   = m.dc_current_a ?? null;
-        const pw    = m.power_w ?? null;
-        return h('div', { key: inst, className: 'mg-mppt-row' },
-          h('span', { className: 'mg-mppt-name' }, name),
-          h('span', { className: `mg-mppt-state ${stateClass(s)}` }, s ?? '—'),
-          h('div', { className: 'mg-mppt-metrics' },
-            h('div', { className: 'mg-metric' },
-              h('span', { className: 'mg-metric-lbl' }, 'PV'),
-              h('span', { className: 'mg-metric-val' }, pvV != null ? `${pvV.toFixed(1)}V` : '—')
-            ),
-            h('div', { className: 'mg-metric' },
-              h('span', { className: 'mg-metric-lbl' }, 'DC'),
-              h('span', { className: 'mg-metric-val' }, dcA != null ? `${dcA.toFixed(1)}A` : '—')
-            ),
-            h('div', { className: 'mg-metric' },
-              h('span', { className: 'mg-metric-lbl' }, 'W'),
-              h('span', { className: 'mg-metric-val' }, pw != null ? `${Math.round(pw)}` : '—')
-            )
-          )
-        );
-      })
-    ) : h('div', { className: 'mg-wait' }, 'En attente des chargeurs…')
-  );
-}
-
-function SmartShuntNode({ data }) {
-  const live    = data.live;
-  const soc     = live?.soc_percent   ?? null;
-  const voltage = live?.voltage_v     ?? null;
-  const current = live?.current_a     ?? null;
-  const power   = live?.power_w       ?? null;
-  const eIn     = live?.energy_in_kwh ?? null;
-  const eOut    = live?.energy_out_kwh ?? null;
-  const state   = live?.state         ?? null;
-  const ttgMin  = live?.time_to_go_min ?? null;
-
-  const stateClass = state === 'Charging' ? 'charging' : state === 'Discharging' ? 'discharging' : 'idle';
-
-  const fmtTtg = (min) => {
-    if (min == null) return '—';
-    if (min >= 1440) return `${(min/1440).toFixed(0)}j`;
-    if (min >= 60)   return `${Math.floor(min/60)}h${Math.round(min%60).toString().padStart(2,'0')}`;
-    return `${Math.round(min)} min`;
-  };
-
-  return h('div', { className: 'ss-card' },
-    mkHandle('target', Position.Top,    'tt'),
-    mkHandle('source', Position.Bottom, 'sb'),
-    mkHandle('target', Position.Left,   'tl'),
-    mkHandle('source', Position.Right,  'sr'),
-    mkHandle('target', Position.Right,  'tr', { top: '65%' }),
-    mkHandle('source', Position.Left,   'sl', { top: '65%' }),
-    h('div', { className: 'ss-hdr' },
-      h('span', { className: 'ss-hdr-icon' }, '⚡'),
-      h('span', { className: 'ss-hdr-title' }, 'SmartShunt'),
-      state && h('span', { className: `ss-state-badge ${stateClass}` }, state),
-      h('div', { className: `ss-dot${live ? ' live' : ''}` })
-    ),
-    h('div', { className: 'ss-bar-bg' },
-      h('div', { className: 'ss-bar-fill', style: { width: `${soc ?? 0}%`, background: soc != null ? socColor(soc) : '#e2e8f0' } })
-    ),
-    live ? h('div', null,
-      h('div', { className: 'ss-grid' },
-        h('div', { className: 'ss-cell' },
-          h('span', { className: 'ss-cell-lbl' }, 'SOC'),
-          h('span', { className: 'ss-cell-val', style: { color: soc != null ? socColor(soc) : undefined } }, soc != null ? `${soc.toFixed(1)}%` : '—')
-        ),
-        h('div', { className: 'ss-cell' },
-          h('span', { className: 'ss-cell-lbl' }, 'Tension'),
-          h('span', { className: 'ss-cell-val' }, voltage != null ? `${voltage.toFixed(1)}V` : '—')
-        ),
-        h('div', { className: 'ss-cell' },
-          h('span', { className: 'ss-cell-lbl' }, 'Courant'),
-          h('span', { className: `ss-cell-val ${current != null ? (current < 0 ? 'neg' : current > 0.1 ? 'pos' : '') : ''}` },
-            current != null ? `${current > 0 ? '+' : ''}${current.toFixed(1)}A` : '—')
-        )
-      ),
-
-      h('div', { className: 'ss-row' },
-        h('span', { className: 'ss-row-lbl' }, 'Puissance'),
-        h('span', { className: 'ss-row-val' }, power != null ? `${power > 0 ? '+' : ''}${power.toFixed(0)} W` : '—')
-      ),
-        h('div', { style: { display: 'flex', gap: '1rem', flexWrap: 'wrap' } },
-        h('div', { className: 'ss-row', style: { flex: '1 1 0', minWidth: 0 } },
-          h('span', { className: 'ss-row-lbl' }, 'Temps restant'),
-          h('span', { className: 'ss-row-val ttg' }, fmtTtg(ttgMin))
-        ),
-        h('div', { className: 'ss-row', style: { flex: '1 1 0', minWidth: 0 } },
-          h('span', { className: 'ss-row-lbl' }, '⬆ Chargée'),
-          h('span', { className: 'ss-row-val' }, eIn != null ? `${eIn.toFixed(1)} kWh` : '—')
-        ),
-        h('div', { className: 'ss-row', style: { flex: '1 1 0', minWidth: 0 } },
-          h('span', { className: 'ss-row-lbl' }, '⬇ Déchargée'),
-          h('span', { className: 'ss-row-val' }, eOut != null ? `${eOut.toFixed(1)} kWh` : '—')
-        )
-    )       
-    ) : h('div', { className: 'ss-wait' }, 'En attente…')
-  );
-}
-
-function TemperatureNode({ data }) {
-  const live = data.live;
-  const temp = live?.temp_c ?? null;
-  const humidity = live?.humidity_percent ?? null;
-
-  return h('div', { className: 'dev-nd' },
-    mkHandle('target', Position.Top,    'tt'),
-    mkHandle('source', Position.Bottom, 'sb'),
-    mkHandle('target', Position.Left,   'tl'),
-    mkHandle('source', Position.Right,  'sr'),
-    mkHandle('target', Position.Right,  'tr', { top: '65%' }),
-    mkHandle('source', Position.Left,   'sl', { top: '65%' }),
-    h('div', { className: 'dev-hdr' },
-      h('span', null, data.icon ?? '🌡️'),
-      h('span', { className: 'dev-lbl' }, data.label),
-      h('div', { className: `dev-dot${live ? ' on' : ''}` })
-    ),
-    live ? h('div', null,
-      h('div', { className: 'dev-pwr' }, temp != null ? `${temp.toFixed(1)}°C` : '—'),
-      h('div', { className: 'dev-nrj' }, humidity != null ? `${humidity.toFixed(0)}% HR` : '—')
-    ) : h('div', { className: 'dev-wait' }, 'En attente…')
-  );
-}
-
-// ── 🆕 NOUVEAU NODE TONGOU GROUP (4 à 6 switchs) ───────────────────────────
-// 🔥 Correction : utilisation des IDs numériques 1,2,3,4
-const TASMOTA_IDS = [1, 2, 3, 4];  // extensible jusqu'à 6
-
-const TongouGroupNode = memo(function TongouGroupNode({ data }) {
-  // Placeholders si data.switches est vide
-  const switches = (data.switches && data.switches.length > 0) 
-    ? data.switches 
-    : TASMOTA_IDS.map(id => ({ id: id, name: `Switch ${id}`, connected: false }));
-  
-  const disabled = data.disabled || false;
-
-  const handleToggle = useCallback((switchId, currentState) => {
-    if (disabled) return;
-    const newState = !currentState;
-    const cmd = newState ? 'on' : 'off';
-    console.log(`[TONGOU] Toggle ID ${switchId} -> ${cmd}`);
-    fetch(`/api/v1/tasmota/${switchId}/control`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ state: cmd }),
-      cache: 'no-cache'
-    })
-    .then(r => r.json())
-    .then(d => console.log(`[TONGOU] OK ID ${switchId}:`, d))
-    .catch(err => console.error(`[TONGOU] Erreur ID ${switchId}:`, err));
-  }, [disabled]);
-
-  const countOnline = switches.filter(s => s.connected).length;
-
-  return h('div', { className: 'tongou-group-card' },
-    mkHandle('target', Position.Top,    'tt'),
-    mkHandle('source', Position.Bottom, 'sb'),
-    mkHandle('target', Position.Left,  'tl', { top: '33%' }),
-    mkHandle('source', Position.Right,  'sr'),
-    mkHandle('target', Position.Right,  'tr', { top: '68%' }),
-    mkHandle('source', Position.Left,   'sl', { top: '68%' }),
-    h('div', { className: 'tg-header' },
-      h('span', { className: 'tg-header-icon' }, '🔌'),
-      h('span', { className: 'tg-header-title' }, 'Meter Switchs'),
-      h('span', { className: 'tg-header-count' }, `${countOnline}/${switches.length} en ligne`)
-    ),
-    h('div', { className: 'tg-switch-list' },
-      switches.map((sw, idx) => {
-        const switchId = sw.id || idx+1;
-        const connected = sw.connected ?? false;
-        const powerOn = sw.power_on ?? false;
-        const powerW = sw.power_w ?? null;
-        const voltage = sw.voltage_v ?? null;
-        const current = sw.current_a ?? null;
-        const energy = sw.energy_today_kwh ?? null;
-        const name = sw.name || `Switch ${switchId}`;
-        const displayId = `ID: ${switchId}`;
-
-        return h('div', { key: switchId, className: 'tg-switch-item' },
-          // Ligne 1 : nom, ID, bouton toggle
-          h('div', { className: 'tg-row1' },
-            h('span', { className: 'tg-name' }, name),
-            h('span', { className: 'tg-id' }, displayId),
-            h('button', {
-              className: `tg-toggle-btn ${powerOn ? 'off' : ''}`,
-              'data-is-interactive': 'true',
-              disabled: disabled || !connected,
-              onClick: (e) => { e.stopPropagation(); handleToggle(switchId, powerOn); }
-            }, disabled ? '...' : (connected ? (powerOn ? 'Éteindre' : 'Allumer') : 'Hors ligne'))
-          ),
-          // Ligne 2 : mesures avec fond coloré selon état
-          h('div', { className: `tg-row2 ${connected ? (powerOn ? 'on' : 'off') : ''}` },
-            h('div', { className: 'tg-metric' },
-              h('span', { className: 'tg-metric-label' }, 'Puissance'),
-              h('span', { className: 'tg-metric-value' }, powerW != null ? `${powerW.toFixed(0)} W` : '—')
-            ),
-            h('div', { className: 'tg-metric' },
-              h('span', { className: 'tg-metric-label' }, 'Tension'),
-              h('span', { className: 'tg-metric-value' }, voltage != null ? `${voltage.toFixed(1)} V` : '—')
-            ),
-            h('div', { className: 'tg-metric' },
-              h('span', { className: 'tg-metric-label' }, 'Courant'),
-              h('span', { className: 'tg-metric-value' }, current != null ? `${current.toFixed(2)} A` : '—')
-            ),
-            h('div', { className: 'tg-metric' },
-              h('span', { className: 'tg-metric-label' }, 'Aujourd\'hui'),
-              h('span', { className: 'tg-metric-value small' }, energy != null ? `${energy.toFixed(2)} kWh` : '—')
-            )
-          )
-        );
-      })
-    )
-  );
-});
-
-// ── WATERHEATER / CLIMATISATION NODE ─────────────────────────────────────
-function WaterHeaterNode({ data }) {
-  const et    = data.live;
-  const hp    = data.heatpump;
-  const isClim = data.isClimatisation ?? false;
-
-  const connected = et?.connected ?? false;
-  const pwr       = et?.power_w   ?? null;
-  const nrj       = et?.energy_import_wh != null ? et.energy_import_wh / 1000 : null;
-
-  const hpState  = hp?.state               ?? null;
-  const currTemp = hp?.temperature         ?? null;
-  const targTemp = hp?.target_temperature  ?? null;
-  const hpLive   = hp?.connected           ?? false;
-
-  const modeLabel = hpState === 0 ? 'Vacances' : hpState === 1 ? 'HP Normal' : hpState === 2 ? 'Turbo' : '—';
-  const modeCls   = hpState === 0 ? 'vacances' : hpState === 1 ? 'hp' : hpState === 2 ? 'turbo' : 'unknown';
-
-  return h('div', { className: 'waterheater-card' },
-    mkHandle('target', Position.Top,    'tt'),
-    mkHandle('source', Position.Bottom, 'sb'),
-    mkHandle('target', Position.Left,   'tl'),
-    mkHandle('source', Position.Right,  'sr'),
-    mkHandle('target', Position.Right,  'tr', { top: '65%' }),
-    mkHandle('source', Position.Left,   'sl', { top: '65%' }),
-    h('div', { className: `wh-header${isClim ? ' clim-header' : ''}` },
-      h('span', { className: 'wh-header-icon' }, data.icon ?? (isClim ? '❄️' : '🚿')),
-      h('span', { className: 'wh-header-title' }, data.label),
-      h('div',  { className: `wh-header-dot${(connected || hpLive) ? ' live' : ''}` })
-    ),
-    h('div', { className: 'wh-body' },
-      h('div', { className: 'wh-mode-row' },
-        h('span', { className: `wh-mode-badge ${modeCls}` }, modeLabel),
-        h('span', { style: { fontSize: '0.62rem', color: '#64748b' } }, hpLive ? '● Venus' : '○ Venus')
-      ),
-      h('div', { className: 'wh-temps-row' },
-        h('div', { className: 'wh-temp-cell' },
-          h('span', { className: 'wh-temp-lbl' }, 'Temp. actuelle'),
-          h('span', { className: 'wh-temp-val' }, currTemp != null ? `${currTemp.toFixed(1)}°C` : '—')
-        ),
-        h('div', { className: 'wh-temp-cell' },
-          h('span', { className: 'wh-temp-lbl' }, 'Temp. cible'),
-          h('span', { className: 'wh-temp-val' }, targTemp != null ? `${targTemp.toFixed(1)}°C` : '—')
-        )
-      ),
-      connected && et
-        ? h('div', { className: 'wh-et112-row' },
-            h('div', { className: 'wh-et112-metric' },
-              h('span', { className: 'wh-et112-lbl' }, 'Puissance'),
-              h('span', { className: 'wh-et112-val' }, pwr != null ? `${pwr.toFixed(0)} W` : '—')
-            ),
-            h('div', { className: 'wh-et112-metric' },
-              h('span', { className: 'wh-et112-lbl' }, 'Énergie'),
-              h('span', { className: 'wh-et112-val' }, nrj != null ? `${nrj.toFixed(2)} kWh` : '—')
-            )
-          )
-        : h('div', { className: 'wh-wait' }, 'ET112 en attente…')
-    )
-  );
-}
-
-// ── ✅ ATS Nodes ─────────────────────────────────────────────
-function AtsReseauNode({ data }) {
-  const active = (data.sw2 || '').includes('Fermé');
-  const connected = (parseInt(data.v2a) || 0) > 50;
-  const status = (data.s2a || '').toLowerCase();
-  const isOk = status.includes('normal');
-  const vLevel = Math.min(100, Math.max(0, ((parseInt(data.v2a) || 0) / 400) * 100));
-  
-  const handleClick = useCallback((e) => {
-    e.stopPropagation();
-    e.preventDefault();
-    console.log('[ATS-RESEAU] Bouton cliqué, onForce:', typeof data.onForce);
-    if (typeof data.onForce === 'function' && !data.disabled) {
-      console.log('[ATS-RESEAU] Exécution onForce()');
-      data.onForce();
-    }
-  }, [data.onForce, data.disabled]);
-
-  return h('div', { className: `pro-node${active ? ' active-source' : ''}` },
-    mkHandle('source', Position.Right, 'reseau-out'),
-    mkHandle('source', Position.Bottom, 'reseau-et112reseau'), 
-    h('div', { className: 'pn-banner' },
-      h('div', { className: 'pn-banner-left' },
-        h('div', { className: 'pn-bicon pn-bicon-res' }, '⚡'),
-        h('span', null, 'Réseau')
-      ),
-      h('div', { className: 'pn-banner-center' },
-        h('span', { className: 'pn-volt' }, data.v2a || '--', h('span', { className: 'pn-volt-unit' }, ' V')),
-        h('span', { className: `pn-status${connected ? ' online' : ' offline'}` },
-          h('span', { className: `pn-dot${connected ? '' : ' off'}` }),
-          connected ? 'En ligne' : 'Hors ligne'
-        )
-      ),
-      h('span', { className: `pn-badge${isOk ? ' ok' : ' warn'}` }, isOk ? '✓ OK' : '⚠')
-    ),
-    h('div', { className: 'pn-bar-row' },
-      h('div', { className: `pn-bar-fill${isOk ? ' ok' : ' warn'}`, style: { width: `${vLevel}%` } })
-    ),
-    h('div', { className: 'pn-strip' },
-      h('div', { className: 'pn-chip' }, h('span', { className: 'pn-chip-lbl' }, 'SW2'), h('span', { className: `pn-chip-val${active ? ' ok' : ''}` }, data.sw2 || '--')),
-      h('div', { className: 'pn-chip' }, h('span', { className: 'pn-chip-lbl' }, 'Max'), h('span', { className: 'pn-chip-val' }, data.max2 || '--')),
-      h('div', { className: 'pn-chip' }, h('span', { className: 'pn-chip-lbl' }, 'Nbr'), h('span', { className: 'pn-chip-val' }, data.cnt2 || 0)),
-      h('div', { className: 'pn-chip' }, h('span', { className: 'pn-chip-lbl' }, 'T2'), h('span', { className: 'pn-chip-val' }, data.t2 || '—'))
-    ),
-    h('div', { className: 'pn-foot' },
-      h('button', { 
-        className: 'pn-btn pn-btn-warn',
-        'data-is-interactive': 'true',
-        'data-rev': data._rev,
-        onClick: handleClick,
-        onMouseDown: (e) => { e.stopPropagation(); e.preventDefault(); },
-        onTouchStart: (e) => { e.stopPropagation(); e.preventDefault(); },
-        disabled: data.disabled,
-        style: { pointerEvents: 'auto', cursor: data.disabled ? 'not-allowed' : 'pointer' }
-      },
-        '⚡ ', data.disabled ? '...' : 'ACTIVER'
-      )
-    )
-  );
-}
-
-function AtsOnduleurNode({ data }) {
-  const active = (data.sw1 || '').includes('Fermé');
-  const connected = (parseInt(data.v1a) || 0) > 50;
-  const status = (data.s1a || '').toLowerCase();
-  const isOk = status.includes('normal');
-  const vLevel = Math.min(100, Math.max(0, ((parseInt(data.v1a) || 0) / 400) * 100));
-  
-  const handleClick = useCallback((e) => {
-    e.stopPropagation();
-    e.preventDefault();
-    console.log('[ATS-ONDULEUR] Bouton cliqué, onForce:', typeof data.onForce);
-    if (typeof data.onForce === 'function' && !data.disabled) {
-      console.log('[ATS-ONDULEUR] Exécution onForce()');
-      data.onForce();
-    }
-  }, [data.onForce, data.disabled]);
-
-  return h('div', { className: `pro-node${active ? ' active-source' : ''}` },
-    mkHandle('source', Position.Top, 'onduleur-out'),
-    mkHandle('target', Position.Right, 'onduleur-right'),
-    mkHandle('source', Position.Bottom, 'onduleur-bottom'),       
-    h('div', { className: 'pn-banner' },
-      h('div', { className: 'pn-banner-left' },
-        h('div', { className: 'pn-bicon pn-bicon-inv' }, '🔋'),
-        h('span', null, 'Onduleur')
-      ),
-      h('div', { className: 'pn-banner-center' },
-        h('span', { className: 'pn-volt' }, data.v1a || '--', h('span', { className: 'pn-volt-unit' }, ' V')),
-        h('span', { className: `pn-status${connected ? ' online' : ' offline'}` },
-          h('span', { className: `pn-dot${connected ? '' : ' off'}` }),
-          connected ? 'En ligne' : 'Hors ligne'
-        )
-      ),
-      h('span', { className: `pn-badge${isOk ? ' ok' : ' warn'}` }, isOk ? '✓ OK' : '⚠')
-    ),
-    h('div', { className: 'pn-bar-row' },
-      h('div', { className: `pn-bar-fill${isOk ? ' ok' : ' warn'}`, style: { width: `${vLevel}%` } })
-    ),
-    h('div', { className: 'pn-strip' },
-      h('div', { className: 'pn-chip' }, h('span', { className: 'pn-chip-lbl' }, 'SW1'), h('span', { className: `pn-chip-val${active ? ' ok' : ''}` }, data.sw1 || '--')),
-      h('div', { className: 'pn-chip' }, h('span', { className: 'pn-chip-lbl' }, 'Max'), h('span', { className: 'pn-chip-val' }, data.max1 || '--')),
-      h('div', { className: 'pn-chip' }, h('span', { className: 'pn-chip-lbl' }, 'Nbr'), h('span', { className: 'pn-chip-val' }, data.cnt1 || 0)),
-      h('div', { className: 'pn-chip' }, h('span', { className: 'pn-chip-lbl' }, 'T1'), h('span', { className: 'pn-chip-val' }, data.t1 || '—'))
-    ),
-    h('div', { className: 'pn-foot' },
-      h('button', { 
-        className: 'pn-btn pn-btn-prim',
-        'data-is-interactive': 'true',
-        'data-rev': data._rev,
-        onClick: handleClick,
-        onMouseDown: (e) => { e.stopPropagation(); e.preventDefault(); },
-        onTouchStart: (e) => { e.stopPropagation(); e.preventDefault(); },
-        disabled: data.disabled,
-        style: { pointerEvents: 'auto', cursor: data.disabled ? 'not-allowed' : 'pointer' }
-      },
-        '🔋 ', data.disabled ? '...' : 'ACTIVER'
-      )
-    )
-  );
-}
-
-function AtsMainNode({ data }) {
-  const remoteOn = (data.swRemote || '').includes('Activé');
-  const hasFault = (data.swFault || 'Aucun') !== 'Aucun';
-  const centerOff = (data.middleOFF || '').includes('Activé');
-  
-  const handleToggleClick = useCallback((e) => {
-    e.stopPropagation();
-    e.preventDefault();
-    console.log('[ATS-MAIN] Toggle cliqué, onToggleRemote:', typeof data.onToggleRemote);
-    if (typeof data.onToggleRemote === 'function' && !data.disabled) {
-      console.log('[ATS-MAIN] Exécution onToggleRemote()');
-      data.onToggleRemote();
-    }
-  }, [data.onToggleRemote, data.disabled]);
-  
-  const handleForceOffClick = useCallback((e) => {
-    e.stopPropagation();
-    e.preventDefault();
-    console.log('[ATS-MAIN] Double OFF cliqué, onForceOff:', typeof data.onForceOff);
-    if (typeof data.onForceOff === 'function' && !data.disabled) {
-      if (window.confirm('⚠️ Confirmer Double OFF ?')) {
-        console.log('[ATS-MAIN] Exécution onForceOff()');
-        data.onForceOff();
-      }
-    }
-  }, [data.onForceOff, data.disabled]);
-
-  return h('div', { className: 'pro-node' },
-    mkHandle('target', Position.Left, 'ats-in-reseau'),
-    mkHandle('source', Position.Right, 'main-right'),
-    mkHandle('target', Position.Bottom, 'ats-in-onduleur', { top: '65%' }),
-    h('div', { style: { display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 8px', background:'#f8fafc', borderBottom:'2px solid #6366f1', gap:5 } },
-      h('div', { style: { display:'flex', alignItems:'center', gap:4, fontWeight:600, fontSize:10 } },
-        h('div', { className: 'pn-bicon pn-bicon-ats' }, '🔀'),
-        h('span', null, 'ATS')
-      ),
-      h('div', {
-        'data-is-interactive': 'true',
-        'data-rev': data._rev,
-        style: { display:'flex', alignItems:'center', gap:4, cursor: data.disabled ? 'default' : 'pointer', opacity: data.disabled ? 0.5 : 1, pointerEvents: 'auto' },
-        onClick: handleToggleClick,
-        onMouseDown: (e) => { e.stopPropagation(); e.preventDefault(); },
-        onTouchStart: (e) => { e.stopPropagation(); e.preventDefault(); }
-      },
-        h('span', { style: { fontSize:8, color:'#475569' } }, 'Télécommande'),
-        h('div', { className: `pn-toggle${remoteOn ? ' on' : ''}` })
-      ),
-      h('span', { className: `pn-badge${remoteOn ? ' ok' : ' warn'}` }, remoteOn ? '📡 ON' : 'OFF')
-    ),
-    h('div', { className: 'pn-ats-sw' },
-      h('div', { className: 'pn-sw-card' }, h('span', { className: 'pn-sw-label' }, 'SW1'), h('span', { className: `pn-sw-val${(data.sw1||'').includes('Fermé') ? ' closed' : ' open'}` }, data.sw1 || 'Ouvert')),
-      h('div', { className: 'pn-sw-card' }, h('span', { className: 'pn-sw-label' }, 'SW2'), h('span', { className: `pn-sw-val${(data.sw2||'').includes('Fermé') ? ' closed' : ' open'}` }, data.sw2 || 'Ouvert'))
-    ),
-    h('div', { className: 'pn-info-combined' },
-      h('div', { className: 'pn-info-row' }, h('span', { className: 'pn-info-key' }, 'Mode'), h('span', { className: 'pn-info-val' }, data.swMode || '—')),
-      h('div', { className: 'pn-info-row' }, h('span', { className: 'pn-info-key' }, 'Défaut'), h('span', { className: `pn-info-val${hasFault ? ' err' : ' ok'}` }, hasFault ? '⚠ Erreur' : '✓ Aucun'))
-    ),
-    h('div', { className: 'pn-info-row' }, h('span', { className: 'pn-info-key' }, 'Source'), h('span', { className: `pn-info-val${centerOff ? ' err' : ''}` }, centerOff ? '⚠ DOUBLE OFF' : data.active_source || '—')),
-    h('div', { className: 'pn-foot' },
-      h('button', { 
-        className: 'pn-btn pn-btn-danger',
-        'data-is-interactive': 'true',
-        'data-rev': data._rev,
-        onClick: handleForceOffClick,
-        onMouseDown: (e) => { e.stopPropagation(); e.preventDefault(); },
-        onTouchStart: (e) => { e.stopPropagation(); e.preventDefault(); },
-        disabled: data.disabled,
-        style: { pointerEvents: 'auto', cursor: data.disabled ? 'not-allowed' : 'pointer' }
-      },
-        '⏹️ ', data.disabled ? '...' : 'Double OFF'
-      )
-    )
-  );
-}
-
-// ── ONDULEUR AC NODE ─────────────────────────────────────────────────
-function InverterNode({ data }) {
-  const inv = data.live;
-  if (!inv) return h('div', { className: 'inv-card' },
-    mkHandle('target', Position.Top,    'tt'),
-    mkHandle('source', Position.Bottom, 'sb'),
-    mkHandle('target', Position.Left,   'tl'),
-    mkHandle('source', Position.Right,  'sr'),
-    mkHandle('target', Position.Right,  'tr', { top: '65%' }),
-    mkHandle('source', Position.Left,   'sl', { top: '65%' }),
-    h('div', { className: 'inv-hdr' },
-      h('span', { className: 'inv-hdr-icon' }, '⚡'),
-      h('span', { className: 'inv-hdr-title' }, 'EasySolar-II'),
-      h('div', { className: 'inv-dot' })
-    ),
-    h('div', { className: 'inv-wait' }, 'En attente…')
-  );
-
-  const acV   = inv.ac_output_voltage_v  ?? null;
-  const acI   = inv.ac_output_current_a  ?? null;
-  const acP   = inv.ac_output_power_w    ?? null;
-  const acF   = inv.ac_out_frequency_hz  ?? null;
-  const dcV   = inv.voltage_v            ?? null;
-  const dcI   = inv.current_a            ?? null;
-  const dcP   = inv.power_w              ?? null;
-  const ignAc = inv.ac_in_ignore         ?? null;
-  const state = inv.state                ?? '—';
-
-  const stateClass = (() => {
-    const l = state.toLowerCase();
-    if (l.includes('invert')) return 'inverting';
-    if (l.includes('charg') || l.includes('bulk') || l.includes('absorb') || l.includes('float')) return 'charging';
-    return 'off';
-  })();
-
-  const fmtFreq = (f) => f != null ? `${f.toFixed(2)} Hz` : null;
-
-  return h('div', { className: 'inv-card' },
-    // Badge fréquence entre ce nœud et ATS-Onduleur (en haut)
-    acF != null && h('div', { className: 'inv-freq-badge' }, fmtFreq(acF)),
-    mkHandle('target', Position.Top,    'tt'),
-    mkHandle('source', Position.Bottom, 'sb'),
-    mkHandle('target', Position.Left,   'tl'),
-    mkHandle('source', Position.Right,  'sr'),
-    mkHandle('target', Position.Right,  'tr', { top: '65%' }),
-    mkHandle('source', Position.Left,   'sl', { top: '65%' }),
-    h('div', { className: 'inv-hdr' },
-      h('span', { className: 'inv-hdr-icon' }, '⚡'),
-      h('span', { className: 'inv-hdr-title' }, 'EasySolar-II'),
-      h('span', { className: `inv-state-badge ${stateClass}` }, state),
-      h('div', { className: 'inv-dot live' })
-    ),
-    ignAc != null && h('div', { className: 'inv-ignore-bar' },
-      h('span', { className: 'inv-ignore-lbl' }, 'AC In Ignore'),
-      h('span', { className: `inv-ignore-val ${ignAc ? 'active' : 'normal'}` }, ignAc ? 'ACTIF' : 'Normal')
-    ),
-    // Section AC Out
-    h('div', { className: 'inv-section-hdr' }, 'AC Out'),
-    h('div', { className: 'inv-kpi-row' },
-      h('div', { className: 'inv-kpi' },
-        h('span', { className: 'inv-kpi-lbl' }, 'Tension'),
-        h('span', { className: 'inv-kpi-val ac' }, acV != null ? `${acV.toFixed(1)}V` : '—')
-      ),
-      h('div', { className: 'inv-kpi' },
-        h('span', { className: 'inv-kpi-lbl' }, 'Courant'),
-        h('span', { className: 'inv-kpi-val ac' }, acI != null ? `${acI.toFixed(1)}A` : '—')
-      ),
-      h('div', { className: 'inv-kpi' },
-        h('span', { className: 'inv-kpi-lbl' }, 'Puissance'),
-        h('span', { className: 'inv-kpi-val ac' }, acP != null ? `${acP.toFixed(0)}W` : '—')
-      )
-    ),
-    // Section DC
-    h('div', { className: 'inv-section-hdr' }, 'DC'),
-    h('div', { className: 'inv-kpi-row' },
-      h('div', { className: 'inv-kpi' },
-        h('span', { className: 'inv-kpi-lbl' }, 'Tension'),
-        h('span', { className: 'inv-kpi-val dc' }, dcV != null ? `${dcV.toFixed(1)}V` : '—')
-      ),
-      h('div', { className: 'inv-kpi' },
-        h('span', { className: 'inv-kpi-lbl' }, 'Courant'),
-        h('span', { className: 'inv-kpi-val dc' }, dcI != null ? `${dcI.toFixed(1)}A` : '—')
-      ),
-      h('div', { className: 'inv-kpi' },
-        h('span', { className: 'inv-kpi-lbl' }, 'Puissance'),
-        h('span', { className: 'inv-kpi-val dc' }, dcP != null ? `${dcP.toFixed(0)}W` : '—')
-      )
-    )
-  );
-}
-
-// ── EDGE CHART OVERLAY (hover sur milieu d'edge → mini-graphique 6h ECharts) ──
-// Chart ~415x260 (≈1.5× carte ET112 de 275px). Déclenché par un marqueur 22px
-// positionné sur (labelX, labelY) via EdgeLabelRenderer.
-function EdgeChartOverlay({ labelX, labelY, history, color }) {
-  const [hover, setHover]     = useState(false);
-  const [payload, setPayload] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const chartDivRef = useRef(null);
-  const chartRef    = useRef(null);
-  const hideTimer   = useRef(null);
-
-  const measurement = history?.measurement;
-  const field       = history?.field;
-  const addr        = history?.address;
-
-  function scheduleShow() {
-    if (hideTimer.current) { clearTimeout(hideTimer.current); hideTimer.current = null; }
-    setHover(true);
-  }
-  function scheduleHide() {
-    if (hideTimer.current) clearTimeout(hideTimer.current);
-    hideTimer.current = setTimeout(() => setHover(false), 120);
-  }
-
-  useEffect(function () {
-    if (!hover || !measurement) return;
-    let cancelled = false;
-    setLoading(true);
-    let url = '/api/v1/chart/edge-history?measurement=' + encodeURIComponent(measurement)
-      + '&field='   + encodeURIComponent(field)
-      + '&minutes=360';
-    if (addr) url += '&address=' + encodeURIComponent(addr);
-    fetch(url)
-      .then(r => r.json())
-      .then(j => { if (!cancelled) { setPayload(j); setLoading(false); } })
-      .catch(err => {
-        console.warn('[EdgeChartOverlay] fetch error:', err);
-        if (!cancelled) { setLoading(false); setPayload({ ok: false, series: [] }); }
-      });
-    return function () { cancelled = true; };
-  }, [hover, measurement, field, addr]);
-
-  useEffect(function () {
-    if (!hover) return;
-    if (!payload || !payload.ok) return;
-    if (!chartDivRef.current || !window.echarts) return;
-
-    if (!chartRef.current) {
-      chartRef.current = window.echarts.init(chartDivRef.current);
-    }
-    const series = payload.series || [];
-    const times  = series.map(p => p.t);
-    const vals   = series.map(p => p.v);
-    const hasNeg = vals.some(v => v < 0);
-    const hasPos = vals.some(v => v > 0);
-    const option = {
-      animation: false,
-      grid: { top: 24, right: 10, bottom: 24, left: 40 },
-      tooltip: {
-        trigger: 'axis',
-        axisPointer: { type: 'line' },
-        formatter: function (p) {
-          if (!p || !p.length) return '';
-          const a = p[0];
-          const v = typeof a.value === 'number' ? a.value : 0;
-          return a.axisValue + '<br/><b>' + v.toFixed(2) + ' ' + (payload.unit || '') + '</b>';
-        },
-      },
-      xAxis: {
-        type: 'category',
-        data: times,
-        axisLabel: { fontSize: 9, color: '#64748b' },
-        axisLine:  { lineStyle: { color: '#cbd5e1' } },
-        boundaryGap: false,
-      },
-      yAxis: {
-        type: 'value',
-        name: payload.unit || '',
-        nameTextStyle: { fontSize: 9, color: '#64748b' },
-        axisLabel:     { fontSize: 9, color: '#64748b' },
-        axisLine:      { lineStyle: { color: '#cbd5e1' } },
-        splitLine:     { lineStyle: { color: '#e2e8f0' } },
-      },
-      series: [{
-        type: 'line',
-        smooth: true,
-        showSymbol: false,
-        data: vals,
-        sampling: 'lttb',
-        lineStyle: { color: color, width: 2 },
-        areaStyle: hasNeg && hasPos
-          ? {
-              origin: 0,
-              color: {
-                type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
-                colorStops: [
-                  { offset: 0,   color: 'rgba(34,197,94,0.35)' },
-                  { offset: 0.5, color: 'rgba(34,197,94,0)'    },
-                  { offset: 0.5, color: 'rgba(239,68,68,0)'    },
-                  { offset: 1,   color: 'rgba(239,68,68,0.35)' },
-                ],
-              },
-            }
-          : { color: color, opacity: 0.22 },
-        markLine: {
-          silent: true,
-          symbol: 'none',
-          label: { show: false },
-          lineStyle: { color: '#94a3b8', type: 'dashed', width: 1 },
-          data: [{ yAxis: 0 }],
-        },
-      }],
-    };
-    chartRef.current.setOption(option, true);
-    chartRef.current.resize();
-  }, [hover, payload, color]);
-
-  // Le popup est démonté quand hover=false : l'instance ECharts garde alors un
-  // handle vers un DOM décroché. On la détruit explicitement pour que le survol
-  // suivant ré-initialise une instance neuve sur le nouveau <div>.
-  useEffect(function () {
-    if (hover) return;
-    if (chartRef.current) {
-      try { chartRef.current.dispose(); } catch (_) {}
-      chartRef.current = null;
-    }
-  }, [hover]);
-
-  useEffect(function () {
-    return function () {
-      if (chartRef.current) {
-        try { chartRef.current.dispose(); } catch (_) {}
-        chartRef.current = null;
-      }
-      if (hideTimer.current) { clearTimeout(hideTimer.current); hideTimer.current = null; }
-    };
-  }, []);
-
-  if (!history || !EdgeLabelRenderer) return null;
-
-  const triggerStyle = {
-    position:      'absolute',
-    transform:     `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
-    width:         22,
-    height:        22,
-    borderRadius:  '50%',
-    background:    hover ? color : '#ffffff',
-    border:        `2px solid ${color}`,
-    color:         hover ? '#fff' : color,
-    pointerEvents: 'all',
-    cursor:        'pointer',
-    display:       'flex',
-    alignItems:    'center',
-    justifyContent:'center',
-    fontSize:      11,
-    fontWeight:    700,
-    boxShadow:     '0 2px 5px rgba(0,0,0,0.15)',
-    transition:    'background 0.15s, color 0.15s',
-    zIndex:        9,
-    userSelect:    'none',
-  };
-
-  const popupStyle = {
-    position:      'absolute',
-    transform:     `translate(-50%, 16px) translate(${labelX}px, ${labelY}px)`,
-    width:         415,
-    height:        260,
-    background:    '#ffffff',
-    borderRadius:  10,
-    boxShadow:     '0 8px 24px rgba(0,0,0,0.22)',
-    border:        `1px solid ${color}`,
-    pointerEvents: 'all',
-    zIndex:        20,
-    padding:       '6px 8px 8px 8px',
-    display:       'flex',
-    flexDirection: 'column',
-    gap:           4,
-  };
-
-  const headerStyle = {
-    fontSize:   11,
-    fontWeight: 600,
-    color:      '#334155',
-    display:    'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  };
-
-  const hoverElements = [];
-  if (hover) {
-    hoverElements.push(h('div', {
-      key: 'popup',
-      style: popupStyle,
-      onMouseEnter: scheduleShow,
-      onMouseLeave: scheduleHide,
-    },
-      h('div', { style: headerStyle },
-        h('span', null, history.label || 'Courant — 6h'),
-        h('span', { style: { color: '#94a3b8', fontWeight: 400 } }, 'InfluxDB'),
-      ),
-      h('div', {
-        ref:   chartDivRef,
-        style: { flex: 1, width: '100%', minHeight: 0 },
-      }),
-      loading && h('div', {
-        style: { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: 11 },
-      }, 'Chargement…'),
-      (!loading && payload && (!payload.ok || !payload.series || payload.series.length === 0)) && h('div', {
-        style: { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 11 },
-      }, 'Pas de données sur 6 h'),
-    ));
-  }
-
-  return h(EdgeLabelRenderer, null,
-    h('div', {
-      style:        triggerStyle,
-      onMouseEnter: scheduleShow,
-      onMouseLeave: scheduleHide,
-      title:        'Historique 6 h',
-    }, '📈'),
-    ...hoverElements,
-  );
-}
-
-// ── ANIMATED FLOW EDGE (WAAPI offset-distance) ───────────────────────────────
-function AnimatedFlowEdge({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style, data }) {
-  const color      = style?.stroke ?? '#2563eb';
-  const pathResult = useMemo(
-    () => getSmoothStepPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, borderRadius: 5 }),
-    [sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition]
-  );
-  const edgePath = pathResult[0];
-  const labelX   = pathResult[1];
-  const labelY   = pathResult[2];
-  const isH        = Math.abs(targetX - sourceX) >= Math.abs(targetY - sourceY);
-  const ox         = isH ? 0 : 3;
-  const oy         = isH ? 3 : 0;
-
-  const flowValue  = data?.flowValue    ?? 0;
-  const flowSpeed  = data?.flowSpeed    ?? 1;
-  const flowColor  = data?.flowColor    ?? color;
-  const reverse    = data?.reverse      ?? false;
-  const pCount     = Math.max(1, Math.min(5, data?.particleCount ?? 2));
-  const isActive   = flowValue > 0;
-
-  const particleRefs = useRef([]);
-  const animsRef     = useRef([]);
-
-  useEffect(function () {
-    // Annuler les animations précédentes
-    animsRef.current.forEach(function (a) { try { if (a) a.cancel(); } catch (_) {} });
-    animsRef.current = [];
-    if (!isActive) return;
-
-    // Durée : baseDuration=2000ms / vitesse, bornée entre 500ms et 5000ms
-    const duration  = Math.max(500, Math.min(5000, 2000 / Math.max(0.4, flowSpeed)));
-    const keyframes = reverse
-      ? [{ offsetDistance: '100%' }, { offsetDistance: '0%'   }]
-      : [{ offsetDistance: '0%'   }, { offsetDistance: '100%' }];
-
-    const newAnims = [];
-    for (let i = 0; i < pCount; i++) {
-      const el = particleRefs.current[i];
-      if (!el) continue;
-      try {
-        el.style.offsetPath = "path('" + edgePath + "')";
-        const anim = el.animate(keyframes, {
-          duration: duration, iterations: Infinity, easing: 'linear',
-          delay: -(duration / pCount) * i,   // décalage pour flux continu
-        });
-        newAnims.push(anim);
-      } catch (err) { console.warn('[AnimatedFlowEdge] WAAPI:', err); }
-    }
-    animsRef.current = newAnims;
-
-    return function () {
-      newAnims.forEach(function (a) { try { if (a) a.cancel(); } catch (_) {} });
-    };
-  }, [edgePath, isActive, flowSpeed, reverse, pCount]);
-
-  const lineOpacity = isActive ? 0.55 : 0.25;
-  const lineStyle   = { fill: 'none', stroke: color, strokeWidth: 2, strokeOpacity: lineOpacity, strokeLinecap: 'round' };
-  const children    = [
-    h('path', { key: 'l1', d: edgePath, style: lineStyle, transform: 'translate(' + ox + ',' + oy + ')' }),
-    h('path', { key: 'l2', d: edgePath, style: lineStyle, transform: 'translate(' + (-ox) + ',' + (-oy) + ')' }),
-  ];
-
-  if (isActive) {
-    for (let i = 0; i < pCount; i++) {
-      children.push(h('circle', {
-        key:  'p' + i,
-        r:    4,
-        cx:   0,
-        cy:   0,
-        fill: flowColor,
-        ref:  (function (idx) { return function (el) { particleRefs.current[idx] = el; }; })(i),
-        style: {
-          offsetPath:     "path('" + edgePath + "')",
-          offsetDistance: reverse ? '100%' : '0%',
-          offsetRotate:   '0deg',
-          willChange:     'offset-distance',
-          filter:         'drop-shadow(0 0 3px ' + flowColor + ')',
-        },
-      }));
-    }
-  }
-
-  return h(React.Fragment, null,
-    h('g', null, ...children),
-    data?.history ? h(EdgeChartOverlay, { labelX, labelY, history: data.history, color }) : null,
-  );
-}
-
-// ── CUSTOM BEZIER EDGE (même animation que AnimatedFlowEdge, chemin Bézier) ────
-function CustomBezierEdge({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style, data }) {
-  const color      = style?.stroke ?? '#2563eb';
-  const pathResult = useMemo(
-    () => getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition }),
-    [sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition]
-  );
-  const edgePath = pathResult[0];
-  const labelX   = pathResult[1];
-  const labelY   = pathResult[2];
-  const isH      = Math.abs(targetX - sourceX) >= Math.abs(targetY - sourceY);
-  const ox       = isH ? 0 : 3;
-  const oy       = isH ? 3 : 0;
-
-  const flowValue  = data?.flowValue    ?? 0;
-  const flowSpeed  = data?.flowSpeed    ?? 1;
-  const flowColor  = data?.flowColor    ?? color;
-  const reverse    = data?.reverse      ?? false;
-  const pCount     = Math.max(1, Math.min(5, data?.particleCount ?? 2));
-  const isActive   = flowValue > 0;
-
-  const particleRefs = useRef([]);
-  const animsRef     = useRef([]);
-
-  useEffect(function () {
-    animsRef.current.forEach(function (a) { try { if (a) a.cancel(); } catch (_) {} });
-    animsRef.current = [];
-    if (!isActive) return;
-    const duration  = Math.max(500, Math.min(5000, 2000 / Math.max(0.4, flowSpeed)));
-    const keyframes = reverse
-      ? [{ offsetDistance: '100%' }, { offsetDistance: '0%'   }]
-      : [{ offsetDistance: '0%'   }, { offsetDistance: '100%' }];
-    const newAnims = [];
-    for (let i = 0; i < pCount; i++) {
-      const el = particleRefs.current[i];
-      if (!el) continue;
-      try {
-        el.style.offsetPath = "path('" + edgePath + "')";
-        const anim = el.animate(keyframes, {
-          duration: duration, iterations: Infinity, easing: 'linear',
-          delay: -(duration / pCount) * i,
-        });
-        newAnims.push(anim);
-      } catch (err) { console.warn('[CustomBezierEdge] WAAPI:', err); }
-    }
-    animsRef.current = newAnims;
-    return function () {
-      newAnims.forEach(function (a) { try { if (a) a.cancel(); } catch (_) {} });
-    };
-  }, [edgePath, isActive, flowSpeed, reverse, pCount]);
-
-  const lineOpacity = isActive ? 0.55 : 0.25;
-  const lineStyle   = { fill: 'none', stroke: color, strokeWidth: 2, strokeOpacity: lineOpacity, strokeLinecap: 'round' };
-  const children    = [
-    h('path', { key: 'l1', d: edgePath, style: lineStyle, transform: 'translate(' + ox + ',' + oy + ')' }),
-    h('path', { key: 'l2', d: edgePath, style: lineStyle, transform: 'translate(' + (-ox) + ',' + (-oy) + ')' }),
-  ];
-  if (isActive) {
-    for (let i = 0; i < pCount; i++) {
-      children.push(h('circle', {
-        key:  'p' + i,
-        r: 4, cx: 0, cy: 0,
-        fill: flowColor,
-        ref:  (function (idx) { return function (el) { particleRefs.current[idx] = el; }; })(i),
-        style: {
-          offsetPath:     "path('" + edgePath + "')",
-          offsetDistance: reverse ? '100%' : '0%',
-          offsetRotate:   '0deg',
-          willChange:     'offset-distance',
-          filter:         'drop-shadow(0 0 3px ' + flowColor + ')',
-        },
-      }));
-    }
-  }
-  return h(React.Fragment, null,
-    h('g', null, ...children),
-    data?.history ? h(EdgeChartOverlay, { labelX, labelY, history: data.history, color }) : null,
-  );
-}
-
-// ── TRIPLE ATS EDGE (3 lignes pointillées parallèles, point sur la ligne centrale) ─
-function TripleAtsEdge({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style, data }) {
-  const color  = style?.stroke ?? '#10b981';
-  const GAP    = 5;
-  const useBez = data?.useBezier ?? false;
-
-  const pathResult = useMemo(function () {
-    return useBez
-      ? getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition })
-      : getSmoothStepPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, borderRadius: 5 });
-  }, [sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, useBez]);
-  const edgePath = pathResult[0];
-  const labelX   = pathResult[1];
-  const labelY   = pathResult[2];
-
-  const isH = Math.abs(targetX - sourceX) >= Math.abs(targetY - sourceY);
-  const ox  = isH ? 0 : GAP;
-  const oy  = isH ? GAP : 0;
-
-  const flowValue = data?.flowValue ?? 0;
-  const flowSpeed = data?.flowSpeed ?? 1;
-  const flowColor = data?.flowColor ?? color;
-  const reverse   = data?.reverse   ?? false;
-  const isActive  = flowValue > 0;
-
-  const particleRef = useRef(null);
-  const animRef     = useRef(null);
-
-  useEffect(function () {
-    try { if (animRef.current) animRef.current.cancel(); } catch (_) {}
-    animRef.current = null;
-    if (!isActive) return;
-    const duration  = Math.max(500, Math.min(5000, 2000 / Math.max(0.4, flowSpeed)));
-    const keyframes = reverse
-      ? [{ offsetDistance: '100%' }, { offsetDistance: '0%' }]
-      : [{ offsetDistance: '0%'   }, { offsetDistance: '100%' }];
-    try {
-      if (particleRef.current) {
-        particleRef.current.style.offsetPath = "path('" + edgePath + "')";
-        animRef.current = particleRef.current.animate(keyframes, {
-          duration: duration, iterations: Infinity, easing: 'linear',
-        });
-      }
-    } catch (err) { console.warn('[TripleAtsEdge] WAAPI:', err); }
-    return function () {
-      try { if (animRef.current) animRef.current.cancel(); } catch (_) {}
-    };
-  }, [edgePath, isActive, flowSpeed, reverse]);
-
-  const lineOpacity = isActive ? 0.7 : 0.45;
-  const dashStyle   = { fill: 'none', stroke: color, strokeWidth: 2, strokeOpacity: lineOpacity, strokeDasharray: '6 6', strokeLinecap: 'round' };
-
-  const children = [
-    h('path', { key: 'l1', d: edgePath, style: dashStyle, transform: 'translate(' + ox    + ',' + oy    + ')' }),
-    h('path', { key: 'l2', d: edgePath, style: dashStyle }),
-    h('path', { key: 'l3', d: edgePath, style: dashStyle, transform: 'translate(' + (-ox) + ',' + (-oy) + ')' }),
-  ];
-  if (isActive) {
-    children.push(h('circle', {
-      key:  'dot',
-      r: 4, cx: 0, cy: 0,
-      fill: flowColor,
-      ref:  function (el) { particleRef.current = el; },
-      style: {
-        offsetPath:     "path('" + edgePath + "')",
-        offsetDistance: reverse ? '100%' : '0%',
-        offsetRotate:   '0deg',
-        willChange:     'offset-distance',
-        filter:         'drop-shadow(0 0 3px ' + flowColor + ')',
-      },
-    }));
-  }
-  return h(React.Fragment, null,
-    h('g', null, ...children),
-    data?.history ? h(EdgeChartOverlay, { labelX, labelY, history: data.history, color }) : null,
-  );
-}
+{% include "viz_nodes_basic.js" %}
+{% include "viz_nodes_venus.js" %}
+{% include "viz_nodes_devices.js" %}
+{% include "viz_nodes_ats.js" %}
+{% include "viz_edges.js" %}
+{% include "viz_nodes_charts.js" %}
 
 const nodeTypes = {
   summary: SummaryNode, bms: BmsNode, et112card: Et112CardNode, device: DeviceNode,
@@ -1288,14 +45,13 @@ const nodeTypes = {
   tongouGroup: TongouGroupNode,
   waterheater: WaterHeaterNode,
   inverter: InverterNode,
-  atsreseau: AtsReseauNode, atsonduleur: AtsOnduleurNode, atsmain: AtsMainNode
+  atsreseau: AtsReseauNode, atsonduleur: AtsOnduleurNode, atsmain: AtsMainNode,
+  spiralRace: SpiralRaceNode, sankey: SankeyNode
 };
 const edgeTypes = { doubleLine: AnimatedFlowEdge, customBezier: CustomBezierEdge, tripleAts: TripleAtsEdge };
 
 const NODES0 = [
-  { id: 'production',  type: 'summary',     position: { x: -350,  y: 10  }, data: { label: 'Production',      icon: '☀️',  value: '—',   sub: 'Micro-onduleurs',        dotClass: '' } },
-  { id: 'batteries',   type: 'summary',     position: { x: -150,  y: 10  }, data: { label: 'Batteries',       icon: '🔋', value: '—',   sub: '360 Ah + 320 Ah',       dotClass: '' } },
-  { id: 'meteo',       type: 'summary',     position: { x: 50, y: 10  }, data: { label: 'Météo',           icon: '🌤️',  value: '—',   sub: 'Irradiance solaire',     dotClass: '' } },
+  { id: 'spiral-race',   type: 'spiralRace',  position: { x: -350, y: -15  }, data: { prodKwh: 0, soc: 0, irrWm2: 0 } },
   { id: 'temp-ext',    type: 'temperature', position: { x: 250, y: 10 }, data: { label: 'Température', icon: '🌡️', live: null } },
   { id: 'chauffe-eau',   type: 'waterheater', position: { x: 780,  y: 520 }, data: { label: 'Chauffe-eau',   icon: '🚿', live: null, heatpump: null, isClimatisation: false } },
   { id: 'climatisation', type: 'waterheater', position: { x: 780,  y: 770 }, data: { label: 'Climatisation', icon: '❄️',  live: null, heatpump: null, isClimatisation: true  } },
@@ -1303,8 +59,9 @@ const NODES0 = [
   { id: 'et112-reseau',   type: 'et112card', position: { x: -350, y: 469 }, data: { label: 'ET112-reseau', address: 9, live: null } },
   { id: 'et112-maison',   type: 'et112card', position: { x: 400, y: 112 }, data: { label: 'ET112-Maison', address: 8, live: null } },
   { id: 'onduleur',    type: 'inverter',    position: { x: 10,   y: 450 }, data: { live: null } },
+  { id: 'sankey',      type: 'sankey',      position: { x: 630, y: 420 }, data: { microPwr: 0, mpptPwr: 0, batPwr: 0, loadPwr: 0 } },
   { id: 'hubMPPT',    type: 'hub', position: { x: 148,   y: 650 }, data: { live: null } },
-  { id: 'mppt',        type: 'mpptGroup',   position: { x: 400,  y: 530 }, data: { mppts: [], totalPowerW: 0, totalDcA: 0 } },
+  { id: 'mppt',        type: 'mpptGroup',   position: { x: 400,  y: 750 }, data: { mppts: [], totalPowerW: 0, totalDcA: 0 } },
   { id: 'smartshunt',  type: 'smartshunt',  position: { x: 35,   y: 700 }, data: { live: null } },
   { id: 'hubBMS',    type: 'hub', position: { x: 148,   y: 870 }, data: { live: null } },
   { id: 'bms1',        type: 'bms', position: { x: -220, y: 920 }, data: { label: 'BMS-360Ah', live: null } },
@@ -1330,15 +87,12 @@ function mkEdge(id, src, tgt, color, opts = {}) {
   };
 }
 
-// Descripteurs d'historique InfluxDB par edge (courant 6h).
-// measurement + field + address correspondent aux tags stockés par bridges/influx.rs.
 const HIST_ET112_7 = { measurement: 'et112_status',     field: 'current_a',           address: '0x07', label: 'Micro-Onduleurs — I (6h)' };
 const HIST_ET112_8 = { measurement: 'et112_status',     field: 'current_a',           address: '0x08', label: 'Chauffe-eau — I (6h)' };
 const HIST_ET112_9 = { measurement: 'et112_status',     field: 'current_a',           address: '0x09', label: 'Climatisation — I (6h)' };
 const HIST_BMS_1   = { measurement: 'bms_status',       field: 'current',             address: '0x01', label: 'BMS-360Ah — I (6h)' };
 const HIST_BMS_2   = { measurement: 'bms_status',       field: 'current',             address: '0x02', label: 'BMS-320Ah — I (6h)' };
 const HIST_BMS_3   = { measurement: 'bms_status',       field: 'current',             address: '0x03', label: 'BMS-3 — I (6h)' };
-// Venus OS (singletons D-Bus) — pas de tag address.
 const HIST_MPPT    = { measurement: 'venus_mppt_total', field: 'current_a',           label: 'MPPT total — I DC (6h)' };
 const HIST_INV_DC  = { measurement: 'venus_inverter',   field: 'current_a',           label: 'Onduleur — I DC (6h)' };
 const HIST_INV_AC  = { measurement: 'venus_inverter',   field: 'ac_output_current_a', label: 'Onduleur — I AC sortie (6h)' };
@@ -1369,7 +123,7 @@ function ESSFlow() {
   const [atsRev, setAtsRev] = useState(0);
 const atsExecRef = useRef(null);
   const atsBusyRef = useRef(false);
-  
+
   atsExecRef.current = async function(steps) {
     if (atsBusyRef.current) return;
     atsBusyRef.current = true;
@@ -1379,9 +133,9 @@ const atsExecRef = useRef(null);
         if (typeof step === 'string') await fetch('/api/v1/ats/' + step, { method: 'POST', cache: 'no-cache' });
         else if (typeof step === 'number') await new Promise(r => setTimeout(r, step));
       }
-    } finally { 
-      atsBusyRef.current = false; 
-      setAtsProcessing(false); 
+    } finally {
+      atsBusyRef.current = false;
+      setAtsProcessing(false);
     }
   };
 
@@ -1389,17 +143,17 @@ const atsExecRef = useRef(null);
     console.log('[CALLBACK] Force Réseau appelé');
     atsExecRef.current?.(['remote_on', 200, 'force_source2', 200, 'remote_off']);
   }, []);
-  
+
   const handleAtsOnduleurForce = useCallback(() => {
     console.log('[CALLBACK] Force Onduleur appelé');
     atsExecRef.current?.(['remote_on', 200, 'force_source1', 200, 'remote_off']);
   }, []);
-  
+
   const handleAtsToggleRemote = useCallback(() => {
     console.log('[CALLBACK] Toggle Remote appelé');
     atsExecRef.current?.(['remote_on', 300]);
   }, []);
-  
+
   const handleAtsForceOff = useCallback(() => {
     console.log('[CALLBACK] Force Off appelé');
     if (window.confirm('⚠️ Confirmer Double OFF ?')) {
@@ -1420,7 +174,7 @@ const atsExecRef = useRef(null);
     const ats = d.ats;
     const tasmotaDevices = d.tasmotaDevices || [];
     const heatpumps = d.heatpumps || [];
-    const hp1 = heatpumps.find(h => h.mqtt_index === 1) ?? null;  // LG ThinQ chauffe-eau (temp/mode)
+    const hp1 = heatpumps.find(h => h.mqtt_index === 1) ?? null;
     const hp9 = heatpumps.find(h => h.mqtt_index === 9) ?? null;
 
     const validBms = [bms1, bms2].filter(Boolean);
@@ -1428,23 +182,8 @@ const atsExecRef = useRef(null);
       ? (validBms.reduce((s, b) => s + (b.Soc ?? 0), 0) / validBms.length).toFixed(0)
       : null;
     const totalPwr = validBms.reduce((s, b) => s + (b.Dc?.Power ?? 0), 0);
-    const batVal   = avgSoc != null ? `SOC ${avgSoc}%` : '—';
-    const batSub   = totalPwr ? `${totalPwr > 0 ? '+' : ''}${(totalPwr / 1000).toFixed(2)} kW` : '360 Ah + 320 Ah';
-    const batDot   = avgSoc == null ? '' : avgSoc > 50 ? 'live' : avgSoc > 20 ? 'warn' : 'alarm';
 
-    const microPwr = et7?.power_w ?? 0;
-    const mpptPwr  = mpptTotalPowerW;
-    const totalProdPwr = microPwr + mpptPwr;
-    const prodVal  = fmtKw(totalProdPwr);
-    const prodDot  = (et7?.connected || mpptList.length > 0) ? (totalProdPwr > 50 ? 'live' : '') : '';
-
-    const irrVal  = irr?.irradiance_wm2 != null ? `${irr.irradiance_wm2.toFixed(0)} W/m²` : '—';
-    const irrSub  = irr?.total_yield_kwh != null ? `☀ ${irr.total_yield_kwh.toFixed(1)} kWh` : 'Irradiance solaire';
-    const irrDot  = irr ? 'live' : '';
-
-    // Mise à jour des données de flux (WAAPI) + arêtes ATS dynamiques en un seul appel
     setEdges(function (prev) {
-      // ── Flux de puissance pour chaque arête doubleLine ──────────────────────
       const withFlow = prev.map(function (e) {
         if (e.type !== 'doubleLine' && e.type !== 'customBezier') return e;
         let fv = 0, rev = false;
@@ -1481,7 +220,6 @@ const atsExecRef = useRef(null);
         };
       });
 
-      // ── Arêtes ATS dynamiques (type tripleAts — 3 lignes pointillées parallèles) ──
       if (!ats) return withFlow;
 
       const sw1C   = (ats.sw1 || '').includes('Fermé');
@@ -1528,14 +266,15 @@ const atsExecRef = useRef(null);
 
     setNodes(prev => prev.map(n => {
       switch (n.id) {
-        case 'batteries':
-          return { ...n, data: { ...n.data, value: batVal, sub: batSub, dotClass: batDot } };
-        case 'production':
+        case 'spiral-race': {
           const mpptYieldSum = mpptList.reduce((s, m) => s + (m.yield_today_kwh ?? 0), 0);
-          const prodSub = et7 ? `${((et7.energy_export_wh ?? 0) / 1000).toFixed(1)} kWh ET112` : mpptList.length > 0 ? `${mpptYieldSum.toFixed(2)} kWh MPPT` : 'Micro-onduleurs';
-          return { ...n, data: { ...n.data, value: prodVal, sub: prodSub, dotClass: prodDot } };
-        case 'meteo':
-          return { ...n, data: { ...n.data, value: irrVal, sub: irrSub, dotClass: irrDot } };
+          const prodKwh = ((et7?.energy_export_wh ?? 0) / 1000) + mpptYieldSum;
+          return { ...n, data: { ...n.data, prodKwh, soc: avgSoc != null ? parseFloat(avgSoc) : 0, irrWm2: irr?.irradiance_wm2 ?? 0 } };
+        }
+        case 'sankey': {
+          const loadPwr = tasmotaDevices.reduce((s, d) => s + (d.connected ? (d.power_w ?? 0) : 0), 0);
+          return { ...n, data: { ...n.data, microPwr: et7?.power_w ?? 0, mpptPwr: mpptTotalPowerW, batPwr: Math.max(0, totalPwr), loadPwr } };
+        }
         case 'bms1': return { ...n, data: { ...n.data, live: bms1 ?? null } };
         case 'bms2': return { ...n, data: { ...n.data, live: bms2 ?? null } };
         case 'micro-ond':   return { ...n, data: { ...n.data, live: et7  ?? null } };
@@ -1548,40 +287,40 @@ const atsExecRef = useRef(null);
         case 'smartshunt':  return { ...n, data: { ...n.data, live: shunt ?? null } };
         case 'temp-ext':    return { ...n, data: { ...n.data, live: temp ?? null } };
         case 'tongou-group': return { ...n, data: { ...n.data, switches: tasmotaDevices, disabled: atsProcessing, _rev: newRev } };
-        
+
         case 'ats-reseau':
           if (!ats) return n;
-          return { 
-            ...n, 
-            data: { 
-              ...ats, 
-              disabled: atsProcessing, 
+          return {
+            ...n,
+            data: {
+              ...ats,
+              disabled: atsProcessing,
               onForce: handleAtsReseauForce,
               _rev: newRev
-            } 
+            }
           };
         case 'ats-onduleur':
           if (!ats) return n;
-          return { 
-            ...n, 
-            data: { 
-              ...ats, 
-              disabled: atsProcessing, 
+          return {
+            ...n,
+            data: {
+              ...ats,
+              disabled: atsProcessing,
               onForce: handleAtsOnduleurForce,
-              _rev: newRev 
-            } 
+              _rev: newRev
+            }
           };
         case 'ats-main':
           if (!ats) return n;
-          return { 
-            ...n, 
-            data: { 
-              ...ats, 
-              disabled: atsProcessing, 
+          return {
+            ...n,
+            data: {
+              ...ats,
+              disabled: atsProcessing,
               onToggleRemote: handleAtsToggleRemote,
               onForceOff: handleAtsForceOff,
-              _rev: newRev 
-            } 
+              _rev: newRev
+            }
           };
         default: return n;
       }
@@ -1605,14 +344,13 @@ const atsExecRef = useRef(null);
         safe(fetch('/api/v1/ats/status').then(r => r.ok ? r.json() : null)),
       ]);
 
-      // 🔥 Récupération des données Tasmota pour chaque ID numérique
       const tasmotaPromises = TASMOTA_IDS.map(async (id) => {
         try {
           const resp = await fetch(`/api/v1/tasmota/${id}/status`);
           if (!resp.ok) return null;
           const data = await resp.json();
           return {
-            id: id,  // ID numérique
+            id: id,
             name: data.name || `Switch ${id}`,
             connected: true,
             power_on: data.power_on ?? false,
