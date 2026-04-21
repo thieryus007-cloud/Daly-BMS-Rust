@@ -658,19 +658,19 @@
 
 /* ═══ SPIRAL RACE NODE ═══════════════════════════════════════════════════════ */
 .spiral-node {
-  background: #0f172a;
-  border: 1px solid #1e293b;
+  background: #fff;
+  border: 1px solid #d6dce5;
   border-radius: 14px;
   padding: 10px 12px 8px;
   width: 300px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.10);
   position: relative;
 }
 .spiral-hdr {
   display: flex;
   align-items: center;
   padding: 0 2px 6px;
-  border-bottom: 1px solid rgba(148,163,184,0.12);
+  border-bottom: 1px solid #e2e8f0;
   margin-bottom: 4px;
 }
 .spiral-title {
@@ -725,17 +725,21 @@
   letter-spacing: -0.02em;
 }
 
-/* light mode override — keep dark card even in light theme (ECharts needs it) */
-html:not(.dark) .spiral-node { background: #0f172a; border-color: #1e293b; }
+html.dark .spiral-node {
+  background: #0f172a;
+  border-color: #1e293b;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+}
+html.dark .spiral-hdr { border-bottom-color: rgba(148,163,184,0.12); }
 
 /* ═══ SANKEY NODE ═══════════════════════════════════════════════════════════ */
 .sankey-node {
-  background: #0f172a;
-  border: 1px solid #1e293b;
+  background: #fff;
+  border: 1px solid #d6dce5;
   border-radius: 14px;
   padding: 10px 12px 8px;
   width: 280px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.10);
   position: relative;
 }
 .sankey-hdr {
@@ -743,7 +747,7 @@ html:not(.dark) .spiral-node { background: #0f172a; border-color: #1e293b; }
   align-items: center;
   gap: 6px;
   padding: 0 2px 7px;
-  border-bottom: 1px solid rgba(148,163,184,0.12);
+  border-bottom: 1px solid #e2e8f0;
   margin-bottom: 4px;
 }
 .sankey-icon {
@@ -770,4 +774,10 @@ html:not(.dark) .spiral-node { background: #0f172a; border-color: #1e293b; }
   display: block;
 }
 
-html:not(.dark) .sankey-node { background: #0f172a; border-color: #1e293b; }
+html.dark .sankey-node {
+  background: #0f172a;
+  border-color: #1e293b;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+}
+html.dark .sankey-hdr { border-bottom-color: rgba(148,163,184,0.12); }
+html.dark .sankey-title { color: #94a3b8; }

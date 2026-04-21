@@ -54,7 +54,7 @@ const SpiralRaceNode = function SpiralRaceNode({ data }) {
       },
       detail: {
         show: true,
-        formatter: function(v) { return (Math.round(v.value * 10) / 10) + ' ' + unit; },
+        formatter: function(v) { return (Math.round(v * 10) / 10) + ' ' + unit; },
         color: color,
         fontSize: 10,
         fontWeight: 'bold',

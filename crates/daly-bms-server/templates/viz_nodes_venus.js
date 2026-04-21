@@ -142,25 +142,26 @@ function SmartShuntNode({ data }) {
 
 // ── TEMPERATURE NODE ──────────────────────────────────────────────────────────
 function TemperatureNode({ data }) {
-  const live = data.live;
-  const temp = live?.temp_c ?? null;
+  const live     = data.live;
+  const temp     = live?.temp_c          ?? null;
   const humidity = live?.humidity_percent ?? null;
+  const tempStr  = temp     != null ? `${temp.toFixed(1)}°C`       : '—';
+  const humStr   = humidity != null ? `${humidity.toFixed(0)}% HR` : null;
+  const valueStr = humStr   != null ? `${tempStr}  ${humStr}`      : tempStr;
 
-  return h('div', { className: 'dev-nd' },
+  return h('div', { className: 'sn' },
     mkHandle('target', Position.Top,    'tt'),
     mkHandle('source', Position.Bottom, 'sb'),
     mkHandle('target', Position.Left,   'tl'),
     mkHandle('source', Position.Right,  'sr'),
-    mkHandle('target', Position.Right,  'tr', { top: '65%' }),
-    mkHandle('source', Position.Left,   'sl', { top: '65%' }),
-    h('div', { className: 'dev-hdr' },
-      h('span', null, data.icon ?? '🌡️'),
-      h('span', { className: 'dev-lbl' }, data.label),
-      h('div', { className: `dev-dot${live ? ' on' : ''}` })
+    mkHandle('target', Position.Right,  'tr', { top: '68%' }),
+    mkHandle('source', Position.Left,   'sl', { top: '68%' }),
+    h('div', { className: 'sn-icon' }, data.icon ?? '🌡️'),
+    h('div', { className: 'sn-body' },
+      h('div', { className: 'sn-label' }, data.label),
+      h('div', { className: 'sn-value' }, valueStr),
+      h('div', { className: 'sn-sub'   }, live ? 'Ext.' : 'En attente…')
     ),
-    live ? h('div', null,
-      h('div', { className: 'dev-pwr' }, temp != null ? `${temp.toFixed(1)}°C` : '—'),
-      h('div', { className: 'dev-nrj' }, humidity != null ? `${humidity.toFixed(0)}% HR` : '—')
-    ) : h('div', { className: 'dev-wait' }, 'En attente…')
+    h('div', { className: `sn-dot${live ? ' live' : ''}` })
   );
 }
