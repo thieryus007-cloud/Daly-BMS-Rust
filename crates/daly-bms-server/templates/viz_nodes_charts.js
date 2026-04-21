@@ -41,7 +41,7 @@ const SpiralRaceNode = function SpiralRaceNode({ data }) {
       },
       axisLine: {
         show: true,
-        lineStyle: { width: 12, color: [[1, 'rgba(148,163,184,0.12)']] }
+        lineStyle: { width: 8, color: [[1, 'rgba(148,163,184,0.12)']] }
       },
       axisTick: { show: false }, splitLine: { show: false },
       axisLabel: { show: false },
@@ -56,7 +56,7 @@ const SpiralRaceNode = function SpiralRaceNode({ data }) {
         show: true,
         formatter: function(v) { return Math.round(v.value * 10) / 10 + ' ' + unit; },
         color: color,
-        fontSize: 11,
+        fontSize: 8,
         fontWeight: 'bold',
         offsetCenter: [0, '-20%']
       },
