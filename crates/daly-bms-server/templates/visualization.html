@@ -112,9 +112,9 @@ const EDGES0 = [
   mkEdge('e-ond-shu',  'onduleur',  'hubMPPT', COLOR.dc,  { sourceHandle: 'sb', targetHandle: 'tt', history: HIST_INV_DC }),
   mkEdge('e-hub-shu',  'hubMPPT',  'smartshunt', COLOR.dc,  { sourceHandle: 'sb', targetHandle: 'tt', history: HIST_SHUNT }),
   mkEdge('e-shu-hubBMS', 'hubBMS', 'smartshunt',  COLOR.bat, { sourceHandle: 'sr', targetHandle: 'tl', history: HIST_SHUNT }),
-  mkEdge('e-hubBMS-b1',  'bms1', 'hubBMS',       COLOR.bat, { sourceHandle: 'sr', targetHandle: 'tl', history: HIST_BMS_1 }),
+  mkEdge('e-hubBMS-b1',  'bms1', 'hubBMS',       COLOR.bat, { sourceHandle: 'sr', targetHandle: 'tl', type: 'customBezier', history: HIST_BMS_1 }),
   mkEdge('e-hubBMS-b2',  'bms2', 'hubBMS',       COLOR.bat, { sourceHandle: 'sr', targetHandle: 'tl', history: HIST_BMS_2 }),
-  mkEdge('e-hubBMS-b3',  'bms3', 'hubBMS',       COLOR.bat, { sourceHandle: 'sr', targetHandle: 'tl', history: HIST_BMS_3 }),
+  mkEdge('e-hubBMS-b3',  'bms3', 'hubBMS',       COLOR.bat, { sourceHandle: 'sr', targetHandle: 'tl', type: 'customBezier', history: HIST_BMS_3 }),
 ];
 
 
