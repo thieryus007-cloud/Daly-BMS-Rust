@@ -177,14 +177,14 @@ const SankeyNode = function SankeyNode({ data }) {
       graphic: [],
       series: [{
         type: 'sankey',
-        left: '2%', right: '2%', top: '8%', bottom: '8%',
+        left: '5%', right: '15%', top: '10%', bottom: '10%',
         orient: 'horizontal',
-        nodeAlign: 'justify',
-        nodeWidth: 10,
-        nodeGap: 12,
+        nodeAlign: 'center',
+        nodeWidth: 12,
+        nodeGap: 16,
         emphasis: { focus: 'adjacency' },
         label: {
-          show: true, fontSize: 9, color: '#94a3b8',
+          show: true, fontSize: 9, color: '#94a3b8', position: 'right',
           formatter: function (p) { return p.name + '\n' + Math.round(p.value) + ' W'; }
         },
         lineStyle: { color: 'gradient', opacity: 0.45, curveness: 0.5 },
