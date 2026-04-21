@@ -51,7 +51,7 @@ const nodeTypes = {
 const edgeTypes = { doubleLine: AnimatedFlowEdge, customBezier: CustomBezierEdge, tripleAts: TripleAtsEdge };
 
 const NODES0 = [
-  { id: 'spiral-race',   type: 'spiralRace',  position: { x: -350, y: -15  }, data: { prodKwh: 0, soc: 0, irrWm2: 0 } },
+  { id: 'spiral-race',   type: 'spiralRace',  position: { x: -350, y: -30  }, data: { prodKwh: 0, soc: 0, irrWm2: 0 } },
   { id: 'temp-ext',    type: 'temperature', position: { x: 250, y: 10 }, data: { label: 'Température', icon: '🌡️', live: null } },
   { id: 'chauffe-eau',   type: 'waterheater', position: { x: 780,  y: 520 }, data: { label: 'Chauffe-eau',   icon: '🚿', live: null, heatpump: null, isClimatisation: false } },
   { id: 'climatisation', type: 'waterheater', position: { x: 780,  y: 770 }, data: { label: 'Climatisation', icon: '❄️',  live: null, heatpump: null, isClimatisation: true  } },
@@ -59,9 +59,9 @@ const NODES0 = [
   { id: 'et112-reseau',   type: 'et112card', position: { x: -350, y: 469 }, data: { label: 'ET112-reseau', address: 9, live: null } },
   { id: 'et112-maison',   type: 'et112card', position: { x: 400, y: 112 }, data: { label: 'ET112-Maison', address: 8, live: null } },
   { id: 'onduleur',    type: 'inverter',    position: { x: 10,   y: 450 }, data: { live: null } },
-  { id: 'sankey',      type: 'sankey',      position: { x: 630, y: 420 }, data: { microPwr: 0, mpptPwr: 0, batPwr: 0, loadPwr: 0 } },
+  { id: 'sankey',      type: 'sankey',      position: { x: 400, y: 420 }, data: { microPwr: 0, mpptPwr: 0, batPwr: 0, loadPwr: 0 } },
   { id: 'hubMPPT',    type: 'hub', position: { x: 148,   y: 650 }, data: { live: null } },
-  { id: 'mppt',        type: 'mpptGroup',   position: { x: 400,  y: 750 }, data: { mppts: [], totalPowerW: 0, totalDcA: 0 } },
+  { id: 'mppt',        type: 'mpptGroup',   position: { x: 400,  y: 650 }, data: { mppts: [], totalPowerW: 0, totalDcA: 0 } },
   { id: 'smartshunt',  type: 'smartshunt',  position: { x: 35,   y: 700 }, data: { live: null } },
   { id: 'hubBMS',    type: 'hub', position: { x: 148,   y: 870 }, data: { live: null } },
   { id: 'bms1',        type: 'bms', position: { x: -220, y: 920 }, data: { label: 'BMS-360Ah', live: null } },
