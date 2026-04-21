@@ -27,7 +27,7 @@ const TongouGroupNode = memo(function TongouGroupNode({ data }) {
   return h('div', { className: 'tongou-group-card' },
     mkHandle('target', Position.Top,    'tt'),
     mkHandle('source', Position.Bottom, 'sb'),
-    mkHandle('target', Position.Left,  'tl', { top: '33%' }),
+    mkHandle('target', Position.Left,  'tl', { top: '20%' }),
     mkHandle('source', Position.Right,  'sr'),
     mkHandle('target', Position.Right,  'tr', { top: '68%' }),
     mkHandle('source', Position.Left,   'sl', { top: '68%' }),
