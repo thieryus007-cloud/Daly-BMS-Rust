@@ -11,7 +11,6 @@ use axum::{
     response::{IntoResponse, Response},
     body::Body,
 };
-use std::sync::Arc;
 
 /// URL de base Grafana (localhost:3001 sur Pi5)
 const GRAFANA_URL: &str = "http://localhost:3001";
