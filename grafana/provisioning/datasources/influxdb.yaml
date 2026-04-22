@@ -13,7 +13,7 @@ datasources:
     type: influxdb
     uid: influxdb-dalybms
     access: proxy
-    url: http://dalybms-influxdb:8086
+    url: http://192.168.1.141:8086
     isDefault: true
     editable: true
     orgId: 1
