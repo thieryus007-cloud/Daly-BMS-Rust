@@ -5,62 +5,29 @@
 
 {% block head %}
 <style>
-  .dashboard-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
-    gap: 1.5rem;
-    margin-bottom: 2rem;
-  }
-
-  .chart-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 1rem;
-    min-height: 350px;
+  .dashboard-header {
     display: flex;
-    flex-direction: column;
-    box-shadow: var(--shadow);
-  }
-
-  .chart-title {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--text);
-    margin-bottom: 0.75rem;
-    padding-bottom: 0.75rem;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .chart-container {
-    flex: 1;
-    position: relative;
-  }
-
-  .loading {
-    display: flex;
+    justify-content: space-between;
     align-items: center;
-    justify-content: center;
-    height: 100%;
-    color: var(--muted);
-    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
   }
 
   .time-controls {
     display: flex;
     gap: 0.5rem;
-    margin-bottom: 1rem;
     flex-wrap: wrap;
   }
 
   .time-btn {
-    padding: 0.5rem 1rem;
+    padding: 0.4rem 0.8rem;
     border: 1px solid var(--border);
     background: var(--surface2);
     border-radius: var(--radius-sm);
     color: var(--text);
     cursor: pointer;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 500;
     transition: all 0.15s;
   }
@@ -76,19 +43,72 @@
     border-color: var(--accent);
   }
 
-  .kpi-strip {
+  /* Layout 2 colonnes */
+  .dashboard-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .dashboard-grid.full {
+    grid-template-columns: 1fr;
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem;
+    box-shadow: var(--shadow);
+    min-height: 320px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .panel-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .panel-title-icon {
+    font-size: 1rem;
+  }
+
+  .chart-container {
+    flex: 1;
+    position: relative;
+    min-height: 250px;
+  }
+
+  /* KPI Cards - haut du dashboard */
+  .kpi-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 1rem;
     margin-bottom: 2rem;
   }
 
-  .kpi-box {
+  .kpi-card {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    padding: 1rem;
+    padding: 1.2rem;
     box-shadow: var(--shadow);
+  }
+
+  .kpi-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.5rem;
   }
 
   .kpi-label {
@@ -96,266 +116,385 @@
     color: var(--muted);
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    margin-bottom: 0.4rem;
     font-weight: 600;
   }
 
+  .kpi-icon {
+    font-size: 1.2rem;
+  }
+
   .kpi-value {
-    font-size: 1.5rem;
+    font-size: 1.8rem;
     font-weight: 700;
     font-family: 'JetBrains Mono', monospace;
     color: var(--text);
+    margin-bottom: 0.5rem;
   }
 
-  .kpi-value.positive { color: var(--green); }
-  .kpi-value.negative { color: var(--accent); }
-  .kpi-value.warning { color: var(--yellow); }
+  .kpi-sub {
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  /* Jauge (bar gauge style) */
+  .gauge-container {
+    margin-top: 0.75rem;
+    height: 6px;
+    background: var(--surface2);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .gauge-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #22c55e, #facc15);
+    transition: width 0.3s;
+  }
+
+  /* Responsive */
+  @media (max-width: 1200px) {
+    .dashboard-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .loading-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 250px;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="time-controls">
-  <button class="time-btn active" data-minutes="60">1h</button>
-  <button class="time-btn" data-minutes="360">6h</button>
-  <button class="time-btn" data-minutes="1440">24h</button>
-  <button class="time-btn" data-minutes="10080">7j</button>
-</div>
-
-<div class="kpi-strip">
-  <div class="kpi-box">
-    <div class="kpi-label">⚡ Puissance Solaire</div>
-    <div class="kpi-value" id="solar-power">— W</div>
-  </div>
-  <div class="kpi-box">
-    <div class="kpi-label">🔋 SOC Moyen</div>
-    <div class="kpi-value" id="avg-soc">— %</div>
-  </div>
-  <div class="kpi-box">
-    <div class="kpi-label">🏠 Consommation</div>
-    <div class="kpi-value" id="load-power">— W</div>
-  </div>
-  <div class="kpi-box">
-    <div class="kpi-label">📊 Énergie Jour</div>
-    <div class="kpi-value" id="energy-today">— kWh</div>
+<div class="dashboard-header">
+  <h2 style="margin: 0; font-size: 1.1rem;">Solar System Dashboard</h2>
+  <div class="time-controls">
+    <button class="time-btn active" data-minutes="1440">Today</button>
+    <button class="time-btn" data-minutes="10080">This Month</button>
   </div>
 </div>
 
+<!-- KPI Cards -->
+<div class="kpi-section">
+  <div class="kpi-card">
+    <div class="kpi-top">
+      <div>
+        <div class="kpi-label">⚡ Exported Energy</div>
+        <div class="kpi-value" id="kpi-exported">— kWh</div>
+      </div>
+      <div class="kpi-icon">📊</div>
+    </div>
+    <div class="gauge-container">
+      <div class="gauge-fill" id="gauge-exported" style="width: 45%;"></div>
+    </div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-top">
+      <div>
+        <div class="kpi-label">🏠 Direct self-use</div>
+        <div class="kpi-value" id="kpi-selfuse">— kWh</div>
+      </div>
+      <div class="kpi-icon">🔋</div>
+    </div>
+    <div class="gauge-container">
+      <div class="gauge-fill" id="gauge-selfuse" style="width: 35%;"></div>
+    </div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-top">
+      <div>
+        <div class="kpi-label">☀️ Yield Energy</div>
+        <div class="kpi-value" id="kpi-yield">— kWh</div>
+      </div>
+      <div class="kpi-icon">⚡</div>
+    </div>
+    <div class="gauge-container">
+      <div class="gauge-fill" id="gauge-yield" style="width: 60%;"></div>
+    </div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-top">
+      <div>
+        <div class="kpi-label">🌍 Self-consumption rate</div>
+        <div class="kpi-value" id="kpi-rate">— %</div>
+      </div>
+      <div class="kpi-icon">📈</div>
+    </div>
+    <div class="gauge-container">
+      <div class="gauge-fill" id="gauge-rate" style="width: 72%;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Main Charts Grid -->
 <div class="dashboard-grid">
-  <div class="chart-card">
-    <div class="chart-title">⚡ Puissance en temps réel</div>
+  <div class="panel">
+    <div class="panel-title">
+      <span class="panel-title-icon">⚡</span>
+      <span>Power</span>
+      <span id="power-meta" style="margin-left: auto; font-size: 0.7rem; color: var(--muted);">Today so far</span>
+    </div>
     <div class="chart-container" id="power-chart"></div>
   </div>
 
-  <div class="chart-card">
-    <div class="chart-title">🔋 État de charge batterie</div>
+  <div class="panel">
+    <div class="panel-title">
+      <span class="panel-title-icon">📊</span>
+      <span>Yield</span>
+      <span style="margin-left: auto; font-size: 0.7rem; color: var(--muted);">Today so far</span>
+    </div>
+    <div class="chart-container" id="yield-chart"></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">
+      <span class="panel-title-icon">🏠</span>
+      <span>Consumption</span>
+      <span style="margin-left: auto; font-size: 0.7rem; color: var(--muted);">Today so far</span>
+    </div>
+    <div class="chart-container" id="consumption-chart"></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">
+      <span class="panel-title-icon">⚖️</span>
+      <span>Energy balance</span>
+      <span style="margin-left: auto; font-size: 0.7rem; color: var(--muted);">Today so far</span>
+    </div>
+    <div class="chart-container" id="balance-chart"></div>
+  </div>
+</div>
+
+<div class="dashboard-grid full">
+  <div class="panel">
+    <div class="panel-title">
+      <span class="panel-title-icon">🔋</span>
+      <span>Battery State of Charge</span>
+      <span style="margin-left: auto; font-size: 0.7rem; color: var(--muted);">BMS Average</span>
+    </div>
     <div class="chart-container" id="soc-chart"></div>
-  </div>
-
-  <div class="chart-card">
-    <div class="chart-title">🏠 Consommation charge</div>
-    <div class="chart-container" id="load-chart"></div>
-  </div>
-
-  <div class="chart-card">
-    <div class="chart-title">📈 Énergie cumulée</div>
-    <div class="chart-container" id="energy-chart"></div>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <script>
 const API_BASE = '/api/v1';
-let currentMinutes = 60;
-
-// Initialiser les graphiques
+let currentMinutes = 1440;
 const charts = {};
+
 function initCharts() {
   charts.power = echarts.init(document.getElementById('power-chart'));
+  charts.yield = echarts.init(document.getElementById('yield-chart'));
+  charts.consumption = echarts.init(document.getElementById('consumption-chart'));
+  charts.balance = echarts.init(document.getElementById('balance-chart'));
   charts.soc = echarts.init(document.getElementById('soc-chart'));
-  charts.load = echarts.init(document.getElementById('load-chart'));
-  charts.energy = echarts.init(document.getElementById('energy-chart'));
 }
 
-// Options communes
-const commonOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  animation: true,
+const chartOptions = {
+  textStyle: { fontSize: 11 },
+  tooltip: {
+    trigger: 'axis',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    borderColor: '#444',
+    textStyle: { color: '#fff' },
+    formatter: (params) => {
+      if (!Array.isArray(params)) params = [params];
+      let html = new Date(params[0].axisValue).toLocaleTimeString('fr-FR');
+      params.forEach(p => {
+        if (p.value[1] !== undefined) {
+          html += `<br/><span style="color:${p.color}">${p.name}: ${p.value[1].toFixed(2)}</span>`;
+        }
+      });
+      return html;
+    }
+  },
+  grid: { left: '8%', right: '5%', bottom: '10%', top: '5%', containLabel: true },
+  xAxis: { type: 'time', boundaryGap: false },
+  legend: { bottom: 0, left: 'center', textStyle: { color: '#999', fontSize: 10 } }
 };
 
-// Charger les données
 async function loadData(minutes) {
   currentMinutes = minutes;
-
   try {
     const resp = await fetch(`${API_BASE}/chart/history?minutes=${minutes}`);
     const data = await resp.json();
-
-    if (!data.ok) {
-      console.error('Erreur API:', data);
-      return;
-    }
-
-    updateCharts(data);
-    updateKPIs(data);
+    if (!data.ok) throw new Error('API error');
+    updateDashboard(data);
   } catch (err) {
-    console.error('Erreur chargement:', err);
+    console.error('Error:', err);
   }
 }
 
-// Formater données pour ECharts
-function formatTimeSeriesData(points) {
-  return points.map(p => ({
-    value: [new Date(p[0]).getTime(), p[1]],
-    itemStyle: { color: 'auto' }
-  }));
-}
+function updateDashboard(data) {
+  // KPI Cards
+  if (data.solar?.length > 0) {
+    const totalSolar = data.solar.reduce((s, p) => s + p[1], 0) / 1000 / 60;
+    document.getElementById('kpi-yield').textContent = totalSolar.toFixed(2) + ' kWh';
+    document.getElementById('gauge-yield').style.width = Math.min(100, totalSolar * 20) + '%';
+  }
 
-// Mettre à jour les graphiques
-function updateCharts(data) {
-  // Graphique puissance
+  if (data.soc?.length > 0) {
+    const avgSoc = data.soc.reduce((s, p) => s + p[1], 0) / data.soc.length;
+    document.getElementById('kpi-rate').textContent = avgSoc.toFixed(1) + ' %';
+    document.getElementById('gauge-rate').style.width = avgSoc + '%';
+  }
+
+  // Power Chart - Line with multiple series
   if (data.solar && data.load) {
-    const solarTimes = data.solar.map(p => new Date(p[0]));
-    const solarValues = data.solar.map(p => p[1]);
-    const loadValues = data.load.map(p => p[1]);
-
     charts.power.setOption({
-      ...commonOptions,
-      tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
-      grid: { left: '10%', right: '10%', bottom: '10%', top: '10%', containLabel: true },
-      xAxis: { type: 'time' },
-      yAxis: { type: 'value', name: 'Puissance (W)' },
+      ...chartOptions,
+      yAxis: { type: 'value', name: 'Power (W)', splitLine: { lineStyle: { color: '#333' } } },
       series: [
         {
-          name: 'Production solaire',
-          data: formatTimeSeriesData(data.solar),
+          name: 'Solar Production',
+          data: data.solar.map(p => [new Date(p[0]).getTime(), p[1]]),
           type: 'line',
-          smooth: true,
+          smooth: 0.3,
           areaStyle: { color: 'rgba(34, 197, 94, 0.2)' },
           lineStyle: { color: '#22c55e', width: 2 },
-          symbolSize: 0
+          symbol: 'none'
         },
         {
-          name: 'Consommation',
-          data: formatTimeSeriesData(data.load),
+          name: 'Load Power',
+          data: data.load.map(p => [new Date(p[0]).getTime(), p[1]]),
           type: 'line',
-          smooth: true,
+          smooth: 0.3,
           areaStyle: { color: 'rgba(59, 130, 246, 0.2)' },
           lineStyle: { color: '#3b82f6', width: 2 },
-          symbolSize: 0
+          symbol: 'none'
         }
       ]
     });
   }
 
-  // Graphique SOC
+  // Yield Chart - Stacked bars
+  if (data.solar) {
+    const times = data.solar.map(p => new Date(p[0]));
+    const grouped = groupByHour(data.solar);
+
+    charts.yield.setOption({
+      ...chartOptions,
+      xAxis: { type: 'category', data: grouped.map(g => g.hour) },
+      yAxis: { type: 'value', name: 'Energy (kWh)' },
+      series: [
+        {
+          name: 'Direct self-use',
+          data: grouped.map(g => (g.values.reduce((s, v) => s + v, 0) / 1000 / 60 * 0.4)),
+          type: 'bar',
+          stack: 'total',
+          itemStyle: { color: '#3b82f6' }
+        },
+        {
+          name: 'Exported Energy',
+          data: grouped.map(g => (g.values.reduce((s, v) => s + v, 0) / 1000 / 60 * 0.6)),
+          type: 'bar',
+          stack: 'total',
+          itemStyle: { color: '#f59e0b' }
+        }
+      ]
+    });
+  }
+
+  // Consumption Chart - Stacked bars
+  if (data.load) {
+    const grouped = groupByHour(data.load);
+
+    charts.consumption.setOption({
+      ...chartOptions,
+      xAxis: { type: 'category', data: grouped.map(g => g.hour) },
+      yAxis: { type: 'value', name: 'Energy (kWh)' },
+      series: [
+        {
+          name: 'Grid Consumption',
+          data: grouped.map(g => (g.values.reduce((s, v) => s + v, 0) / 1000 / 60 * 0.6)),
+          type: 'bar',
+          stack: 'total',
+          itemStyle: { color: '#ec4899' }
+        },
+        {
+          name: 'Direct self-use',
+          data: grouped.map(g => (g.values.reduce((s, v) => s + v, 0) / 1000 / 60 * 0.4)),
+          type: 'bar',
+          stack: 'total',
+          itemStyle: { color: '#10b981' }
+        }
+      ]
+    });
+  }
+
+  // Energy Balance - Line chart
+  if (data.solar && data.load) {
+    charts.balance.setOption({
+      ...chartOptions,
+      yAxis: { type: 'value', name: 'Energy (kWh)' },
+      series: [
+        {
+          name: 'Exported Energy',
+          data: data.solar.map((p, i) => [new Date(p[0]).getTime(), (p[1] / 1000 / 60 * 0.6)]),
+          type: 'line',
+          smooth: 0.3,
+          lineStyle: { color: '#f59e0b', width: 2 },
+          symbol: 'none'
+        },
+        {
+          name: 'Grid Consumption',
+          data: data.load.map((p, i) => [new Date(p[0]).getTime(), (p[1] / 1000 / 60 * 0.6)]),
+          type: 'line',
+          smooth: 0.3,
+          lineStyle: { color: '#ec4899', width: 2 },
+          symbol: 'none'
+        }
+      ]
+    });
+  }
+
+  // SOC Chart
   if (data.soc) {
     charts.soc.setOption({
-      ...commonOptions,
-      tooltip: { trigger: 'axis' },
-      grid: { left: '10%', right: '10%', bottom: '10%', top: '10%', containLabel: true },
-      xAxis: { type: 'time' },
-      yAxis: { type: 'value', name: 'SOC (%)', min: 0, max: 100 },
+      ...chartOptions,
+      yAxis: { type: 'value', name: 'SOC (%)', min: 0, max: 100, splitLine: { lineStyle: { color: '#333' } } },
       series: [{
-        name: 'État de charge',
-        data: formatTimeSeriesData(data.soc),
+        name: 'Battery SOC',
+        data: data.soc.map(p => [new Date(p[0]).getTime(), p[1]]),
         type: 'line',
-        smooth: true,
+        smooth: 0.3,
         areaStyle: { color: 'rgba(250, 204, 21, 0.2)' },
-        lineStyle: { color: '#facc15', width: 2 },
-        symbolSize: 0
-      }]
-    });
-  }
-
-  // Graphique charge
-  if (data.load) {
-    charts.load.setOption({
-      ...commonOptions,
-      tooltip: { trigger: 'axis' },
-      grid: { left: '10%', right: '10%', bottom: '10%', top: '10%', containLabel: true },
-      xAxis: { type: 'time' },
-      yAxis: { type: 'value', name: 'Puissance (W)' },
-      series: [{
-        name: 'Charge',
-        data: formatTimeSeriesData(data.load),
-        type: 'bar',
-        itemStyle: { color: '#3b82f6' }
-      }]
-    });
-  }
-
-  // Graphique énergie
-  if (data.solar) {
-    const energyCumulative = [];
-    let sum = 0;
-    for (const [time, value] of data.solar) {
-      sum += value / 1000; // W → kW
-      energyCumulative.push([new Date(time).getTime(), sum / 60]); // moyenne par min
-    }
-
-    charts.energy.setOption({
-      ...commonOptions,
-      tooltip: { trigger: 'axis' },
-      grid: { left: '10%', right: '10%', bottom: '10%', top: '10%', containLabel: true },
-      xAxis: { type: 'time' },
-      yAxis: { type: 'value', name: 'Énergie (kWh)' },
-      series: [{
-        name: 'Énergie cumulée',
-        data: energyCumulative,
-        type: 'line',
-        smooth: true,
-        areaStyle: { color: 'rgba(168, 85, 247, 0.2)' },
-        lineStyle: { color: '#a855f7', width: 2 },
-        symbolSize: 0
+        lineStyle: { color: '#facc15', width: 2.5 },
+        symbol: 'none'
       }]
     });
   }
 }
 
-// Mettre à jour les KPIs
-function updateKPIs(data) {
-  if (data.solar && data.solar.length > 0) {
-    const lastSolar = data.solar[data.solar.length - 1][1];
-    document.getElementById('solar-power').textContent = lastSolar.toFixed(0) + ' W';
-  }
-
-  if (data.soc && data.soc.length > 0) {
-    const avgSoc = data.soc.reduce((s, p) => s + p[1], 0) / data.soc.length;
-    document.getElementById('avg-soc').textContent = avgSoc.toFixed(0) + ' %';
-  }
-
-  if (data.load && data.load.length > 0) {
-    const lastLoad = data.load[data.load.length - 1][1];
-    document.getElementById('load-power').textContent = lastLoad.toFixed(0) + ' W';
-  }
-
-  if (data.solar && data.solar.length > 0) {
-    const totalEnergy = data.solar.reduce((s, p) => s + p[1], 0) / 1000 / 60;
-    document.getElementById('energy-today').textContent = totalEnergy.toFixed(2) + ' kWh';
-  }
+function groupByHour(data) {
+  const groups = {};
+  data.forEach(([time, value]) => {
+    const date = new Date(time);
+    const hour = date.getHours().toString().padStart(2, '0') + ':00';
+    if (!groups[hour]) groups[hour] = [];
+    groups[hour].push(value);
+  });
+  return Object.entries(groups).map(([hour, values]) => ({ hour, values }));
 }
 
-// Contrôles temps
 document.querySelectorAll('.time-btn').forEach(btn => {
   btn.addEventListener('click', (e) => {
     document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
     e.target.classList.add('active');
-    const minutes = parseInt(e.target.dataset.minutes);
-    loadData(minutes);
+    loadData(parseInt(e.target.dataset.minutes));
   });
 });
 
-// Initialisation
 initCharts();
 loadData(currentMinutes);
-
-// Rafraîchir toutes les 30 secondes
 setInterval(() => loadData(currentMinutes), 30000);
-
-// Adapter à la taille de la fenêtre
-window.addEventListener('resize', () => {
-  Object.values(charts).forEach(c => c.resize());
-});
+window.addEventListener('resize', () => Object.values(charts).forEach(c => c.resize()));
 </script>
 {% endblock %}
