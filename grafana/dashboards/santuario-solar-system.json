@@ -31,6 +31,155 @@
       "fieldConfig": {
         "defaults": {
           "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "displayMode": "auto"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "kwh"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Rate"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "max",
+                "value": 100
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "9.5.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
+          "query": "from(bucket:\"daly_bms\")\n  |> range(start: -24h)\n  |> filter(fn: (r) => r._measurement == \"venus_mppt_total\" and r._field == \"power_w\")\n  |> aggregateWindow(every: 1h, fn: max, createEmpty: false)\n  |> sum()"
+        }
+      ],
+      "title": "📊 TODAY SO FAR",
+      "type": "stat",
+      "options": {
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "fields": "",
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      }
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-dalybms"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "displayMode": "auto"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "unit": "kwh"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "9.5.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
+          "query": "from(bucket:\"daly_bms\")\n  |> range(start: -30d)\n  |> filter(fn: (r) => r._measurement == \"venus_mppt_total\" and r._field == \"power_w\")\n  |> aggregateWindow(every: 1h, fn: max, createEmpty: false)\n  |> sum()"
+        }
+      ],
+      "title": "📊 THIS MONTH SO FAR",
+      "type": "stat",
+      "options": {
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "fields": "",
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      }
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-dalybms"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
             "mode": "palette-classic"
           },
           "custom": {
@@ -64,8 +213,6 @@
             }
           },
           "mappings": [],
-          "max": 8000,
-          "min": -8000,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -80,19 +227,18 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 5,
         "w": 12,
         "x": 0,
-        "y": 0
+        "y": 4
       },
-      "id": 1,
+      "id": 3,
       "options": {
         "legend": {
           "calcs": [
             "mean",
             "max",
-            "min",
-            "lastNotNull"
+            "min"
           ],
           "displayMode": "table",
           "placement": "bottom",
@@ -106,285 +252,22 @@
       "pluginVersion": "9.5.0",
       "targets": [
         {
-          "expr": "",
-          "intervalFactor": 1,
-          "refId": "A",
           "datasource": {
             "type": "influxdb",
             "uid": "influxdb-dalybms"
           },
-          "hide": false,
           "query": "from(bucket:\"daly_bms\")\n  |> range(start: -24h)\n  |> filter(fn: (r) => r._measurement == \"bms_status\" and r._field == \"power\")\n  |> aggregateWindow(every: 5m, fn: mean, createEmpty: false)"
         },
         {
-          "expr": "",
-          "intervalFactor": 1,
-          "refId": "B",
           "datasource": {
             "type": "influxdb",
             "uid": "influxdb-dalybms"
           },
-          "hide": false,
           "query": "from(bucket:\"daly_bms\")\n  |> range(start: -24h)\n  |> filter(fn: (r) => r._measurement == \"venus_mppt_total\" and r._field == \"power_w\")\n  |> aggregateWindow(every: 5m, fn: mean, createEmpty: false)"
-        },
-        {
-          "expr": "",
-          "intervalFactor": 1,
-          "refId": "C",
-          "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-dalybms"
-          },
-          "hide": false,
-          "query": "from(bucket:\"daly_bms\")\n  |> range(start: -24h)\n  |> filter(fn: (r) => r._measurement == \"et112_status\" and r._field == \"power_w\")\n  |> aggregateWindow(every: 5m, fn: mean, createEmpty: false)"
         }
       ],
-      "title": "Power",
+      "title": "💡 Power",
       "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-dalybms"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "max": 5000,
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "watt"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 2,
-        "w": 3,
-        "x": 12,
-        "y": 0
-      },
-      "id": 2,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "text": {},
-        "textMode": "auto"
-      },
-      "pluginVersion": "9.5.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-dalybms"
-          },
-          "query": "from(bucket:\"daly_bms\")\n  |> range(start: -24h)\n  |> filter(fn: (r) => r._measurement == \"venus_mppt_total\" and r._field == \"power_w\")\n  |> last()\n  |> keep(columns: [\"_value\"])"
-        }
-      ],
-      "title": "Solar",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-dalybms"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "max": 50,
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "blue",
-                "value": null
-              }
-            ]
-          },
-          "unit": "kwh"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 2,
-        "w": 3,
-        "x": 15,
-        "y": 0
-      },
-      "id": 3,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "text": {},
-        "textMode": "auto"
-      },
-      "pluginVersion": "9.5.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-dalybms"
-          },
-          "query": "from(bucket:\"daly_bms\")\n  |> range(start: -24h)\n  |> filter(fn: (r) => r._measurement == \"tasmota_status\" and r._field == \"energy_today_kwh\")\n  |> last()\n  |> keep(columns: [\"_value\"])"
-        }
-      ],
-      "title": "Today",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-dalybms"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "max": 3000,
-          "min": -3000,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "orange",
-                "value": null
-              }
-            ]
-          },
-          "unit": "watt"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 2,
-        "w": 3,
-        "x": 12,
-        "y": 2
-      },
-      "id": 4,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "text": {},
-        "textMode": "auto"
-      },
-      "pluginVersion": "9.5.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-dalybms"
-          },
-          "query": "from(bucket:\"daly_bms\")\n  |> range(start: -24h)\n  |> filter(fn: (r) => r._measurement == \"et112_status\" and r._field == \"power_w\")\n  |> last()\n  |> keep(columns: [\"_value\"])"
-        }
-      ],
-      "title": "Grid",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-dalybms"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "max": 3000,
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              }
-            ]
-          },
-          "unit": "watt"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 2,
-        "w": 3,
-        "x": 15,
-        "y": 2
-      },
-      "id": 5,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "text": {},
-        "textMode": "auto"
-      },
-      "pluginVersion": "9.5.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-dalybms"
-          },
-          "query": "from(bucket:\"daly_bms\")\n  |> range(start: -24h)\n  |> filter(fn: (r) => r._measurement == \"bms_status\" and r._field == \"power\")\n  |> last()\n  |> keep(columns: [\"_value\"])"
-        }
-      ],
-      "title": "Consumed",
-      "type": "stat"
     },
     {
       "datasource": {
@@ -441,12 +324,12 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
-        "w": 12,
+        "h": 5,
+        "w": 6,
         "x": 0,
-        "y": 8
+        "y": 9
       },
-      "id": 6,
+      "id": 4,
       "options": {
         "legend": {
           "calcs": [
@@ -468,10 +351,10 @@
             "type": "influxdb",
             "uid": "influxdb-dalybms"
           },
-          "query": "from(bucket:\"daly_bms\")\n  |> range(start: -7d)\n  |> filter(fn: (r) => r._measurement == \"tasmota_status\" and r._field == \"energy_today_kwh\")\n  |> aggregateWindow(every: 1d, fn: max, createEmpty: false)"
+          "query": "from(bucket:\"daly_bms\")\n  |> range(start: -7d)\n  |> filter(fn: (r) => r._measurement == \"venus_mppt_total\" and r._field == \"power_w\")\n  |> aggregateWindow(every: 1d, fn: max, createEmpty: false)"
         }
       ],
-      "title": "Yield",
+      "title": "☀️ Yield",
       "type": "timeseries"
     },
     {
@@ -529,12 +412,12 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
-        "w": 12,
-        "x": 12,
-        "y": 8
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 9
       },
-      "id": 7,
+      "id": 5,
       "options": {
         "legend": {
           "calcs": [
@@ -559,7 +442,357 @@
           "query": "from(bucket:\"daly_bms\")\n  |> range(start: -7d)\n  |> filter(fn: (r) => r._measurement == \"et112_status\" and r._field == \"energy_import_wh\")\n  |> aggregateWindow(every: 1d, fn: max, createEmpty: false)\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0}))"
         }
       ],
-      "title": "Consumption",
+      "title": "⚡ Consumption",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-dalybms"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "kwh"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 12,
+        "y": 9
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "9.5.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
+          "query": "from(bucket:\"daly_bms\")\n  |> range(start: -24h)\n  |> filter(fn: (r) => r._measurement == \"venus_mppt_total\" and r._field == \"power_w\")\n  |> aggregateWindow(every: 1h, fn: max, createEmpty: false)"
+        }
+      ],
+      "title": "⚖️ Energy Balance",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-dalybms"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Energy (kWh)",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 100,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "yellow",
+                "value": null
+              }
+            ]
+          },
+          "unit": "kwh"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 18,
+        "y": 9
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [
+            "sum"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "9.5.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
+          "query": "from(bucket:\"daly_bms\")\n  |> range(start: -30d)\n  |> filter(fn: (r) => r._measurement == \"venus_mppt_total\" and r._field == \"power_w\")\n  |> aggregateWindow(every: 1d, fn: max, createEmpty: false)"
+        }
+      ],
+      "title": "☀️ Yield (Monthly)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-dalybms"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Energy (kWh)",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 100,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              }
+            ]
+          },
+          "unit": "kwh"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": [
+            "sum"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "9.5.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
+          "query": "from(bucket:\"daly_bms\")\n  |> range(start: -30d)\n  |> filter(fn: (r) => r._measurement == \"et112_status\" and r._field == \"energy_import_wh\")\n  |> aggregateWindow(every: 1d, fn: max, createEmpty: false)\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0}))"
+        }
+      ],
+      "title": "⚡ Consumption (Monthly)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-dalybms"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "kwh"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 19
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "9.5.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
+          "query": "from(bucket:\"daly_bms\")\n  |> range(start: -30d)\n  |> filter(fn: (r) => r._measurement == \"venus_mppt_total\" and r._field == \"power_w\")\n  |> aggregateWindow(every: 1h, fn: max, createEmpty: false)"
+        }
+      ],
+      "title": "⚖️ Energy Balance (Monthly)",
       "type": "timeseries"
     }
   ],
@@ -569,14 +802,13 @@
   "tags": [
     "solar",
     "energy",
-    "bms",
-    "home"
+    "santuario"
   ],
   "templating": {
     "list": []
   },
   "time": {
-    "from": "now-24h",
+    "from": "now-7d",
     "to": "now"
   },
   "timepicker": {},
