@@ -12,7 +12,7 @@
       }
     ]
   },
-  "description": "Dashboard complet du système solaire Santuario — BMS, ET112, Tasmota, ATS, Irradiance, Venus OS",
+  "description": "Santuario Solar System - BMS, Solar, Storage, Energy Flow",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "gnetId": null,
@@ -22,352 +22,10 @@
   "liveNow": false,
   "panels": [
     {
-      "datasource": "InfluxDB",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "custom": {},
-          "mappings": [],
-          "max": 100,
-          "min": 0,
-          "thresholds": {
-            "mode": "percentage",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 25
-              },
-              {
-                "color": "yellow",
-                "value": 50
-              },
-              {
-                "color": "green",
-                "value": 75
-              }
-            ]
-          },
-          "unit": "percent"
-        },
-        "overrides": []
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-dalybms"
       },
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 0,
-        "y": 0
-      },
-      "id": 1,
-      "options": {
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true,
-        "text": {}
-      },
-      "pluginVersion": "9.5.0",
-      "targets": [
-        {
-          "bucketAggs": [
-            {
-              "field": "time",
-              "id": "2",
-              "settings": {
-                "interval": "auto",
-                "min_doc_count": "0",
-                "trimEdges": "0"
-              },
-              "type": "date_histogram"
-            }
-          ],
-          "dsType": "influxdb",
-          "groupBy": [],
-          "hide": false,
-          "measurement": "bms_status",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "refId": "A",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "soc"
-                ],
-                "type": "field"
-              },
-              {
-                "params": [],
-                "type": "last"
-              }
-            ]
-          ],
-          "tags": [
-            {
-              "key": "address",
-              "operator": "=~",
-              "value": "/^$bms$/"
-            }
-          ]
-        }
-      ],
-      "title": "BMS SOC",
-      "type": "gauge"
-    },
-    {
-      "datasource": "InfluxDB",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "Voltage (V)",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "volt"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 6,
-        "y": 0
-      },
-      "id": 2,
-      "options": {
-        "legend": {
-          "calcs": [
-            "min",
-            "max",
-            "mean"
-          ],
-          "displayMode": "table",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "pluginVersion": "9.5.0",
-      "targets": [
-        {
-          "bucketAggs": [
-            {
-              "field": "time",
-              "id": "2",
-              "settings": {
-                "interval": "30s",
-                "min_doc_count": "0",
-                "trimEdges": "0"
-              },
-              "type": "date_histogram"
-            }
-          ],
-          "dsType": "influxdb",
-          "groupBy": [
-            {
-              "params": [
-                "address"
-              ],
-              "type": "tag"
-            }
-          ],
-          "hide": false,
-          "measurement": "bms_status",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "refId": "A",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "voltage"
-                ],
-                "type": "field"
-              },
-              {
-                "params": [],
-                "type": "mean"
-              }
-            ]
-          ],
-          "tags": []
-        }
-      ],
-      "title": "BMS Voltage",
-      "type": "timeseries"
-    },
-    {
-      "datasource": "InfluxDB",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "Current (A)",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "amp"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 0
-      },
-      "id": 3,
-      "options": {
-        "legend": {
-          "calcs": [
-            "min",
-            "max",
-            "mean"
-          ],
-          "displayMode": "table",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "pluginVersion": "9.5.0",
-      "targets": [
-        {
-          "bucketAggs": [
-            {
-              "field": "time",
-              "id": "2",
-              "settings": {
-                "interval": "30s",
-                "min_doc_count": "0",
-                "trimEdges": "0"
-              },
-              "type": "date_histogram"
-            }
-          ],
-          "dsType": "influxdb",
-          "groupBy": [
-            {
-              "params": [
-                "address"
-              ],
-              "type": "tag"
-            }
-          ],
-          "hide": false,
-          "measurement": "bms_status",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "refId": "A",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "current"
-                ],
-                "type": "field"
-              },
-              {
-                "params": [],
-                "type": "mean"
-              }
-            ]
-          ],
-          "tags": []
-        }
-      ],
-      "title": "BMS Current",
-      "type": "timeseries"
-    },
-    {
-      "datasource": "InfluxDB",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -378,7 +36,7 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 10,
+            "fillOpacity": 4,
             "gradientMode": "none",
             "hideFrom": {
               "tooltip": false,
@@ -386,12 +44,12 @@
               "legend": false
             },
             "lineInterpolation": "linear",
-            "lineWidth": 1,
+            "lineWidth": 2,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "auto",
+            "showPoints": "never",
             "spanNulls": false,
             "stacking": {
               "group": "A",
@@ -412,6 +70,258 @@
             ]
           },
           "unit": "watt"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max",
+            "min"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "9.5.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
+          "refId": "A",
+          "query": "from(bucket:\"daly_bms\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"bms_status\" and r._field == \"power\") |> aggregateWindow(every: 5m, fn: mean, createEmpty: false)",
+          "format": "time_series"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
+          "refId": "B",
+          "query": "from(bucket:\"daly_bms\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"venus_mppt_total\" and r._field == \"power_w\") |> aggregateWindow(every: 5m, fn: mean, createEmpty: false)",
+          "format": "time_series"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
+          "refId": "C",
+          "query": "from(bucket:\"daly_bms\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"et112_status\" and r._field == \"power_w\") |> aggregateWindow(every: 5m, fn: mean, createEmpty: false)",
+          "format": "time_series"
+        }
+      ],
+      "title": "Power",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-dalybms"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 50
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "displayMode": "gradient",
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": false
+      },
+      "pluginVersion": "9.5.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
+          "refId": "A",
+          "query": "from(bucket:\"daly_bms\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"bms_status\" and r._field == \"soc\") |> last()",
+          "format": "table"
+        }
+      ],
+      "title": "BMS SOC Today",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-dalybms"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "kwatth"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "displayMode": "gradient",
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": false
+      },
+      "pluginVersion": "9.5.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
+          "refId": "A",
+          "query": "from(bucket:\"daly_bms\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"tasmota_status\" and r._field == \"energy_today_kwh\") |> last()",
+          "format": "table"
+        }
+      ],
+      "title": "Energy Today",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-dalybms"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "Energy (kWh)",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 100,
+            "gradientMode": "none",
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "kwatth"
         },
         "overrides": []
       },
@@ -425,80 +335,48 @@
       "options": {
         "legend": {
           "calcs": [
-            "min",
-            "max",
-            "mean"
+            "sum"
           ],
           "displayMode": "table",
-          "placement": "bottom"
+          "placement": "bottom",
+          "showLegend": true
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "pluginVersion": "9.5.0",
       "targets": [
         {
-          "bucketAggs": [
-            {
-              "field": "time",
-              "id": "2",
-              "settings": {
-                "interval": "30s",
-                "min_doc_count": "0",
-                "trimEdges": "0"
-              },
-              "type": "date_histogram"
-            }
-          ],
-          "dsType": "influxdb",
-          "groupBy": [
-            {
-              "params": [
-                "address"
-              ],
-              "type": "tag"
-            }
-          ],
-          "hide": false,
-          "measurement": "bms_status",
-          "orderByTime": "ASC",
-          "policy": "default",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
           "refId": "A",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "power"
-                ],
-                "type": "field"
-              },
-              {
-                "params": [],
-                "type": "mean"
-              }
-            ]
-          ],
-          "tags": []
+          "query": "from(bucket:\"daly_bms\") |> range(start: -7d) |> filter(fn: (r) => r._measurement == \"tasmota_status\" and r._field == \"energy_today_kwh\") |> aggregateWindow(every: 1d, fn: last, createEmpty: false)",
+          "format": "time_series"
         }
       ],
-      "title": "BMS Power",
+      "title": "Daily Yield",
       "type": "timeseries"
     },
     {
-      "datasource": "InfluxDB",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-dalybms"
+      },
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "palette-classic"
           },
           "custom": {
-            "axisLabel": "Temperature (°C)",
+            "axisLabel": "Energy (kWh)",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
+            "drawStyle": "bars",
+            "fillOpacity": 100,
             "gradientMode": "none",
             "hideFrom": {
               "tooltip": false,
@@ -511,11 +389,11 @@
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "auto",
+            "showPoints": "never",
             "spanNulls": false,
             "stacking": {
               "group": "A",
-              "mode": "none"
+              "mode": "normal"
             },
             "thresholdsStyle": {
               "mode": "off"
@@ -531,7 +409,7 @@
               }
             ]
           },
-          "unit": "celsius"
+          "unit": "kwatth"
         },
         "overrides": []
       },
@@ -545,309 +423,37 @@
       "options": {
         "legend": {
           "calcs": [
-            "min",
-            "max",
-            "mean"
+            "sum"
           ],
           "displayMode": "table",
-          "placement": "bottom"
+          "placement": "bottom",
+          "showLegend": true
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "pluginVersion": "9.5.0",
       "targets": [
         {
-          "bucketAggs": [
-            {
-              "field": "time",
-              "id": "2",
-              "settings": {
-                "interval": "30s",
-                "min_doc_count": "0",
-                "trimEdges": "0"
-              },
-              "type": "date_histogram"
-            }
-          ],
-          "dsType": "influxdb",
-          "groupBy": [
-            {
-              "params": [
-                "address"
-              ],
-              "type": "tag"
-            }
-          ],
-          "hide": false,
-          "measurement": "bms_status",
-          "orderByTime": "ASC",
-          "policy": "default",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
           "refId": "A",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "temp_max"
-                ],
-                "type": "field"
-              },
-              {
-                "params": [],
-                "type": "mean"
-              }
-            ]
-          ],
-          "tags": []
+          "query": "from(bucket:\"daly_bms\") |> range(start: -7d) |> filter(fn: (r) => r._measurement == \"et112_status\" and r._field == \"energy_import_wh\") |> aggregateWindow(every: 1d, fn: last, createEmpty: false) |> map(fn: (r) => ({r with _value: r._value / 1000.0}))",
+          "format": "time_series"
         }
       ],
-      "title": "BMS Temperature (Max)",
+      "title": "Daily Consumption",
       "type": "timeseries"
     },
     {
-      "datasource": "InfluxDB",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "Power (W)",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "watt"
-        },
-        "overrides": []
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-dalybms"
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 16
-      },
-      "id": 6,
-      "options": {
-        "legend": {
-          "calcs": [
-            "min",
-            "max",
-            "mean"
-          ],
-          "displayMode": "table",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "pluginVersion": "9.5.0",
-      "targets": [
-        {
-          "bucketAggs": [
-            {
-              "field": "time",
-              "id": "2",
-              "settings": {
-                "interval": "30s",
-                "min_doc_count": "0",
-                "trimEdges": "0"
-              },
-              "type": "date_histogram"
-            }
-          ],
-          "dsType": "influxdb",
-          "groupBy": [
-            {
-              "params": [
-                "name"
-              ],
-              "type": "tag"
-            }
-          ],
-          "hide": false,
-          "measurement": "et112_status",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "refId": "A",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "power_w"
-                ],
-                "type": "field"
-              },
-              {
-                "params": [],
-                "type": "mean"
-              }
-            ]
-          ],
-          "tags": []
-        }
-      ],
-      "title": "ET112 Power (Compteurs)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": "InfluxDB",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "Power (W)",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "watt"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 16
-      },
-      "id": 7,
-      "options": {
-        "legend": {
-          "calcs": [
-            "min",
-            "max",
-            "mean"
-          ],
-          "displayMode": "table",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "pluginVersion": "9.5.0",
-      "targets": [
-        {
-          "bucketAggs": [
-            {
-              "field": "time",
-              "id": "2",
-              "settings": {
-                "interval": "30s",
-                "min_doc_count": "0",
-                "trimEdges": "0"
-              },
-              "type": "date_histogram"
-            }
-          ],
-          "dsType": "influxdb",
-          "groupBy": [
-            {
-              "params": [
-                "name"
-              ],
-              "type": "tag"
-            }
-          ],
-          "hide": false,
-          "measurement": "tasmota_status",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "refId": "A",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "power_w"
-                ],
-                "type": "field"
-              },
-              {
-                "params": [],
-                "type": "mean"
-              }
-            ]
-          ],
-          "tags": []
-        }
-      ],
-      "title": "Tasmota Power (Prises)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": "InfluxDB",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -866,12 +472,12 @@
               "legend": false
             },
             "lineInterpolation": "linear",
-            "lineWidth": 1,
+            "lineWidth": 2,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "auto",
+            "showPoints": "never",
             "spanNulls": false,
             "stacking": {
               "group": "A",
@@ -899,75 +505,51 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 24
+        "y": 16
       },
-      "id": 8,
+      "id": 6,
       "options": {
         "legend": {
           "calcs": [
-            "min",
-            "max",
-            "mean"
+            "mean",
+            "max"
           ],
           "displayMode": "table",
-          "placement": "bottom"
+          "placement": "bottom",
+          "showLegend": true
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "pluginVersion": "9.5.0",
       "targets": [
         {
-          "bucketAggs": [
-            {
-              "field": "time",
-              "id": "2",
-              "settings": {
-                "interval": "30s",
-                "min_doc_count": "0",
-                "trimEdges": "0"
-              },
-              "type": "date_histogram"
-            }
-          ],
-          "dsType": "influxdb",
-          "groupBy": [],
-          "hide": false,
-          "measurement": "irradiance_status",
-          "orderByTime": "ASC",
-          "policy": "default",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
           "refId": "A",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "irradiance_wm2"
-                ],
-                "type": "field"
-              },
-              {
-                "params": [],
-                "type": "mean"
-              }
-            ]
-          ],
-          "tags": []
+          "query": "from(bucket:\"daly_bms\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"irradiance_status\" and r._field == \"irradiance_wm2\") |> aggregateWindow(every: 5m, fn: mean, createEmpty: false)",
+          "format": "time_series"
         }
       ],
       "title": "Solar Irradiance",
       "type": "timeseries"
     },
     {
-      "datasource": "InfluxDB",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-dalybms"
+      },
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "palette-classic"
           },
           "custom": {
-            "axisLabel": "Power (W)",
+            "axisLabel": "Voltage (V)",
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
@@ -984,7 +566,7 @@
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "auto",
+            "showPoints": "never",
             "spanNulls": false,
             "stacking": {
               "group": "A",
@@ -1004,7 +586,7 @@
               }
             ]
           },
-          "unit": "watt"
+          "unit": "volt"
         },
         "overrides": []
       },
@@ -1012,64 +594,38 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 24
+        "y": 16
       },
-      "id": 9,
+      "id": 7,
       "options": {
         "legend": {
           "calcs": [
-            "min",
+            "mean",
             "max",
-            "mean"
+            "min"
           ],
           "displayMode": "table",
-          "placement": "bottom"
+          "placement": "bottom",
+          "showLegend": true
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "pluginVersion": "9.5.0",
       "targets": [
         {
-          "bucketAggs": [
-            {
-              "field": "time",
-              "id": "2",
-              "settings": {
-                "interval": "30s",
-                "min_doc_count": "0",
-                "trimEdges": "0"
-              },
-              "type": "date_histogram"
-            }
-          ],
-          "dsType": "influxdb",
-          "groupBy": [],
-          "hide": false,
-          "measurement": "venus_mppt_total",
-          "orderByTime": "ASC",
-          "policy": "default",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
           "refId": "A",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "power_w"
-                ],
-                "type": "field"
-              },
-              {
-                "params": [],
-                "type": "mean"
-              }
-            ]
-          ],
-          "tags": []
+          "query": "from(bucket:\"daly_bms\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"bms_status\" and r._field == \"voltage\") |> aggregateWindow(every: 5m, fn: mean, createEmpty: false)",
+          "format": "time_series"
         }
       ],
-      "title": "Venus MPPT Total",
+      "title": "BMS Voltage",
       "type": "timeseries"
     }
   ],
@@ -1079,60 +635,10 @@
   "tags": [
     "solar",
     "bms",
-    "system",
     "santuario"
   ],
   "templating": {
-    "list": [
-      {
-        "current": {
-          "selected": false,
-          "text": "InfluxDB",
-          "value": "InfluxDB"
-        },
-        "hide": 0,
-        "includeAll": false,
-        "label": "Data Source",
-        "multi": false,
-        "name": "datasource",
-        "options": [],
-        "query": "influxdb",
-        "queryValue": "",
-        "refresh": 1,
-        "regex": "",
-        "skipUrlSync": false,
-        "sort": 0,
-        "tagValuesQuery": "",
-        "tagsQuery": "",
-        "type": "datasource"
-      },
-      {
-        "allValue": "0x01|0x02",
-        "current": {
-          "selected": true,
-          "text": "All",
-          "value": "$__all"
-        },
-        "datasource": "InfluxDB",
-        "definition": "SHOW TAG VALUES FROM \"bms_status\" WITH KEY = \"address\"",
-        "description": null,
-        "error": null,
-        "hide": 0,
-        "includeAll": true,
-        "label": "BMS Address",
-        "multi": true,
-        "name": "bms",
-        "options": [],
-        "query": "SHOW TAG VALUES FROM \"bms_status\" WITH KEY = \"address\"",
-        "refresh": 1,
-        "regex": "",
-        "skipUrlSync": false,
-        "sort": 0,
-        "tagValuesQuery": "SHOW TAG VALUES FROM \"bms_status\" WITH KEY = \"address\"",
-        "tagsQuery": "",
-        "type": "query"
-      }
-    ]
+    "list": []
   },
   "time": {
     "from": "now-24h",
