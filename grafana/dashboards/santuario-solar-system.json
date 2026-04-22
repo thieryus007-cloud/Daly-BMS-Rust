@@ -21,18 +21,12 @@
       "type": "grafana",
       "id": "grafana",
       "name": "Grafana",
-      "version": "9.5.5"
+      "version": "8.5.5"
     },
     {
       "type": "panel",
-      "id": "timeseries",
-      "name": "Time series",
-      "version": ""
-    },
-    {
-      "type": "panel",
-      "id": "text",
-      "name": "Text",
+      "id": "graph",
+      "name": "Graph (old)",
       "version": ""
     },
     {
@@ -40,6 +34,12 @@
       "id": "influxdb",
       "name": "InfluxDB",
       "version": "1.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "text",
+      "name": "Text",
+      "version": ""
     }
   ],
   "annotations": {
@@ -54,11 +54,17 @@
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
         "name": "Annotations & Alerts",
+        "target": {
+          "limit": 100,
+          "matchAny": false,
+          "tags": [],
+          "type": "dashboard"
+        },
         "type": "dashboard"
       }
     ]
   },
-  "description": "Santuario Solar System - Adapted from Grafana 13295",
+  "description": "Santuario Solar System - Adapted from Grafana 13295 (Home Energy Dashboard)",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "gnetId": 13295,
@@ -68,75 +74,159 @@
   "liveNow": false,
   "panels": [
     {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb-dalybms"
       },
+      "decimals": 3,
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "drawStyle": "line",
-            "fillOpacity": 20,
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "showPoints": "never"
-          },
-          "unit": "watt"
+          "links": []
         },
         "overrides": []
       },
+      "fill": 4,
+      "fillGradient": 0,
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
         "y": 0
       },
-      "id": 1,
-      "title": "Power",
-      "type": "timeseries",
+      "hiddenSeries": false,
+      "id": 43,
+      "interval": "5m",
+      "legend": {
+        "alignAsTable": false,
+        "avg": false,
+        "current": true,
+        "hideEmpty": true,
+        "hideZero": true,
+        "max": false,
+        "min": false,
+        "rightSide": false,
+        "show": true,
+        "total": false,
+        "values": true
+      },
+      "lines": true,
+      "linewidth": 2,
+      "links": [],
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "8.5.5",
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
             "uid": "influxdb-dalybms"
           },
-          "query": "from(bucket:\"daly_bms\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"venus_mppt_total\" and r._field == \"power_w\") |> aggregateWindow(every: 5m, fn: mean, createEmpty: false)",
-          "refId": "A"
+          "refId": "A",
+          "query": "from(bucket:\"daly_bms\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"venus_mppt_total\" and r._field == \"power_w\") |> aggregateWindow(every: 5m, fn: mean, createEmpty: false)"
         },
         {
           "datasource": {
             "type": "influxdb",
             "uid": "influxdb-dalybms"
           },
-          "query": "from(bucket:\"daly_bms\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"et112_status\" and r._field == \"power_w\") |> aggregateWindow(every: 5m, fn: mean, createEmpty: false)",
-          "refId": "B"
+          "refId": "B",
+          "query": "from(bucket:\"daly_bms\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"et112_status\" and r._field == \"power_w\") |> aggregateWindow(every: 5m, fn: mean, createEmpty: false)"
         },
         {
           "datasource": {
             "type": "influxdb",
             "uid": "influxdb-dalybms"
           },
-          "query": "from(bucket:\"daly_bms\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"bms_status\" and r._field == \"power\") |> aggregateWindow(every: 5m, fn: mean, createEmpty: false)",
-          "refId": "C"
+          "refId": "C",
+          "query": "from(bucket:\"daly_bms\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"bms_status\" and r._field == \"power\") |> aggregateWindow(every: 5m, fn: mean, createEmpty: false)"
         }
-      ]
+      ],
+      "thresholds": [],
+      "timeFrom": "now/d",
+      "timeRegions": [],
+      "title": "Power",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "transparent": true,
+      "type": "graph",
+      "xaxis": {
+        "mode": "time",
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "watt",
+          "label": "",
+          "logBase": 1,
+          "show": true
+        },
+        {
+          "format": "none",
+          "logBase": 1,
+          "show": false
+        }
+      ],
+      "yaxis": {
+        "align": false
+      }
     },
     {
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb-dalybms"
       },
+      "description": "",
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "thresholds"
+          "decimals": 3,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
           },
-          "unit": "kwh"
+          "unit": "kwatth"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Self-consumption rate"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -144,33 +234,188 @@
         "x": 12,
         "y": 0
       },
-      "id": 2,
-      "title": "Today",
-      "type": "bargauge",
+      "hideTimeOverride": true,
+      "id": 57,
+      "interval": "5m",
+      "options": {
+        "displayMode": "gradient",
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": false
+      },
+      "pluginVersion": "8.5.5",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
             "uid": "influxdb-dalybms"
           },
-          "query": "from(bucket:\"daly_bms\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"et112_status\" and r._field == \"energy_export_wh\") |> last()",
-          "refId": "A"
+          "refId": "A",
+          "query": "from(bucket:\"daly_bms\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"et112_status\" and r._field == \"energy_export_wh\") |> last() |> map(fn: (r) => ({r with _value: r._value / 1000.0}))"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
+          "refId": "B",
+          "query": "from(bucket:\"daly_bms\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"tasmota_status\" and r._field == \"energy_today_kwh\") |> last()"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
+          "refId": "C",
+          "query": "from(bucket:\"daly_bms\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"venus_mppt_total\" and r._field == \"power_w\") |> aggregateWindow(every: 1h, fn: max, createEmpty: false) |> sum()"
+        },
+        {
+          "alias": "Grid Consumption",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "measurement": "kWh",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "D",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "last"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "entity_id",
+              "operator": "=",
+              "value": "grid_consumption_energy_daily"
+            }
+          ]
+        },
+        {
+          "alias": "Self-consumption rate",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "hide": false,
+          "measurement": "%",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "E",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "entity_id",
+              "operator": "=",
+              "value": "self_consumption_rate_daily"
+            }
+          ]
         }
-      ]
+      ],
+      "timeFrom": "now/d",
+      "title": "Today",
+      "type": "bargauge"
     },
     {
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb-dalybms"
       },
+      "description": "",
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "thresholds"
+          "decimals": 3,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
           },
-          "unit": "kwh"
+          "unit": "kwatth"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Self-consumption rate"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -178,239 +423,1409 @@
         "x": 18,
         "y": 0
       },
-      "id": 3,
+      "hideTimeOverride": true,
+      "id": 75,
+      "interval": "5m",
+      "options": {
+        "displayMode": "gradient",
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": false
+      },
+      "pluginVersion": "8.5.5",
+      "targets": [
+        {
+          "alias": "Exported Energy",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "measurement": "kWh",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "last"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "entity_id",
+              "operator": "=",
+              "value": "exported_energy_monthly"
+            }
+          ]
+        },
+        {
+          "alias": "Direct self-use",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "measurement": "kWh",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "B",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "last"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "entity_id",
+              "operator": "=",
+              "value": "selfuse_energy_monthly"
+            }
+          ]
+        },
+        {
+          "alias": "Yield Energy",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "measurement": "kWh",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "C",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "last"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "entity_id",
+              "operator": "=",
+              "value": "yield_energy_monthly"
+            }
+          ]
+        },
+        {
+          "alias": "Grid Consumption",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "measurement": "kWh",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "D",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "last"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "entity_id",
+              "operator": "=",
+              "value": "grid_consumption_energy_monthly"
+            }
+          ]
+        },
+        {
+          "alias": "Self-consumption rate",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "measurement": "%",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "E",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "entity_id",
+              "operator": "=",
+              "value": "self_consumption_rate_monthly"
+            }
+          ]
+        }
+      ],
+      "timeFrom": "now/d",
       "title": "This Month",
-      "type": "bargauge",
-      "targets": [
-        {
-          "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-dalybms"
-          },
-          "query": "from(bucket:\"daly_bms\") |> range(start: -30d) |> filter(fn: (r) => r._measurement == \"et112_status\" and r._field == \"energy_export_wh\") |> last()",
-          "refId": "A"
-        }
-      ]
+      "type": "bargauge"
     },
     {
+      "aliasColors": {},
+      "bars": true,
+      "dashLength": 10,
+      "dashes": false,
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb-dalybms"
       },
+      "description": "",
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "drawStyle": "bars",
-            "fillOpacity": 100
-          },
-          "unit": "kwh"
+          "links": [],
+          "unit": "kwatth"
         },
         "overrides": []
       },
+      "fill": 0,
+      "fillGradient": 2,
       "gridPos": {
         "h": 7,
         "w": 12,
         "x": 0,
         "y": 8
       },
-      "id": 4,
+      "hiddenSeries": false,
+      "hideTimeOverride": false,
+      "id": 41,
+      "interval": "1h",
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": false,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "8.5.5",
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [
+        {
+          "alias": "Production",
+          "bars": false,
+          "color": "rgba(25, 115, 14, 0.51)",
+          "fill": 0,
+          "lines": true,
+          "stack": false,
+          "zindex": -3
+        }
+      ],
+      "spaceLength": 10,
+      "stack": true,
+      "steppedLine": false,
+      "targets": [
+        {
+          "alias": "Exported Energy",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "measurement": "kWh",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "last"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "entity_id",
+              "operator": "=",
+              "value": "exported_energy_hourly"
+            }
+          ]
+        },
+        {
+          "alias": "Direct self-use",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "hide": false,
+          "measurement": "kWh",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "B",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "last"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "entity_id",
+              "operator": "=",
+              "value": "selfuse_energy_hourly"
+            }
+          ]
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": "now/d",
+      "timeRegions": [
+        {
+          "colorMode": "gray",
+          "fill": false,
+          "fillColor": "rgba(234, 112, 112, 0.12)",
+          "from": "8:00",
+          "line": false,
+          "lineColor": "rgba(237, 46, 24, 0.60)",
+          "op": "time",
+          "to": "20:00"
+        }
+      ],
       "title": "Yield",
-      "type": "timeseries",
-      "targets": [
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "mode": "time",
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
         {
-          "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-dalybms"
-          },
-          "query": "from(bucket:\"daly_bms\") |> range(start: -7d) |> filter(fn: (r) => r._measurement == \"venus_mppt_total\" and r._field == \"power_w\") |> aggregateWindow(every: 1d, fn: max, createEmpty: false)",
-          "refId": "A"
+          "format": "kwatth",
+          "label": "",
+          "logBase": 1,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": "Production (kWh/day)",
+          "logBase": 1,
+          "show": false
         }
-      ]
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": 0
+      }
     },
     {
+      "aliasColors": {},
+      "bars": true,
+      "dashLength": 10,
+      "dashes": false,
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb-dalybms"
       },
+      "description": "",
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "drawStyle": "bars",
-            "fillOpacity": 100
-          },
-          "unit": "kwh"
+          "links": [],
+          "unit": "kwatth"
         },
         "overrides": []
       },
+      "fill": 0,
+      "fillGradient": 2,
       "gridPos": {
         "h": 7,
         "w": 12,
         "x": 12,
         "y": 8
       },
-      "id": 5,
-      "title": "Yield (Monthly)",
-      "type": "timeseries",
+      "hiddenSeries": false,
+      "hideTimeOverride": false,
+      "id": 77,
+      "interval": "1d",
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": false,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "8.5.5",
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [
+        {
+          "alias": "Production",
+          "bars": false,
+          "color": "rgba(25, 115, 14, 0.51)",
+          "fill": 0,
+          "lines": true,
+          "stack": false,
+          "zindex": -3
+        }
+      ],
+      "spaceLength": 10,
+      "stack": true,
+      "steppedLine": false,
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
             "uid": "influxdb-dalybms"
           },
-          "query": "from(bucket:\"daly_bms\") |> range(start: -30d) |> filter(fn: (r) => r._measurement == \"venus_mppt_total\" and r._field == \"power_w\") |> aggregateWindow(every: 1d, fn: max, createEmpty: false)",
-          "refId": "A"
+          "refId": "A",
+          "query": "from(bucket:\"daly_bms\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"et112_status\" and r._field == \"energy_export_wh\") |> last() |> map(fn: (r) => ({r with _value: r._value / 1000.0}))"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
+          "refId": "B",
+          "query": "from(bucket:\"daly_bms\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"tasmota_status\" and r._field == \"energy_today_kwh\") |> last()"
         }
-      ]
+      ],
+      "thresholds": [],
+      "timeFrom": "now/M",
+      "timeRegions": [
+        {
+          "colorMode": "gray",
+          "fill": false,
+          "fillColor": "rgba(234, 112, 112, 0.12)",
+          "from": "8:00",
+          "line": false,
+          "lineColor": "rgba(237, 46, 24, 0.60)",
+          "op": "time",
+          "to": "20:00"
+        }
+      ],
+      "title": "Yield",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "mode": "time",
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "kwatth",
+          "label": "",
+          "logBase": 1,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": "Production (kWh/day)",
+          "logBase": 1,
+          "show": false
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": 0
+      }
     },
     {
+      "aliasColors": {},
+      "bars": true,
+      "dashLength": 10,
+      "dashes": false,
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb-dalybms"
       },
+      "description": "",
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "drawStyle": "bars",
-            "fillOpacity": 100
-          },
-          "unit": "kwh"
+          "links": [],
+          "unit": "kwatth"
         },
         "overrides": []
       },
+      "fill": 0,
+      "fillGradient": 2,
       "gridPos": {
         "h": 7,
         "w": 12,
         "x": 0,
         "y": 15
       },
-      "id": 6,
+      "hiddenSeries": false,
+      "hideTimeOverride": false,
+      "id": 53,
+      "interval": "1h",
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": false,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "8.5.5",
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [
+        {
+          "alias": "Production",
+          "bars": false,
+          "color": "rgba(25, 115, 14, 0.51)",
+          "fill": 0,
+          "lines": true,
+          "stack": false,
+          "zindex": -3
+        }
+      ],
+      "spaceLength": 10,
+      "stack": true,
+      "steppedLine": false,
+      "targets": [
+        {
+          "alias": "Grid Consumption",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "measurement": "kWh",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "last"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "entity_id",
+              "operator": "=",
+              "value": "grid_consumption_energy_hourly"
+            }
+          ]
+        },
+        {
+          "alias": "Direct self-use",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "hide": false,
+          "measurement": "kWh",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "B",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "last"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "entity_id",
+              "operator": "=",
+              "value": "selfuse_energy_hourly"
+            }
+          ]
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": "now/d",
+      "timeRegions": [
+        {
+          "colorMode": "gray",
+          "fill": false,
+          "fillColor": "rgba(234, 112, 112, 0.12)",
+          "from": "8:00",
+          "line": false,
+          "lineColor": "rgba(237, 46, 24, 0.60)",
+          "op": "time",
+          "to": "20:00"
+        }
+      ],
       "title": "Consumption",
-      "type": "timeseries",
-      "targets": [
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "mode": "time",
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
         {
-          "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-dalybms"
-          },
-          "query": "from(bucket:\"daly_bms\") |> range(start: -7d) |> filter(fn: (r) => r._measurement == \"et112_status\" and r._field == \"energy_import_wh\") |> aggregateWindow(every: 1d, fn: max, createEmpty: false) |> map(fn: (r) => ({r with _value: r._value / 1000.0}))",
-          "refId": "A"
+          "format": "kwatth",
+          "label": "Energy (kWh/interval)",
+          "logBase": 1,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": "Production (kWh/day)",
+          "logBase": 1,
+          "show": false
         }
-      ]
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": 0
+      }
     },
     {
+      "aliasColors": {},
+      "bars": true,
+      "dashLength": 10,
+      "dashes": false,
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb-dalybms"
       },
+      "description": "",
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "drawStyle": "bars",
-            "fillOpacity": 100
-          },
-          "unit": "kwh"
+          "links": [],
+          "unit": "kwatth"
         },
         "overrides": []
       },
+      "fill": 0,
+      "fillGradient": 2,
       "gridPos": {
         "h": 7,
         "w": 12,
         "x": 12,
         "y": 15
       },
-      "id": 7,
-      "title": "Consumption (Monthly)",
-      "type": "timeseries",
+      "hiddenSeries": false,
+      "hideTimeOverride": false,
+      "id": 79,
+      "interval": "1d",
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": false,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "8.5.5",
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [
+        {
+          "alias": "Production",
+          "bars": false,
+          "color": "rgba(25, 115, 14, 0.51)",
+          "fill": 0,
+          "lines": true,
+          "stack": false,
+          "zindex": -3
+        }
+      ],
+      "spaceLength": 10,
+      "stack": true,
+      "steppedLine": false,
       "targets": [
+        {
+          "alias": "Grid Consumption",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "measurement": "kWh",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "last"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "entity_id",
+              "operator": "=",
+              "value": "grid_consumption_energy_daily"
+            }
+          ]
+        },
         {
           "datasource": {
             "type": "influxdb",
             "uid": "influxdb-dalybms"
           },
-          "query": "from(bucket:\"daly_bms\") |> range(start: -30d) |> filter(fn: (r) => r._measurement == \"et112_status\" and r._field == \"energy_import_wh\") |> aggregateWindow(every: 1d, fn: max, createEmpty: false) |> map(fn: (r) => ({r with _value: r._value / 1000.0}))",
-          "refId": "A"
+          "refId": "B",
+          "query": "from(bucket:\"daly_bms\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"tasmota_status\" and r._field == \"energy_today_kwh\") |> last()"
         }
-      ]
+      ],
+      "thresholds": [],
+      "timeFrom": "now/M",
+      "timeRegions": [
+        {
+          "colorMode": "gray",
+          "fill": false,
+          "fillColor": "rgba(234, 112, 112, 0.12)",
+          "from": "8:00",
+          "line": false,
+          "lineColor": "rgba(237, 46, 24, 0.60)",
+          "op": "time",
+          "to": "20:00"
+        }
+      ],
+      "title": "Consumption",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "mode": "time",
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "kwatth",
+          "label": "Energy (kWh/interval)",
+          "logBase": 1,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": "Production (kWh/day)",
+          "logBase": 1,
+          "show": false
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": 0
+      }
     },
     {
+      "aliasColors": {},
+      "bars": true,
+      "dashLength": 10,
+      "dashes": false,
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb-dalybms"
       },
+      "description": "",
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "kwh"
+          "links": [],
+          "unit": "kwatth"
         },
         "overrides": []
       },
+      "fill": 0,
+      "fillGradient": 2,
       "gridPos": {
         "h": 7,
         "w": 12,
         "x": 0,
         "y": 22
       },
-      "id": 8,
-      "title": "Energy Balance",
-      "type": "timeseries",
+      "hiddenSeries": false,
+      "hideTimeOverride": false,
+      "id": 55,
+      "interval": "1h",
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": false,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "8.5.5",
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [
+        {
+          "alias": "Production",
+          "bars": false,
+          "color": "rgba(25, 115, 14, 0.51)",
+          "fill": 0,
+          "lines": true,
+          "stack": false,
+          "zindex": -3
+        }
+      ],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
       "targets": [
         {
+          "alias": "Grid Consumption",
           "datasource": {
             "type": "influxdb",
             "uid": "influxdb-dalybms"
           },
-          "query": "from(bucket:\"daly_bms\") |> range(start: -7d) |> filter(fn: (r) => r._measurement == \"et112_status\" and r._field == \"energy_import_wh\") |> aggregateWindow(every: 1d, fn: max, createEmpty: false)",
-          "refId": "A"
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "measurement": "kWh",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "B",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "last"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "entity_id",
+              "operator": "=",
+              "value": "grid_consumption_energy_hourly"
+            }
+          ]
+        },
+        {
+          "alias": "Exported Energy",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "measurement": "kWh",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "last"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "entity_id",
+              "operator": "=",
+              "value": "exported_energy_hourly"
+            }
+          ]
         }
-      ]
+      ],
+      "thresholds": [],
+      "timeFrom": "now/d",
+      "timeRegions": [
+        {
+          "colorMode": "gray",
+          "fill": false,
+          "fillColor": "rgba(234, 112, 112, 0.12)",
+          "from": "8:00",
+          "line": false,
+          "lineColor": "rgba(237, 46, 24, 0.60)",
+          "op": "time",
+          "to": "20:00"
+        }
+      ],
+      "title": "Energy blance",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "mode": "time",
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "kwatth",
+          "label": "Energy (kWh/interval)",
+          "logBase": 1,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": "Production (kWh/day)",
+          "logBase": 1,
+          "show": false
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": 0
+      }
     },
     {
+      "aliasColors": {},
+      "bars": true,
+      "dashLength": 10,
+      "dashes": false,
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb-dalybms"
       },
+      "description": "",
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "kwh"
+          "links": [],
+          "unit": "kwatth"
         },
         "overrides": []
       },
+      "fill": 0,
+      "fillGradient": 2,
       "gridPos": {
         "h": 7,
         "w": 12,
         "x": 12,
         "y": 22
       },
-      "id": 9,
-      "title": "Energy Balance (Monthly)",
-      "type": "timeseries",
+      "hiddenSeries": false,
+      "hideTimeOverride": false,
+      "id": 81,
+      "interval": "1d",
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": false,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "8.5.5",
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [
+        {
+          "alias": "Production",
+          "bars": false,
+          "color": "rgba(25, 115, 14, 0.51)",
+          "fill": 0,
+          "lines": true,
+          "stack": false,
+          "zindex": -3
+        }
+      ],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "alias": "Grid Consumption",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "measurement": "kWh",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "B",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "last"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "entity_id",
+              "operator": "=",
+              "value": "grid_consumption_energy_daily"
+            }
+          ]
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
+          "refId": "A",
+          "query": "from(bucket:\"daly_bms\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"et112_status\" and r._field == \"energy_export_wh\") |> last() |> map(fn: (r) => ({r with _value: r._value / 1000.0}))"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": "now/M",
+      "timeRegions": [
+        {
+          "colorMode": "gray",
+          "fill": false,
+          "fillColor": "rgba(234, 112, 112, 0.12)",
+          "from": "8:00",
+          "line": false,
+          "lineColor": "rgba(237, 46, 24, 0.60)",
+          "op": "time",
+          "to": "20:00"
+        }
+      ],
+      "title": "Energy blance",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "mode": "time",
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "kwatth",
+          "label": "Energy (kWh/interval)",
+          "logBase": 1,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": "Production (kWh/day)",
+          "logBase": 1,
+          "show": false
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": 0
+      }
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-dalybms"
+      },
+      "description": "",
+      "gridPos": {
+        "h": 16,
+        "w": 12,
+        "x": 0,
+        "y": 29
+      },
+      "id": 85,
+      "links": [
+        {
+          "targetBlank": true,
+          "title": "More document",
+          "url": "https://www.iammeter.com/doc/iammeter/monitoring-quickstart-wem3080t.html"
+        }
+      ],
+      "options": {
+        "content": "<div  id='write'  class = 'is-node'><p>\r\n<span>By installing only one WEM3080T (three phase WiFi energy meter) in your single phase solar system, and clamping the first CT onto grid, the second CT onto solar inverter and the third CT onto load if applicable, you can monitor &quot;Grid Consumption Energy&quot; (the energy consumed from the grid), &quot;Exported Energy&quot; (the energy exported to the grid) and the energy produced by solar inverter. You can monitor the energy flow of the solar system.</span></p><p><span>Enjoy and have fun on </span>\r\n<a href='https://www.iammeter.com/doc/iammeter/monitoring-quickstart-wem3080t.html' target='_blank'><span>Iammeter</span></a></p>\r\n<p><img src=\"https://leweidoc.oss-cn-hangzhou.aliyuncs.com/lewei50/img/lwkits/YNM3000iammeter-33-20190809-L2.jpg\" referrerpolicy=\"no-referrer\" alt=\"img\"></p></div>",
+        "mode": "html"
+      },
+      "pluginVersion": "8.5.5",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
             "uid": "influxdb-dalybms"
           },
-          "query": "from(bucket:\"daly_bms\") |> range(start: -30d) |> filter(fn: (r) => r._measurement == \"et112_status\" and r._field == \"energy_import_wh\") |> aggregateWindow(every: 1d, fn: max, createEmpty: false)",
-          "refId": "A"
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": []
         }
-      ]
+      ],
+      "title": "Solar System",
+      "type": "text"
     }
   ],
   "refresh": "30s",
@@ -419,7 +1834,8 @@
   "tags": [
     "solar",
     "energy",
-    "santuario"
+    "santuario",
+    "13295"
   ],
   "templating": {
     "list": []
