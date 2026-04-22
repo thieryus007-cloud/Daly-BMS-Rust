@@ -1,99 +1,361 @@
 {% extends "base.html" %}
 {% block title %}Dashboard Historique{% endblock %}
-{% block page_title %}📊 Dashboard Historique Grafana{% endblock %}
+{% block page_title %}📊 Dashboard Historique — InfluxDB{% endblock %}
 {% block nav_grafana %}active{% endblock %}
 
 {% block head %}
 <style>
-  #grafana-container {
-    width: 100%;
-    height: calc(100vh - 56px - 3rem);
-    border: none;
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: var(--radius);
+    padding: 1rem;
+    min-height: 350px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow);
   }
 
-  .grafana-note {
-    padding: 0.8rem 1.2rem;
-    background: var(--surface2);
-    border-left: 3px solid var(--accent);
+  .chart-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .chart-container {
+    flex: 1;
+    position: relative;
+  }
+
+  .loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  .time-controls {
+    display: flex;
+    gap: 0.5rem;
     margin-bottom: 1rem;
-    border-radius: var(--radius-sm);
-    font-size: 0.8rem;
-    color: var(--text2);
+    flex-wrap: wrap;
   }
 
-  .grafana-note strong {
+  .time-btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 500;
+    transition: all 0.15s;
+  }
+
+  .time-btn:hover {
+    background: var(--surface3);
+    border-color: var(--border2);
+  }
+
+  .time-btn.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+
+  .kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .kpi-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 1rem;
+    box-shadow: var(--shadow);
+  }
+
+  .kpi-label {
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.4rem;
+    font-weight: 600;
+  }
+
+  .kpi-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
     color: var(--text);
   }
 
-  .error-box {
-    padding: 1rem;
-    background: rgba(248, 81, 73, 0.1);
-    border: 1px solid rgba(248, 81, 73, 0.3);
-    border-radius: var(--radius-sm);
-    color: var(--red);
-    margin: 1rem 0;
-    display: none;
-  }
+  .kpi-value.positive { color: var(--green); }
+  .kpi-value.negative { color: var(--accent); }
+  .kpi-value.warning { color: var(--yellow); }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="grafana-note">
-  <strong>📊 Dashboard Grafana</strong> — Historique complet avec InfluxDB.
-  <a id="fullscreen-link" href="#" target="_blank" style="margin-left: auto; float: right;">Ouvrir en plein écran →</a>
+<div class="time-controls">
+  <button class="time-btn active" data-minutes="60">1h</button>
+  <button class="time-btn" data-minutes="360">6h</button>
+  <button class="time-btn" data-minutes="1440">24h</button>
+  <button class="time-btn" data-minutes="10080">7j</button>
 </div>
 
-<div class="error-box" id="error-box">
-  ⚠️ Impossible de charger Grafana. Assurez-vous que Grafana est en cours d'exécution sur le port 3001.
+<div class="kpi-strip">
+  <div class="kpi-box">
+    <div class="kpi-label">⚡ Puissance Solaire</div>
+    <div class="kpi-value" id="solar-power">— W</div>
+  </div>
+  <div class="kpi-box">
+    <div class="kpi-label">🔋 SOC Moyen</div>
+    <div class="kpi-value" id="avg-soc">— %</div>
+  </div>
+  <div class="kpi-box">
+    <div class="kpi-label">🏠 Consommation</div>
+    <div class="kpi-value" id="load-power">— W</div>
+  </div>
+  <div class="kpi-box">
+    <div class="kpi-label">📊 Énergie Jour</div>
+    <div class="kpi-value" id="energy-today">— kWh</div>
+  </div>
 </div>
 
-<iframe
-  id="grafana-container"
-  allowfullscreen
-  allow="clipboard-write">
-</iframe>
+<div class="dashboard-grid">
+  <div class="chart-card">
+    <div class="chart-title">⚡ Puissance en temps réel</div>
+    <div class="chart-container" id="power-chart"></div>
+  </div>
 
+  <div class="chart-card">
+    <div class="chart-title">🔋 État de charge batterie</div>
+    <div class="chart-container" id="soc-chart"></div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-title">🏠 Consommation charge</div>
+    <div class="chart-container" id="load-chart"></div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-title">📈 Énergie cumulée</div>
+    <div class="chart-container" id="energy-chart"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <script>
-// Construire l'URL Grafana basée sur le host actuel
-function buildGrafanaUrl() {
-  // Extraire le hostname (ex: 192.168.1.141 ou localhost)
-  const host = window.location.hostname;
-  const baseUrl = `http://${host}:3001`;
-  const dashboardUrl = `${baseUrl}/d-solo/santuario/santuario-solar-dashboard?orgId=1&refresh=5m&from=now-24h&to=now&kiosk=tv`;
-  return { baseUrl, dashboardUrl };
+const API_BASE = '/api/v1';
+let currentMinutes = 60;
+
+// Initialiser les graphiques
+const charts = {};
+function initCharts() {
+  charts.power = echarts.init(document.getElementById('power-chart'));
+  charts.soc = echarts.init(document.getElementById('soc-chart'));
+  charts.load = echarts.init(document.getElementById('load-chart'));
+  charts.energy = echarts.init(document.getElementById('energy-chart'));
 }
 
-const { baseUrl, dashboardUrl } = buildGrafanaUrl();
-const container = document.getElementById('grafana-container');
-const fullscreenLink = document.getElementById('fullscreen-link');
-const errorBox = document.getElementById('error-box');
+// Options communes
+const commonOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  animation: true,
+};
 
-// Mettre à jour les URLs
-container.src = dashboardUrl;
-fullscreenLink.href = baseUrl;
+// Charger les données
+async function loadData(minutes) {
+  currentMinutes = minutes;
 
-// Vérifier si Grafana est accessible
-fetch(`${baseUrl}/api/health`, { mode: 'no-cors' })
-  .then(() => {
-    errorBox.style.display = 'none';
-  })
-  .catch(() => {
-    errorBox.style.display = 'block';
-  });
+  try {
+    const resp = await fetch(`${API_BASE}/chart/history?minutes=${minutes}`);
+    const data = await resp.json();
 
-// Recalculer la hauteur de l'iframe au chargement et au redimensionnement
-function adjustIframeHeight() {
-  if (container) {
-    const topbarHeight = document.querySelector('.topbar')?.offsetHeight || 56;
-    const mainPadding = 24;
-    const noteHeight = document.querySelector('.grafana-note')?.offsetHeight || 80;
-    const availableHeight = window.innerHeight - topbarHeight - noteHeight - mainPadding;
-    container.style.height = Math.max(availableHeight, 400) + 'px';
+    if (!data.ok) {
+      console.error('Erreur API:', data);
+      return;
+    }
+
+    updateCharts(data);
+    updateKPIs(data);
+  } catch (err) {
+    console.error('Erreur chargement:', err);
   }
 }
 
-adjustIframeHeight();
-window.addEventListener('resize', adjustIframeHeight);
+// Formater données pour ECharts
+function formatTimeSeriesData(points) {
+  return points.map(p => ({
+    value: [new Date(p[0]).getTime(), p[1]],
+    itemStyle: { color: 'auto' }
+  }));
+}
+
+// Mettre à jour les graphiques
+function updateCharts(data) {
+  // Graphique puissance
+  if (data.solar && data.load) {
+    const solarTimes = data.solar.map(p => new Date(p[0]));
+    const solarValues = data.solar.map(p => p[1]);
+    const loadValues = data.load.map(p => p[1]);
+
+    charts.power.setOption({
+      ...commonOptions,
+      tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+      grid: { left: '10%', right: '10%', bottom: '10%', top: '10%', containLabel: true },
+      xAxis: { type: 'time' },
+      yAxis: { type: 'value', name: 'Puissance (W)' },
+      series: [
+        {
+          name: 'Production solaire',
+          data: formatTimeSeriesData(data.solar),
+          type: 'line',
+          smooth: true,
+          areaStyle: { color: 'rgba(34, 197, 94, 0.2)' },
+          lineStyle: { color: '#22c55e', width: 2 },
+          symbolSize: 0
+        },
+        {
+          name: 'Consommation',
+          data: formatTimeSeriesData(data.load),
+          type: 'line',
+          smooth: true,
+          areaStyle: { color: 'rgba(59, 130, 246, 0.2)' },
+          lineStyle: { color: '#3b82f6', width: 2 },
+          symbolSize: 0
+        }
+      ]
+    });
+  }
+
+  // Graphique SOC
+  if (data.soc) {
+    charts.soc.setOption({
+      ...commonOptions,
+      tooltip: { trigger: 'axis' },
+      grid: { left: '10%', right: '10%', bottom: '10%', top: '10%', containLabel: true },
+      xAxis: { type: 'time' },
+      yAxis: { type: 'value', name: 'SOC (%)', min: 0, max: 100 },
+      series: [{
+        name: 'État de charge',
+        data: formatTimeSeriesData(data.soc),
+        type: 'line',
+        smooth: true,
+        areaStyle: { color: 'rgba(250, 204, 21, 0.2)' },
+        lineStyle: { color: '#facc15', width: 2 },
+        symbolSize: 0
+      }]
+    });
+  }
+
+  // Graphique charge
+  if (data.load) {
+    charts.load.setOption({
+      ...commonOptions,
+      tooltip: { trigger: 'axis' },
+      grid: { left: '10%', right: '10%', bottom: '10%', top: '10%', containLabel: true },
+      xAxis: { type: 'time' },
+      yAxis: { type: 'value', name: 'Puissance (W)' },
+      series: [{
+        name: 'Charge',
+        data: formatTimeSeriesData(data.load),
+        type: 'bar',
+        itemStyle: { color: '#3b82f6' }
+      }]
+    });
+  }
+
+  // Graphique énergie
+  if (data.solar) {
+    const energyCumulative = [];
+    let sum = 0;
+    for (const [time, value] of data.solar) {
+      sum += value / 1000; // W → kW
+      energyCumulative.push([new Date(time).getTime(), sum / 60]); // moyenne par min
+    }
+
+    charts.energy.setOption({
+      ...commonOptions,
+      tooltip: { trigger: 'axis' },
+      grid: { left: '10%', right: '10%', bottom: '10%', top: '10%', containLabel: true },
+      xAxis: { type: 'time' },
+      yAxis: { type: 'value', name: 'Énergie (kWh)' },
+      series: [{
+        name: 'Énergie cumulée',
+        data: energyCumulative,
+        type: 'line',
+        smooth: true,
+        areaStyle: { color: 'rgba(168, 85, 247, 0.2)' },
+        lineStyle: { color: '#a855f7', width: 2 },
+        symbolSize: 0
+      }]
+    });
+  }
+}
+
+// Mettre à jour les KPIs
+function updateKPIs(data) {
+  if (data.solar && data.solar.length > 0) {
+    const lastSolar = data.solar[data.solar.length - 1][1];
+    document.getElementById('solar-power').textContent = lastSolar.toFixed(0) + ' W';
+  }
+
+  if (data.soc && data.soc.length > 0) {
+    const avgSoc = data.soc.reduce((s, p) => s + p[1], 0) / data.soc.length;
+    document.getElementById('avg-soc').textContent = avgSoc.toFixed(0) + ' %';
+  }
+
+  if (data.load && data.load.length > 0) {
+    const lastLoad = data.load[data.load.length - 1][1];
+    document.getElementById('load-power').textContent = lastLoad.toFixed(0) + ' W';
+  }
+
+  if (data.solar && data.solar.length > 0) {
+    const totalEnergy = data.solar.reduce((s, p) => s + p[1], 0) / 1000 / 60;
+    document.getElementById('energy-today').textContent = totalEnergy.toFixed(2) + ' kWh';
+  }
+}
+
+// Contrôles temps
+document.querySelectorAll('.time-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    const minutes = parseInt(e.target.dataset.minutes);
+    loadData(minutes);
+  });
+});
+
+// Initialisation
+initCharts();
+loadData(currentMinutes);
+
+// Rafraîchir toutes les 30 secondes
+setInterval(() => loadData(currentMinutes), 30000);
+
+// Adapter à la taille de la fenêtre
+window.addEventListener('resize', () => {
+  Object.values(charts).forEach(c => c.resize());
+});
 </script>
 {% endblock %}
