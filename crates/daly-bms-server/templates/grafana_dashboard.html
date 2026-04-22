@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Dashboard Historique{% endblock %}
+{% block page_title %}📊 Dashboard Historique Grafana{% endblock %}
+{% block nav_grafana %}active{% endblock %}
+
+{% block head %}
+<style>
+  #grafana-container {
+    width: 100%;
+    height: calc(100vh - 56px - 3rem);
+    border: none;
+    border-radius: var(--radius);
+  }
+
+  .grafana-note {
+    padding: 0.8rem 1.2rem;
+    background: var(--surface2);
+    border-left: 3px solid var(--accent);
+    margin-bottom: 1rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    color: var(--text2);
+  }
+
+  .grafana-note strong {
+    color: var(--text);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="grafana-note">
+  <strong>📊 Dashboard Grafana</strong> — Historique complet avec InfluxDB.
+  <a href="http://localhost:3001" target="_blank" style="margin-left: auto; float: right;">Ouvrir en plein écran →</a>
+</div>
+
+<iframe
+  id="grafana-container"
+  src="http://localhost:3001/d-solo/santuario/santuario-solar-dashboard?orgId=1&refresh=5m&from=now-24h&to=now&kiosk=tv"
+  allowfullscreen
+  allow="clipboard-write">
+</iframe>
+
+<script>
+// Recalculer la hauteur de l'iframe au chargement et au redimensionnement
+function adjustIframeHeight() {
+  const container = document.getElementById('grafana-container');
+  if (container) {
+    const topbarHeight = document.querySelector('.topbar')?.offsetHeight || 56;
+    const mainPadding = 24; // padding de main (1.5rem * 2 côtés)
+    const noteHeight = document.querySelector('.grafana-note')?.offsetHeight || 80;
+    const availableHeight = window.innerHeight - topbarHeight - noteHeight - mainPadding;
+    container.style.height = Math.max(availableHeight, 400) + 'px';
+  }
+}
+
+adjustIframeHeight();
+window.addEventListener('resize', adjustIframeHeight);
+</script>
+{% endblock %}
