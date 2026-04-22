@@ -49,20 +49,8 @@
 
 <iframe
   id="grafana-frame"
-  src="http://localhost:3001/d/santuario/santuario-solar-system?orgId=1&refresh=30s&from=now-24h&to=now"
+  src="/api/v1/grafana/d/santuario?orgId=1&refresh=30s&from=now-24h&to=now"
   allow="clipboard-write"
   allowfullscreen>
 </iframe>
-
-<script>
-  function updateIframeUrl() {
-    const frame = document.getElementById('grafana-frame');
-    const baseUrl = `http://${window.location.hostname}:3001/d/santuario/santuario-solar-system`;
-    const params = '?orgId=1&refresh=30s&from=now-24h&to=now';
-    frame.src = baseUrl + params;
-  }
-
-  // Fallback after 2s if localhost fails
-  setTimeout(updateIframeUrl, 2000);
-</script>
 {% endblock %}
