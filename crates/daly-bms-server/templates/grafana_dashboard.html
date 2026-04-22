@@ -7,51 +7,28 @@
 <style>
   #grafana-frame {
     width: 100%;
-    height: calc(100vh - 56px - 2rem);
+    height: calc(100vh - 120px);
     border: none;
-    border-radius: var(--radius);
-    background: var(--surface);
   }
-
   .grafana-info {
-    padding: 0.8rem 1.2rem;
+    padding: 1rem;
     background: var(--surface2);
     border-left: 3px solid var(--accent);
     margin-bottom: 1rem;
-    border-radius: var(--radius-sm);
-    font-size: 0.8rem;
-    color: var(--text2);
-  }
-
-  .grafana-info strong {
-    color: var(--text);
-  }
-
-  .grafana-error {
-    padding: 1rem;
-    background: rgba(248, 81, 73, 0.1);
-    border: 1px solid rgba(248, 81, 73, 0.3);
-    border-radius: var(--radius-sm);
-    color: var(--red);
-    display: none;
+    border-radius: var(--radius);
   }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="grafana-info">
-  <strong>📊 Dashboard Grafana</strong> — Données en direct de votre InfluxDB
+  📊 Dashboard Grafana Santuario Solar System (données InfluxDB en direct, refresh 30s)
 </div>
 
-<div class="grafana-error" id="grafana-error">
-  ⚠️ Grafana ne répond pas. Vérifiez que <code>make up</code> a été exécuté sur le Pi5.
-</div>
-
-<iframe
-  id="grafana-frame"
-  src="http://192.168.1.141:3001/d/santuario?orgId=1&refresh=30s&from=now-24h&to=now"
-  allow="clipboard-write"
-  allowfullscreen>
-</iframe>
-
+<script>
+  const host = window.location.hostname;
+  const port = 3001;
+  const dashUrl = `http://${host}:${port}/d/santuario?orgId=1&refresh=30s&from=now-24h&to=now`;
+  document.write(`<iframe id="grafana-frame" src="${dashUrl}" allow="clipboard-write" allowfullscreen></iframe>`);
+</script>
 {% endblock %}
