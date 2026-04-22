@@ -203,6 +203,9 @@ Dashboard SSR : `/dashboard/et112/{addr}`
 
 | Besoin | Fichier |
 |--------|---------|
+| Configuration Grafana — Dashboard complet avec InfluxDB | `GRAFANA_SETUP.md` |
+| Structure et import dashboard Grafana | `grafana/README.md` |
+| Import automatique dashboard — Script | `scripts/import-grafana-dashboard.sh` |
 | Ajouter un appareil / nouvelle métrique | `DASHBOARD_EXTENSION_GUIDE.md` |
 | Procédures détaillées (NanoPi, maintenance, récupération firmware, production solaire) | `PROCEDURES.md` |
 | Validation déploiement / checklist | `IMPLEMENTATION_VERIFICATION.md` |
