@@ -49,26 +49,20 @@
 
 <iframe
   id="grafana-frame"
-  src="http://localhost:3001/d/santuario/santuario-solar-dashboard?orgId=1&refresh=30s&from=now-24h&to=now&kiosk=tv"
+  src="http://localhost:3001/d/santuario/santuario-solar-system?orgId=1&refresh=30s&from=now-24h&to=now"
   allow="clipboard-write"
   allowfullscreen>
 </iframe>
 
 <script>
-  // Détecter si Grafana est accessible et ajuster l'URL si nécessaire
-  window.addEventListener('error', function() {
-    document.getElementById('grafana-error').style.display = 'block';
-  });
-
-  // Essayer avec le host dynamique si localhost ne marche pas
-  setTimeout(() => {
+  function updateIframeUrl() {
     const frame = document.getElementById('grafana-frame');
-    const frameDoc = frame.contentDocument || frame.contentWindow.document;
-    if (!frameDoc) {
-      // Essayer avec l'adresse IP du serveur
-      const host = window.location.hostname;
-      frame.src = `http://${host}:3001/d/santuario/santuario-solar-dashboard?orgId=1&refresh=30s&from=now-24h&to=now&kiosk=tv`;
-    }
-  }, 3000);
+    const baseUrl = `http://${window.location.hostname}:3001/d/santuario/santuario-solar-system`;
+    const params = '?orgId=1&refresh=30s&from=now-24h&to=now';
+    frame.src = baseUrl + params;
+  }
+
+  // Fallback after 2s if localhost fails
+  setTimeout(updateIframeUrl, 2000);
 </script>
 {% endblock %}
