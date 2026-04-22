@@ -25,29 +25,68 @@
   .grafana-note strong {
     color: var(--text);
   }
+
+  .error-box {
+    padding: 1rem;
+    background: rgba(248, 81, 73, 0.1);
+    border: 1px solid rgba(248, 81, 73, 0.3);
+    border-radius: var(--radius-sm);
+    color: var(--red);
+    margin: 1rem 0;
+    display: none;
+  }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="grafana-note">
   <strong>📊 Dashboard Grafana</strong> — Historique complet avec InfluxDB.
-  <a href="http://localhost:3001" target="_blank" style="margin-left: auto; float: right;">Ouvrir en plein écran →</a>
+  <a id="fullscreen-link" href="#" target="_blank" style="margin-left: auto; float: right;">Ouvrir en plein écran →</a>
+</div>
+
+<div class="error-box" id="error-box">
+  ⚠️ Impossible de charger Grafana. Assurez-vous que Grafana est en cours d'exécution sur le port 3001.
 </div>
 
 <iframe
   id="grafana-container"
-  src="http://localhost:3001/d-solo/santuario/santuario-solar-dashboard?orgId=1&refresh=5m&from=now-24h&to=now&kiosk=tv"
   allowfullscreen
   allow="clipboard-write">
 </iframe>
 
 <script>
+// Construire l'URL Grafana basée sur le host actuel
+function buildGrafanaUrl() {
+  // Extraire le hostname (ex: 192.168.1.141 ou localhost)
+  const host = window.location.hostname;
+  const baseUrl = `http://${host}:3001`;
+  const dashboardUrl = `${baseUrl}/d-solo/santuario/santuario-solar-dashboard?orgId=1&refresh=5m&from=now-24h&to=now&kiosk=tv`;
+  return { baseUrl, dashboardUrl };
+}
+
+const { baseUrl, dashboardUrl } = buildGrafanaUrl();
+const container = document.getElementById('grafana-container');
+const fullscreenLink = document.getElementById('fullscreen-link');
+const errorBox = document.getElementById('error-box');
+
+// Mettre à jour les URLs
+container.src = dashboardUrl;
+fullscreenLink.href = baseUrl;
+
+// Vérifier si Grafana est accessible
+fetch(`${baseUrl}/api/health`, { mode: 'no-cors' })
+  .then(() => {
+    errorBox.style.display = 'none';
+  })
+  .catch(() => {
+    errorBox.style.display = 'block';
+  });
+
 // Recalculer la hauteur de l'iframe au chargement et au redimensionnement
 function adjustIframeHeight() {
-  const container = document.getElementById('grafana-container');
   if (container) {
     const topbarHeight = document.querySelector('.topbar')?.offsetHeight || 56;
-    const mainPadding = 24; // padding de main (1.5rem * 2 côtés)
+    const mainPadding = 24;
     const noteHeight = document.querySelector('.grafana-note')?.offsetHeight || 80;
     const availableHeight = window.innerHeight - topbarHeight - noteHeight - mainPadding;
     container.style.height = Math.max(availableHeight, 400) + 'px';
