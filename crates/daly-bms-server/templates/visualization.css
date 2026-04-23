@@ -459,7 +459,7 @@
   }
   .mg-mppt-state.off  { background: #f1f5f9; color: #94a3b8; }
   .mg-mppt-state.fault { background: #fef2f2; color: #dc2626; }
-  .mg-mppt-metrics { display: flex; gap: 8px; margin-left: auto; }
+  .mg-mppt-metrics { display: flex; gap: 5px; margin-left: auto; }
   .mg-metric { display: flex; flex-direction: column; align-items: flex-end; }
   .mg-metric-lbl { font-size: 0.51rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em; }
   .mg-metric-val { font-size: 0.72rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: #0f172a; }

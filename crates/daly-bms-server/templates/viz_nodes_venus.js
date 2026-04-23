@@ -42,6 +42,7 @@ function MPPTGroupNode({ data }) {
         const pvV   = m.pv_voltage_v ?? null;
         const dcA   = m.dc_current_a ?? null;
         const pw    = m.power_w ?? null;
+        const yld   = m.yield_today_kwh ?? null;
         return h('div', { key: inst, className: 'mg-mppt-row' },
           h('span', { className: 'mg-mppt-name' }, name),
           h('span', { className: `mg-mppt-state ${stateClass(s)}` }, s ?? '—'),
@@ -57,6 +58,10 @@ function MPPTGroupNode({ data }) {
             h('div', { className: 'mg-metric' },
               h('span', { className: 'mg-metric-lbl' }, 'W'),
               h('span', { className: 'mg-metric-val' }, pw != null ? `${Math.round(pw)}` : '—')
+            ),
+            h('div', { className: 'mg-metric' },
+              h('span', { className: 'mg-metric-lbl' }, 'kWh'),
+              h('span', { className: 'mg-metric-val' }, yld != null ? yld.toFixed(2) : '—')
             )
           )
         );

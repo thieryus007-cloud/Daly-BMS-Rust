@@ -131,23 +131,29 @@ function AtsMainNode({ data }) {
     mkHandle('target', Position.Left,   'ats-in-reseau'),
     mkHandle('source', Position.Right,  'main-right'),
     mkHandle('target', Position.Bottom, 'ats-in-onduleur', { top: '65%' }),
-    h('div', { style: { display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 8px', background:'#f8fafc', borderBottom:'2px solid #6366f1', gap:5 } },
-      h('div', { style: { display:'flex', alignItems:'center', gap:4, fontWeight:600, fontSize:10 } },
+    h('div', { className: 'pn-banner' },
+      h('div', { className: 'pn-banner-left' },
         h('div', { className: 'pn-bicon pn-bicon-ats' }, '🔀'),
         h('span', null, 'ATS')
       ),
-      h('div', {
+      h('div', { className: 'pn-banner-center',
         'data-is-interactive': 'true',
         'data-rev': data._rev,
-        style: { display:'flex', alignItems:'center', gap:4, cursor: data.disabled ? 'default' : 'pointer', opacity: data.disabled ? 0.5 : 1, pointerEvents: 'auto' },
+        style: { cursor: data.disabled ? 'default' : 'pointer', pointerEvents: 'auto' },
         onClick: handleToggleClick,
         onMouseDown: (e) => { e.stopPropagation(); e.preventDefault(); },
         onTouchStart: (e) => { e.stopPropagation(); e.preventDefault(); }
       },
-        h('span', { style: { fontSize:8, color:'#475569' } }, 'Télécommande'),
-        h('div', { className: `pn-toggle${remoteOn ? ' on' : ''}` })
+        h('span', { className: 'pn-volt', style: { fontSize: '9px' } }, data.swMode || '—'),
+        h('span', { className: `pn-status${remoteOn ? ' online' : ' offline'}` },
+          h('span', { className: `pn-dot${remoteOn ? '' : ' off'}` }),
+          h('div', { className: `pn-toggle${remoteOn ? ' on' : ''}` })
+        )
       ),
-      h('span', { className: `pn-badge${remoteOn ? ' ok' : ' warn'}` }, remoteOn ? '📡 ON' : 'OFF')
+      h('span', { className: `pn-badge${hasFault ? ' warn' : ' ok'}` }, hasFault ? '⚠ ERR' : '✓ OK')
+    ),
+    h('div', { className: 'pn-bar-row' },
+      h('div', { className: `pn-bar-fill${hasFault ? ' warn' : ' ok'}`, style: { width: '100%' } })
     ),
     h('div', { className: 'pn-ats-sw' },
       h('div', { className: 'pn-sw-card' }, h('span', { className: 'pn-sw-label' }, 'SW1'), h('span', { className: `pn-sw-val${(data.sw1||'').includes('Fermé') ? ' closed' : ' open'}` }, data.sw1 || 'Ouvert')),
@@ -224,7 +230,7 @@ function InverterNode({ data }) {
       h('span', { className: `inv-state-badge ${stateClass}` }, state),
       h('div', { className: 'inv-dot live' })
     ),
-    ignAc != null && h('div', { className: 'inv-ignore-bar' },
+    h('div', { className: 'inv-ignore-bar' },
       h('span', { className: 'inv-ignore-lbl' }, 'AC In Ignore'),
       h('span', { className: `inv-ignore-val ${ignAc ? 'active' : 'normal'}` }, ignAc ? 'ACTIF' : 'Normal')
     ),
