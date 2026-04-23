@@ -2,9 +2,9 @@
   "annotations": {
     "list": []
   },
-  "description": "Santuario Solar System",
+  "description": "Santuario Solar System - Real-time energy monitoring",
   "editable": true,
-  "gnetId": 13295,
+  "gnetId": null,
   "graphTooltip": 1,
   "id": null,
   "links": [],
@@ -22,28 +22,36 @@
           },
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 20
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": true
           },
-          "unit": "watt"
+          "unit": "watt",
+          "min": 0
         },
         "overrides": []
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 24,
         "x": 0,
         "y": 0
       },
       "id": 1,
-      "title": "Power",
-      "type": "timeseries",
+      "pluginVersion": "10.0.0",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
             "uid": "influxdb-dalybms"
           },
-          "query": "from(bucket:\"daly_bms\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"venus_mppt_total\" and r._field == \"power_w\") |> aggregateWindow(every: 5m, fn: mean, createEmpty: false)",
+          "query": "from(bucket: v.defaultBucket)\n  |> range(start: -24h)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"venus_mppt_total\")\n  |> filter(fn: (r) => r[\"_field\"] == \"power_w\")\n  |> aggregateWindow(every: 5m, fn: mean, createEmpty: false)",
           "refId": "A"
         },
         {
@@ -51,7 +59,7 @@
             "type": "influxdb",
             "uid": "influxdb-dalybms"
           },
-          "query": "from(bucket:\"daly_bms\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"et112_status\" and r._field == \"power_w\") |> aggregateWindow(every: 5m, fn: mean, createEmpty: false)",
+          "query": "from(bucket: v.defaultBucket)\n  |> range(start: -24h)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"et112_status\")\n  |> filter(fn: (r) => r[\"_field\"] == \"power_w\")\n  |> aggregateWindow(every: 5m, fn: mean, createEmpty: false)",
           "refId": "B"
         },
         {
@@ -59,10 +67,24 @@
             "type": "influxdb",
             "uid": "influxdb-dalybms"
           },
-          "query": "from(bucket:\"daly_bms\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"bms_status\" and r._field == \"power\") |> aggregateWindow(every: 5m, fn: mean, createEmpty: false)",
+          "query": "from(bucket: v.defaultBucket)\n  |> range(start: -24h)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"bms_status\")\n  |> filter(fn: (r) => r[\"_field\"] == \"power\")\n  |> aggregateWindow(every: 5m, fn: mean, createEmpty: false)",
           "refId": "C"
         }
-      ]
+      ],
+      "title": "Power Flow (24h)",
+      "type": "timeseries",
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max", "min"],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
     },
     {
       "datasource": {
@@ -74,29 +96,57 @@
           "color": {
             "mode": "thresholds"
           },
-          "unit": "kwh"
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "orange", "value": 15},
+              {"color": "yellow", "value": 25},
+              {"color": "green", "value": 40}
+            ]
+          },
+          "unit": "percent"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 8,
-        "w": 6,
-        "x": 12,
-        "y": 0
+        "w": 8,
+        "x": 0,
+        "y": 8
       },
       "id": 2,
-      "title": "Today",
-      "type": "bargauge",
+      "pluginVersion": "10.4.0",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
             "uid": "influxdb-dalybms"
           },
-          "query": "from(bucket:\"daly_bms\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"et112_status\" and r._field == \"energy_export_wh\") |> last() |> map(fn: (r) => ({r with _value: r._value / 1000.0}))",
+          "query": "from(bucket: v.defaultBucket)\n  |> range(start: -2m)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"bms_status\")\n  |> filter(fn: (r) => r[\"_field\"] == \"soc\")\n  |> last()\n  |> rename(columns: {\"address\": \"BMS\"})",
           "refId": "A"
         }
-      ]
+      ],
+      "title": "Battery SOC (%)",
+      "type": "gauge",
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "text": {
+          "titleSize": 14,
+          "valueSize": 32
+        }
+      }
     },
     {
       "datasource": {
@@ -108,36 +158,126 @@
           "color": {
             "mode": "thresholds"
           },
-          "unit": "kwh"
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "yellow", "value": 46},
+              {"color": "green", "value": 50},
+              {"color": "orange", "value": 57}
+            ]
+          },
+          "unit": "volt",
+          "decimals": 2
         },
         "overrides": []
       },
       "gridPos": {
         "h": 8,
-        "w": 6,
-        "x": 18,
-        "y": 0
+        "w": 8,
+        "x": 8,
+        "y": 8
       },
       "id": 3,
-      "title": "This Month",
-      "type": "bargauge",
+      "pluginVersion": "10.4.0",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
             "uid": "influxdb-dalybms"
           },
-          "query": "from(bucket:\"daly_bms\") |> range(start: -30d) |> filter(fn: (r) => r._measurement == \"et112_status\" and r._field == \"energy_export_wh\") |> last() |> map(fn: (r) => ({r with _value: r._value / 1000.0}))",
+          "query": "from(bucket: v.defaultBucket)\n  |> range(start: -2m)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"bms_status\")\n  |> filter(fn: (r) => r[\"_field\"] == \"voltage\")\n  |> last()",
           "refId": "A"
         }
-      ]
+      ],
+      "title": "Battery Voltage",
+      "type": "stat",
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "text": {
+          "titleSize": 14,
+          "valueSize": 32
+        },
+        "textMode": "auto"
+      }
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-dalybms"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "blue", "value": null},
+              {"color": "green", "value": -0.5},
+              {"color": "orange", "value": 50},
+              {"color": "red", "value": 80}
+            ]
+          },
+          "unit": "amp",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 8
+      },
+      "id": 4,
+      "pluginVersion": "10.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-dalybms"
+          },
+          "query": "from(bucket: v.defaultBucket)\n  |> range(start: -2m)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"bms_status\")\n  |> filter(fn: (r) => r[\"_field\"] == \"current\")\n  |> last()",
+          "refId": "A"
+        }
+      ],
+      "title": "Battery Current",
+      "type": "stat",
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "text": {
+          "titleSize": 14,
+          "valueSize": 32
+        },
+        "textMode": "auto"
+      }
     }
   ],
   "refresh": "30s",
   "schemaVersion": 38,
   "style": "dark",
   "tags": [
-    "solar"
+    "solar",
+    "energy",
+    "monitoring"
   ],
   "templating": {
     "list": []
