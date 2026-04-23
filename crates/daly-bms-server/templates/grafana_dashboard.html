@@ -29,7 +29,7 @@
   const protocol = window.location.protocol;
   const host = window.location.hostname;
   const port = 3001;
-  const dashUrl = `${protocol}//${host}:${port}/d/santuario?orgId=1&refresh=30s&from=now-24h&to=now`;
+  const dashUrl = `${protocol}//${host}:${port}/d/santuario?orgId=1&refresh=30s`;
   document.write(`<iframe id="grafana-frame" src="${dashUrl}" allow="clipboard-write" allowfullscreen></iframe>`);
 </script>
 {% endblock %}
