@@ -1,8 +1,7 @@
 # =============================================================================
 # DalyBMS — Stack complète Docker Compose
 # =============================================================================
-# Inclut : Mosquitto · InfluxDB · daly-bms-server · Node-RED
-# (Grafana supprimé — dashboard intégré dans daly-bms-server via ECharts)
+# Inclut : Mosquitto · InfluxDB · Grafana · daly-bms-server · Node-RED
 #
 # Prérequis :
 #   cp .env.docker .env && nano .env   # adapter les secrets
@@ -131,6 +130,43 @@ services:
     networks:
       - dalybms-net
 
+  # ── Grafana (visualisation & dashboards) ────────────────────────────────────
+  grafana:
+    image: grafana/grafana:11.6.0
+    container_name: dalybms-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER:        ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD:    ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP:        "false"
+      GF_AUTH_ANONYMOUS_ENABLED:     "false"
+      GF_SECURITY_ALLOW_EMBEDDING:   "true"
+      GF_LOG_LEVEL:                  info
+      INFLUX_TOKEN:                  ${INFLUX_TOKEN:?INFLUX_TOKEN manquant dans .env}
+      INFLUX_ORG:                    ${INFLUX_ORG:-santuario}
+      INFLUX_BUCKET:                 ${INFLUX_BUCKET:-daly_bms}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - dalybms-net
+
   # ── Node-RED (automatisation / logique métier) ───────────────────────────────
   nodered:
     image: nodered/node-red:4.0.2
@@ -205,6 +241,8 @@ volumes:
     name: dalybms-influxdb-data
   influxdb-config:
     name: dalybms-influxdb-config
+  grafana-data:
+    name: dalybms-grafana-data
   nodered-data:
     name: dalybms-nodered-data
   dalybms-alerts:
