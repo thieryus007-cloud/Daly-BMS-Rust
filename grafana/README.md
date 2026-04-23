@@ -39,6 +39,12 @@ export GRAFANA_URL=http://192.168.1.141:3001
 export GRAFANA_ADMIN_USER=admin
 export GRAFANA_ADMIN_PASSWORD=admin
 
+influxDB
+supersecretchangeit
+
+grafana
+autre_supersecret
+
 # Lancer l'import
 ./scripts/import-grafana-dashboard.sh
 ```
