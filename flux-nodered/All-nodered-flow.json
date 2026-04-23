@@ -1,0 +1,5767 @@
+[
+    {
+        "id": "101e9957c87236c8",
+        "type": "tab",
+        "label": "Charge Current",
+        "disabled": false,
+        "locked": true,
+        "info": "Migré vers MQTT — Venus OS via bridge MQTT Pi5→NanoPi\nPortal ID: c0619ab9929a",
+        "env": []
+    },
+    {
+        "id": "52bc1794174258be",
+        "type": "tab",
+        "label": "Commande DEYE ",
+        "disabled": false,
+        "info": "Gestion DEYE avec protection anti-oscillation\n- Minimum 2 min OFF avant rallumage\n- Hystérésis large\n- Uniquement en off-grid"
+    },
+    {
+        "id": "8f89ead049d40e28",
+        "type": "tab",
+        "label": "Shelly",
+        "disabled": false,
+        "info": "shellypro2pm-ec62608840a4",
+        "env": []
+    },
+    {
+        "id": "ad164b51b52261a6",
+        "type": "tab",
+        "label": "Manage waterHeater",
+        "disabled": false,
+        "locked": true,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "8d21ed03a188a188",
+        "type": "tab",
+        "label": "Set waterHeater",
+        "disabled": false,
+        "locked": true,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "61c4471c0dc1e9fd",
+        "type": "tab",
+        "label": "Heatpump / Chauffe-eau",
+        "disabled": false,
+        "info": "Validation com.victronenergy.heatpump.mqtt_1\nTopic : santuario/heatpump/1/venus\nConfig NanoPi : [[heatpumps]] mqtt_index=1 device_instance=201"
+    },
+    {
+        "id": "fcd40bfe59dbb32b",
+        "type": "tab",
+        "label": "Switch / ATS",
+        "disabled": false,
+        "info": "Validation com.victronenergy.switch.mqtt_1\nTopic : santuario/switch/1/venus\nConfig NanoPi : [[switches]] mqtt_index=1 device_instance=301"
+    },
+    {
+        "id": "59bb727e9697e20a",
+        "type": "tab",
+        "label": "Platform Pi5",
+        "disabled": false,
+        "info": "Validation com.victronenergy.platform (singleton)\nTopic fixe : santuario/platform/venus\nPas de config.toml nécessaire — singleton activé par défaut si venus.enabled=true"
+    },
+    {
+        "id": "937d07520c270483",
+        "type": "tab",
+        "label": "Irradiance RS485",
+        "disabled": false,
+        "locked": true,
+        "info": "Capteur irradiance solaire RS485 Modbus RTU\n\n## Architecture\n- Service systemd `irradiance-rs485` lit le capteur (Modbus RTU addr=0x05, FC=04, reg=0x0000)\n- Port /dev/ttyUSB1, 9600 baud 8N1\n- Publie sur MQTT `santuario/irradiance/raw` (payload = entier W/m²)\n- Ce flow souscrit, met à jour le contexte global `irradiance_wm2`\n- Le keepalive de l'onglet Meteo lit ce contexte et l'inclut dans `santuario/meteo/venus`\n\n## Fichiers Pi5\n  ~/Daly-BMS-Rust/contrib/irradiance-rs485/irradiance_reader.py\n  ~/Daly-BMS-Rust/contrib/irradiance-rs485/irradiance-rs485.service\n\n## Diagnostic Pi5\n  systemctl status irradiance-rs485\n  journalctl -u irradiance-rs485 -f\n  mosquitto_sub -h localhost -p 1883 -t 'santuario/irradiance/raw' -v\n\n## Diagnostic NanoPi\n  dbus -y com.victronenergy.meteo /Irradiance GetValue",
+        "env": []
+    },
+    {
+        "id": "73ef7c83945b9aaa",
+        "type": "tab",
+        "label": "Meteo",
+        "disabled": false,
+        "info": "Open-Meteo (5 min) → température / humidité / pression / vent → Venus OS\nProduction solaire du jour : MPPT History/Daily/0/Yield + PVInverter delta journalier\n\nPersistance pvinv_baseline :\n  Stockée en MQTT retained (santuario/persist/pvinv_baseline)\n  Mosquitto persistence=true → survit aux redémarrages Pi5 et NanoPi\n  Pas de modifications Docker ni de settings.js nécessaires.",
+        "env": []
+    },
+    {
+        "id": "0bc19373f927ae02",
+        "type": "tab",
+        "label": "Inverter/Charger → santuario/inverter/venus",
+        "disabled": false,
+        "info": "Victron MultiPlus / CGWACS données → MQTT\nPublie sur santuario/inverter/venus pour daly-bms-server"
+    },
+    {
+        "id": "868c5ce8bd74c7b1",
+        "type": "tab",
+        "label": "SmartShunt → santuario/system/venus",
+        "disabled": false,
+        "info": "SmartShunt 500A → D-Bus NanoPi → MQTT → Pi5 daly-bms-server\nPublie à santuario/system/venus avec format attendu par le serveur",
+        "env": []
+    },
+    {
+        "id": "b8d77b9de0e8bb69",
+        "type": "tab",
+        "label": "Tasmota",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "56b6f8e9da8a7ef8",
+        "type": "tab",
+        "label": "Solar_power",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "victron_mqtt",
+        "type": "mqtt-broker",
+        "name": "Pi5 MQTT",
+        "broker": "192.168.1.141",
+        "port": "1883",
+        "clientid": "nodered_shelly",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "pi5_mqtt_broker_fip",
+        "type": "mqtt-broker",
+        "name": "Pi5 MQTT",
+        "broker": "192.168.1.141",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "pi5_mqtt_broker",
+        "type": "mqtt-broker",
+        "name": "Pi5 MQTT",
+        "broker": "192.168.1.141",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "pi5_mqtt_broker_swh",
+        "type": "mqtt-broker",
+        "name": "Pi5 MQTT",
+        "broker": "192.168.1.141",
+        "port": "1883",
+        "clientid": "nodered_setwaterheater",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "04263f2d054cc2a1",
+        "type": "shelly-gen2-server",
+        "port": "10001",
+        "hostname": "unimatrix"
+    },
+    {
+        "id": "fc56cacd3a9a0c7e",
+        "type": "global-config",
+        "env": []
+    },
+    {
+        "id": "pi5_mqtt_broker_wh",
+        "type": "mqtt-broker",
+        "name": "Pi5 MQTT",
+        "broker": "192.168.1.141",
+        "port": "1883",
+        "clientid": "nodered_waterheater",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "tasmota-broker",
+        "type": "mqtt-broker",
+        "name": "Mosquitto Pi5",
+        "broker": "192.168.1.141",
+        "port": "1883",
+        "clientid": "nodered-tasmota-sy2",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "pi5_mqtt_broker_ss",
+        "type": "mqtt-broker",
+        "name": "Pi5 MQTT",
+        "broker": "192.168.1.141",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "70fe638e52f74a89",
+        "type": "mqtt-broker",
+        "name": "NanoPi 192.168.1.120:1883",
+        "broker": "192.168.1.120",
+        "port": "1883",
+        "clientid": "nodered-venus-validation",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "28f0f7c4bcdb97e9",
+        "type": "mqtt-broker",
+        "name": "Pi5 MQTT",
+        "broker": "192.168.1.141",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "31ea0eb62e1822ff",
+        "type": "inject",
+        "z": "101e9957c87236c8",
+        "name": "Check every 2min",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "120",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "0.1",
+        "topic": "R/c0619ab9929a/vebus/275/Ac/State/IgnoreAcIn1",
+        "payload": "",
+        "payloadType": "str",
+        "x": 150,
+        "y": 40,
+        "wires": [
+            [
+                "9191646297697475"
+            ]
+        ]
+    },
+    {
+        "id": "34df4bb8948a2bac",
+        "type": "mqtt in",
+        "z": "101e9957c87236c8",
+        "name": "AC Input Ignored?",
+        "topic": "N/c0619ab9929a/vebus/275/Ac/State/IgnoreAcIn1",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_fip",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 160,
+        "y": 120,
+        "wires": [
+            [
+                "c02efc1558835c04",
+                "d0f038454085de64"
+            ]
+        ]
+    },
+    {
+        "id": "c02efc1558835c04",
+        "type": "function",
+        "z": "101e9957c87236c8",
+        "name": "Extract .value",
+        "func": "var v = msg.payload;\nif (v && v.value !== undefined) {\n    msg.payload = v.value;\n    const label = v.value === 1 ? 'AC ignoré (off-grid)' : 'AC actif (grid)';\n    node.status({fill: v.value === 1 ? 'green' : 'red', shape: 'dot', text: label});\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 370,
+        "y": 120,
+        "wires": [
+            [
+                "f4b79901905aaedb"
+            ]
+        ]
+    },
+    {
+        "id": "f4b79901905aaedb",
+        "type": "switch",
+        "z": "101e9957c87236c8",
+        "name": "Check AC Input",
+        "property": "payload",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "1",
+                "vt": "num"
+            },
+            {
+                "t": "eq",
+                "v": "0",
+                "vt": "num"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 2,
+        "x": 150,
+        "y": 200,
+        "wires": [
+            [
+                "9c7c100fd6d153b9",
+                "6a036888c27efe0c"
+            ],
+            [
+                "6d6a18481c4536b6",
+                "885357a11f057f49",
+                "b1c112120626225b"
+            ]
+        ]
+    },
+    {
+        "id": "9c7c100fd6d153b9",
+        "type": "change",
+        "z": "101e9957c87236c8",
+        "name": "Set 70A",
+        "rules": [
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "70",
+                "tot": "num"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 400,
+        "y": 180,
+        "wires": [
+            [
+                "558cfbd83501a133"
+            ]
+        ]
+    },
+    {
+        "id": "6a036888c27efe0c",
+        "type": "change",
+        "z": "101e9957c87236c8",
+        "name": "PowerAssist ON",
+        "rules": [
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "1",
+                "tot": "num"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 180,
+        "y": 280,
+        "wires": [
+            [
+                "9620877f8e39d43d"
+            ]
+        ]
+    },
+    {
+        "id": "6d6a18481c4536b6",
+        "type": "function",
+        "z": "101e9957c87236c8",
+        "name": "Set 0A or 4A based on PV excess",
+        "func": "let pvExcess = flow.get('pvExcess') || false;\nlet current = pvExcess ? 4 : 0;\nmsg.payload = current;\nnode.status({fill:\"blue\",shape:\"dot\",text:`Set ${current}A (PV excess: ${pvExcess})`});\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 420,
+        "y": 260,
+        "wires": [
+            [
+                "558cfbd83501a133"
+            ]
+        ]
+    },
+    {
+        "id": "885357a11f057f49",
+        "type": "change",
+        "z": "101e9957c87236c8",
+        "name": "PowerAssist OFF",
+        "rules": [
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "0",
+                "tot": "num"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 190,
+        "y": 340,
+        "wires": [
+            [
+                "9620877f8e39d43d"
+            ]
+        ]
+    },
+    {
+        "id": "b1c112120626225b",
+        "type": "change",
+        "z": "101e9957c87236c8",
+        "name": "Set Feed-in 0W",
+        "rules": [
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "0",
+                "tot": "num"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 180,
+        "y": 400,
+        "wires": [
+            [
+                "75cf6b32f44cbfdd"
+            ]
+        ]
+    },
+    {
+        "id": "558cfbd83501a133",
+        "type": "function",
+        "z": "101e9957c87236c8",
+        "name": "Send only if changed",
+        "func": "let lastValue = context.get('lastChargeCurrent') || null;\nlet newValue = msg.payload;\nif (lastValue !== newValue) {\n    context.set('lastChargeCurrent', newValue);\n    node.status({fill:\"green\",shape:\"dot\",text:`Changed to ${newValue}A`});\n    return msg;\n} else {\n    node.status({fill:\"grey\",shape:\"ring\",text:`Unchanged (${newValue}A)`});\n    return null;\n}",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 620,
+        "y": 200,
+        "wires": [
+            [
+                "eeb1806df2f723e8",
+                "e9520d105de2b434"
+            ]
+        ]
+    },
+    {
+        "id": "eeb1806df2f723e8",
+        "type": "function",
+        "z": "101e9957c87236c8",
+        "name": "→ W/ MaxChargeCurrent",
+        "func": "msg.topic = 'W/c0619ab9929a/vebus/275/Dc/0/MaxChargeCurrent';\nmsg.payload = {value: msg.payload};\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 830,
+        "y": 200,
+        "wires": [
+            [
+                "9191646297697475"
+            ]
+        ]
+    },
+    {
+        "id": "9620877f8e39d43d",
+        "type": "function",
+        "z": "101e9957c87236c8",
+        "name": "→ W/ PowerAssist",
+        "func": "msg.topic = 'W/c0619ab9929a/vebus/275/Settings/PowerAssistEnabled';\nmsg.payload = {value: msg.payload};\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 410,
+        "y": 310,
+        "wires": [
+            [
+                "9191646297697475"
+            ]
+        ]
+    },
+    {
+        "id": "75cf6b32f44cbfdd",
+        "type": "function",
+        "z": "101e9957c87236c8",
+        "name": "→ W/ MaxFeedInPower",
+        "func": "msg.topic = 'W/c0619ab9929a/settings/0/Settings/CGwacs/MaxFeedInPower';\nmsg.payload = {value: msg.payload};\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 410,
+        "y": 400,
+        "wires": [
+            [
+                "9191646297697475"
+            ]
+        ]
+    },
+    {
+        "id": "9191646297697475",
+        "type": "mqtt out",
+        "z": "101e9957c87236c8",
+        "name": "→ Venus MQTT",
+        "topic": "",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "broker": "pi5_mqtt_broker_fip",
+        "x": 1050,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "e9520d105de2b434",
+        "type": "debug",
+        "z": "101e9957c87236c8",
+        "name": "Value sent",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 630,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "d0f038454085de64",
+        "type": "debug",
+        "z": "101e9957c87236c8",
+        "name": "AC Input raw",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 400,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "ef0ea33d9b535027",
+        "type": "inject",
+        "z": "101e9957c87236c8",
+        "name": "Manual: Set 0A",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "0",
+        "payloadType": "num",
+        "x": 680,
+        "y": 340,
+        "wires": [
+            [
+                "eeb1806df2f723e8"
+            ]
+        ]
+    },
+    {
+        "id": "7a20ae3548a64ab7",
+        "type": "inject",
+        "z": "101e9957c87236c8",
+        "name": "Manual: Set 70A",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "70",
+        "payloadType": "num",
+        "x": 680,
+        "y": 400,
+        "wires": [
+            [
+                "eeb1806df2f723e8"
+            ]
+        ]
+    },
+    {
+        "id": "64b0e127f3c1553b",
+        "type": "mqtt in",
+        "z": "101e9957c87236c8",
+        "name": "PV AC Output Power",
+        "topic": "N/c0619ab9929a/system/0/Ac/PvOnOutput/L1/Power",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_fip",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 220,
+        "y": 480,
+        "wires": [
+            [
+                "71f5a3f6581a8e9f"
+            ]
+        ]
+    },
+    {
+        "id": "71f5a3f6581a8e9f",
+        "type": "function",
+        "z": "101e9957c87236c8",
+        "name": "Extract PV power",
+        "func": "var v = msg.payload;\nif (v && v.value !== undefined) {\n    msg.payload = v.value;\n    msg.path = '/Ac/PvOnOutput/L1/Power';\n    node.status({fill: 'blue', shape: 'dot', text: v.value + ' W'});\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 430,
+        "y": 480,
+        "wires": [
+            [
+                "99ab90bf67457386"
+            ]
+        ]
+    },
+    {
+        "id": "65ec6b494b19b34a",
+        "type": "mqtt in",
+        "z": "101e9957c87236c8",
+        "name": "Consumption on Output",
+        "topic": "N/c0619ab9929a/system/0/Ac/ConsumptionOnOutput/L1/Power",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_fip",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 220,
+        "y": 620,
+        "wires": [
+            [
+                "440a448b51a53035"
+            ]
+        ]
+    },
+    {
+        "id": "440a448b51a53035",
+        "type": "function",
+        "z": "101e9957c87236c8",
+        "name": "Extract consumption",
+        "func": "var v = msg.payload;\nif (v && v.value !== undefined) {\n    msg.payload = v.value;\n    msg.path = '/Ac/ConsumptionOnOutput/L1/Power';\n    node.status({fill: 'blue', shape: 'dot', text: v.value + ' W'});\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 430,
+        "y": 620,
+        "wires": [
+            [
+                "99ab90bf67457386"
+            ]
+        ]
+    },
+    {
+        "id": "99ab90bf67457386",
+        "type": "function",
+        "z": "101e9957c87236c8",
+        "name": "Calculate PV excess",
+        "func": "let pvPower = flow.get('pvPower') || 0;\nlet consumption = flow.get('consumption') || 0;\n\nif (msg.path === '/Ac/PvOnOutput/L1/Power') {\n    pvPower = msg.payload || 0;\n    flow.set('pvPower', pvPower);\n} else if (msg.path === '/Ac/ConsumptionOnOutput/L1/Power') {\n    consumption = msg.payload || 0;\n    flow.set('consumption', consumption);\n}\n\nlet excess = pvPower - consumption;\nlet pvExcess = excess > 50;\nflow.set('pvExcess', pvExcess);\n\nnode.status({\n    fill: pvExcess ? 'green' : 'grey',\n    shape: 'dot',\n    text: `PV: ${pvPower}W | Cons: ${consumption}W | Excess: ${excess}W | Flag: ${pvExcess}`\n});\n\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 620,
+        "y": 540,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "2fa2151f403a67bd",
+        "type": "inject",
+        "z": "101e9957c87236c8",
+        "name": "Set AcExportLimit 0",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "0",
+        "payloadType": "num",
+        "x": 270,
+        "y": 700,
+        "wires": [
+            [
+                "2480fa329212e69d"
+            ]
+        ]
+    },
+    {
+        "id": "2480fa329212e69d",
+        "type": "function",
+        "z": "101e9957c87236c8",
+        "name": "→ W/ AcExportLimit",
+        "func": "msg.topic = 'W/c0619ab9929a/settings/0/Settings/CGwacs/AcExportLimit';\nmsg.payload = {value: msg.payload};\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 500,
+        "y": 700,
+        "wires": [
+            [
+                "9191646297697475"
+            ]
+        ]
+    },
+    {
+        "id": "b6f8a837f22c12fc",
+        "type": "comment",
+        "z": "101e9957c87236c8",
+        "name": "Logique: Grid connecté + excédent PV>50W → 4A | Grid connecté + pas excédent → 0A | Grid déconnecté → 70A",
+        "info": "Venus MQTT bridge: Pi5 Mosquitto ↔ NanoPi 192.168.1.120\nN/ = données Venus (in), W/ = commandes Venus (out)\nPortal ID: c0619ab9929a | VEBus instance: 275",
+        "x": 660,
+        "y": 620,
+        "wires": []
+    },
+    {
+        "id": "803aa6564790f0ce",
+        "type": "function",
+        "z": "52bc1794174258be",
+        "name": "Stocker Fréquence",
+        "func": "const freq = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('frequency', freq);\nnode.status({fill:\"blue\",shape:\"dot\",text:`${freq} Hz`});\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 150,
+        "y": 240,
+        "wires": [
+            [
+                "6199429744e8bc15"
+            ]
+        ]
+    },
+    {
+        "id": "ce9970a87140d5b3",
+        "type": "function",
+        "z": "52bc1794174258be",
+        "name": "Stocker État Grid",
+        "func": "const connected = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('grid_connected', connected === 1);\n\nif (connected === 1) {\n    node.status({fill:\"green\",shape:\"dot\",text:\"Grid Connecté\"});\n} else {\n    node.status({fill:\"orange\",shape:\"dot\",text:\"Grid Déconnecté\"});\n}\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 150,
+        "y": 100,
+        "wires": [
+            [
+                "6199429744e8bc15"
+            ]
+        ]
+    },
+    {
+        "id": "6199429744e8bc15",
+        "type": "function",
+        "z": "52bc1794174258be",
+        "name": "Logique Anti-Oscillation 52Hz 50.3Hz",
+        "func": "const freq = flow.get('frequency') || 50.0;\nconst gridConnected = flow.get('grid_connected');\n\n// ⚠️ CONDITION CRITIQUE : Ne couper QUE si déconnecté du grid\nif (gridConnected === true) {\n    // Grid connecté → Forcer ON\n    let currentState = context.get('shelly_state') || 'ON';\n    if (currentState !== 'ON') {\n        context.set('shelly_state', 'ON');\n        context.set('last_off_time', null); // Reset timer OFF\n        msg.payload = { action: 'ON', freq: freq, reason: 'Grid connecté → DEYE ON forcé' };\n        node.status({fill:\"green\",shape:\"dot\",text:`🟢 ON (Grid connecté)`});\n        return msg;\n    }\n    node.status({fill:\"green\",shape:\"ring\",text:`ON (Grid - ${freq}Hz)`});\n    return null;\n}\n\n// === MODE OFF-GRID : Gestion avec protection anti-oscillation ===\n\n// PARAMÈTRES CRITIQUES\nconst FREQ_HIGH = 52.0;       // Seuil haut pour couper (Hz)\nconst FREQ_LOW = 50.3;        // Seuil bas pour rallumer (Hz) - LARGE HYSTÉRÉSIS\nconst DELAY_OFF = 15;         // Délai avant coupure (secondes)\nconst DELAY_ON = 45;          // Délai avant rallumage (secondes)\nconst MIN_OFF_DURATION = 120; // Minimum 2 minutes OFF (secondes)\n\n// État actuel\nlet currentState = context.get('shelly_state') || 'ON';\nlet timerHigh = context.get('timer_high') || null;\nlet timerLow = context.get('timer_low') || null;\nlet lastOffTime = context.get('last_off_time') || null;\n\n// === PROTECTION : Vérifier durée minimum OFF ===\nif (currentState === 'OFF' && lastOffTime !== null) {\n    const timeSinceOff = (Date.now() - lastOffTime) / 1000;\n    const remainingTime = MIN_OFF_DURATION - timeSinceOff;\n    \n    if (remainingTime > 0) {\n        // Encore dans la période minimum OFF → Bloquer tout rallumage\n        context.set('timer_low', null); // Reset timer rallumage\n        node.status({\n            fill:\"red\",\n            shape:\"ring\",\n            text:`🔴 OFF verrouillé ${remainingTime.toFixed(0)}s (${freq}Hz)`\n        });\n        return null;\n    }\n}\n\n// === Machine à états avec hystérésis ===\n\nif (freq >= FREQ_HIGH) {\n    // Fréquence haute détectée → Demande de coupure\n    if (!timerHigh) {\n        timerHigh = Date.now();\n        context.set('timer_high', timerHigh);\n    }\n    \n    const elapsedHigh = (Date.now() - timerHigh) / 1000;\n    \n    if (elapsedHigh >= DELAY_OFF && currentState === 'ON') {\n        // Condition remplie → Couper DEYE\n        currentState = 'OFF';\n        const now = Date.now();\n        context.set('shelly_state', 'OFF');\n        context.set('last_off_time', now); // Enregistrer l'heure de coupure\n        context.set('timer_low', null);\n        \n        msg.payload = { \n            action: 'OFF', \n            freq: freq, \n            reason: `OFF-GRID: Freq ${freq}Hz > ${FREQ_HIGH}Hz pendant ${DELAY_OFF}s` \n        };\n        node.status({fill:\"red\",shape:\"dot\",text:`🔴 OFF (${freq}Hz)`});\n        return msg;\n        \n    } else if (currentState === 'OFF') {\n        const timeSinceOff = lastOffTime ? (Date.now() - lastOffTime) / 1000 : 0;\n        node.status({\n            fill:\"red\",\n            shape:\"ring\",\n            text:`OFF maintenu ${timeSinceOff.toFixed(0)}s (${freq}Hz)`\n        });\n    } else {\n        node.status({\n            fill:\"yellow\",\n            shape:\"ring\",\n            text:`${freq}Hz - Attente ${elapsedHigh.toFixed(0)}/${DELAY_OFF}s`\n        });\n    }\n    \n    context.set('timer_low', null);\n    \n} else if (freq <= FREQ_LOW) {\n    // Fréquence basse détectée → Demande de rallumage\n    \n    // Vérifier si on peut rallumer (durée minimum OFF écoulée)\n    if (currentState === 'OFF' && lastOffTime !== null) {\n        const timeSinceOff = (Date.now() - lastOffTime) / 1000;\n        if (timeSinceOff < MIN_OFF_DURATION) {\n            // Pas encore 2 minutes OFF → Bloquer\n            node.status({\n                fill:\"red\",\n                shape:\"ring\",\n                text:`🔒 OFF verrouillé ${(MIN_OFF_DURATION - timeSinceOff).toFixed(0)}s`\n            });\n            return null;\n        }\n    }\n    \n    // Durée minimum OK → Démarrer timer rallumage\n    if (!timerLow) {\n        timerLow = Date.now();\n        context.set('timer_low', timerLow);\n    }\n    \n    const elapsedLow = (Date.now() - timerLow) / 1000;\n    \n    if (elapsedLow >= DELAY_ON && currentState === 'OFF') {\n        // Condition remplie → Rallumer DEYE\n        currentState = 'ON';\n        context.set('shelly_state', 'ON');\n        context.set('last_off_time', null); // Reset compteur OFF\n        context.set('timer_high', null);\n        \n        msg.payload = { \n            action: 'ON', \n            freq: freq, \n            reason: `OFF-GRID: Freq ${freq}Hz < ${FREQ_LOW}Hz pendant ${DELAY_ON}s (après 2min OFF)` \n        };\n        node.status({fill:\"green\",shape:\"dot\",text:`🟢 ON (${freq}Hz)`});\n        return msg;\n        \n    } else if (currentState === 'ON') {\n        node.status({fill:\"green\",shape:\"ring\",text:`ON stable (${freq}Hz)`});\n    } else {\n        node.status({\n            fill:\"yellow\",\n            shape:\"ring\",\n            text:`${freq}Hz - Attente ${elapsedLow.toFixed(0)}/${DELAY_ON}s`\n        });\n    }\n    \n    context.set('timer_high', null);\n    \n} else {\n    // Zone d'hystérésis (entre FREQ_LOW et FREQ_HIGH)\n    context.set('timer_high', null);\n    context.set('timer_low', null);\n    \n    if (currentState === 'ON') {\n        node.status({fill:\"green\",shape:\"ring\",text:`ON stable (${freq}Hz)`});\n    } else {\n        const timeSinceOff = lastOffTime ? (Date.now() - lastOffTime) / 1000 : 0;\n        node.status({\n            fill:\"red\",\n            shape:\"ring\",\n            text:`OFF stable ${timeSinceOff.toFixed(0)}s (${freq}Hz)`\n        });\n    }\n}\n\nreturn null;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 210,
+        "y": 160,
+        "wires": [
+            [
+                "e9725e51c47ab780",
+                "6ada85025a52680d"
+            ]
+        ]
+    },
+    {
+        "id": "e9725e51c47ab780",
+        "type": "switch",
+        "z": "52bc1794174258be",
+        "name": "Routage",
+        "property": "payload.action",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "OFF",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "ON",
+                "vt": "str"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 2,
+        "x": 480,
+        "y": 160,
+        "wires": [
+            [
+                "e7dd11c50e5fc96f"
+            ],
+            [
+                "10b4dd61230593ec"
+            ]
+        ]
+    },
+    {
+        "id": "e7dd11c50e5fc96f",
+        "type": "function",
+        "z": "52bc1794174258be",
+        "name": "Switch 0 OFF",
+        "func": "msg.payload = JSON.stringify({\n    \"id\": 2,\n    \"src\": \"nodered\",\n    \"method\": \"Switch.Set\",\n    \"params\": {\n        \"id\": 0,\n        \"on\": false\n    }\n});\nmsg.topic = \"shellypro2pm-ec62608840a4/rpc\";\nnode.status({fill:\"red\",shape:\"dot\",text:\"Commande OFF\"});\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 640,
+        "y": 100,
+        "wires": [
+            [
+                "b4627dab9c04c8d3"
+            ]
+        ]
+    },
+    {
+        "id": "10b4dd61230593ec",
+        "type": "function",
+        "z": "52bc1794174258be",
+        "name": "Switch 0 ON",
+        "func": "msg.payload = JSON.stringify({\n    \"id\": 1,\n    \"src\": \"nodered\",\n    \"method\": \"Switch.Set\",\n    \"params\": {\n        \"id\": 0,\n        \"on\": true\n    }\n});\nmsg.topic = \"shellypro2pm-ec62608840a4/rpc\";\nnode.status({fill:\"green\",shape:\"dot\",text:\"Commande ON\"});\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 630,
+        "y": 220,
+        "wires": [
+            [
+                "b4627dab9c04c8d3"
+            ]
+        ]
+    },
+    {
+        "id": "b4627dab9c04c8d3",
+        "type": "mqtt out",
+        "z": "52bc1794174258be",
+        "name": "Shelly Command DEYE",
+        "topic": "",
+        "qos": "0",
+        "retain": "false",
+        "broker": "victron_mqtt",
+        "x": 730,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "6ada85025a52680d",
+        "type": "debug",
+        "z": "52bc1794174258be",
+        "name": "Debug Décision",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 400,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "2eec6cd8ceb5dbdc",
+        "type": "debug",
+        "z": "52bc1794174258be",
+        "name": "debug 7",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 480,
+        "y": 360,
+        "wires": []
+    },
+    {
+        "id": "29e4e9f55cb5f391",
+        "type": "mqtt in",
+        "z": "52bc1794174258be",
+        "name": "Fréquence AC Out",
+        "topic": "N/c0619ab9929a/vebus/275/Ac/Out/L1/F",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "victron_mqtt",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 210,
+        "y": 300,
+        "wires": [
+            [
+                "92b76cefd9fb85a0"
+            ]
+        ]
+    },
+    {
+        "id": "92b76cefd9fb85a0",
+        "type": "function",
+        "z": "52bc1794174258be",
+        "name": "Extract freq value",
+        "func": "var v = msg.payload;\nif (v && v.value !== undefined) {\n    node.status({fill:'blue', shape:'dot', text: v.value + ' Hz'});\n    msg.payload = {value: v.value};\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 430,
+        "y": 300,
+        "wires": [
+            [
+                "803aa6564790f0ce"
+            ]
+        ]
+    },
+    {
+        "id": "bec956ba8e491979",
+        "type": "mqtt in",
+        "z": "52bc1794174258be",
+        "name": "Grid Connected",
+        "topic": "N/c0619ab9929a/vebus/275/Ac/ActiveIn/Connected",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "victron_mqtt",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 250,
+        "y": 40,
+        "wires": [
+            [
+                "7cfe464749ce062f"
+            ]
+        ]
+    },
+    {
+        "id": "7cfe464749ce062f",
+        "type": "function",
+        "z": "52bc1794174258be",
+        "name": "Extract grid value",
+        "func": "var v = msg.payload;\nif (v && v.value !== undefined) {\n    const label = v.value === 1 ? 'Connecté' : 'Déconnecté';\n    node.status({fill: v.value === 1 ? 'green' : 'orange', shape:'dot', text: label});\n    msg.payload = {value: v.value};\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 40,
+        "wires": [
+            [
+                "ce9970a87140d5b3"
+            ]
+        ]
+    },
+    {
+        "id": "1b1e2a494bda0218",
+        "type": "mqtt in",
+        "z": "52bc1794174258be",
+        "name": "IgnoreAcIn1",
+        "topic": "N/c0619ab9929a/vebus/275/Ac/State/IgnoreAcIn1",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "victron_mqtt",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 210,
+        "y": 360,
+        "wires": [
+            [
+                "2eec6cd8ceb5dbdc"
+            ]
+        ]
+    },
+    {
+        "id": "e6dc3404e87c79db",
+        "type": "comment",
+        "z": "8f89ead049d40e28",
+        "name": "shellypro2pm-ec62608840a4",
+        "info": "\nmsg.payload : Object\nobject\nble: object\ncloud: object\neth: object\ninput0: object\nid: 0\nstate: false\ninput1: object\nid: 1\nstate: false\nmqtt: object\nconnected: true\n\nswitch0: object\nid: 0\nsource: \"HTTP\"\noutput: false\napower: 0\nvoltage: 1.6\ncurrent: 0\npf: 0\naenergy: object\ntotal: 0\nby_minute: array[3]\n0: 0\n1: 0\n2: 0\nminute_ts: 1768292313\ntemperature: object\ntC: 14.5\ntF: 58.2",
+        "x": 320,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "5a70cf918d560e6f",
+        "type": "comment",
+        "z": "8f89ead049d40e28",
+        "name": "192.168.1.136",
+        "info": "",
+        "x": 110,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "6b1a3991bde917ce",
+        "type": "inject",
+        "z": "8f89ead049d40e28",
+        "name": "Switch 0 ON",
+        "props": [],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "topic": "",
+        "x": 130,
+        "y": 80,
+        "wires": [
+            [
+                "5c635940c18aa5f9"
+            ]
+        ]
+    },
+    {
+        "id": "568d86c70aa72e64",
+        "type": "inject",
+        "z": "8f89ead049d40e28",
+        "name": "Switch 0 OFF",
+        "props": [],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "topic": "",
+        "x": 130,
+        "y": 120,
+        "wires": [
+            [
+                "77082fdcb2e46b72"
+            ]
+        ]
+    },
+    {
+        "id": "ee238a62de779ae1",
+        "type": "inject",
+        "z": "8f89ead049d40e28",
+        "name": "Switch 1 ON",
+        "props": [],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "topic": "",
+        "x": 130,
+        "y": 200,
+        "wires": [
+            [
+                "6c2928fb37c39c24"
+            ]
+        ]
+    },
+    {
+        "id": "dd7b47a1ed15d148",
+        "type": "inject",
+        "z": "8f89ead049d40e28",
+        "name": "Switch 1 OFF",
+        "props": [],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "topic": "",
+        "x": 130,
+        "y": 240,
+        "wires": [
+            [
+                "7a8b3df7c1715de8"
+            ]
+        ]
+    },
+    {
+        "id": "5c635940c18aa5f9",
+        "type": "function",
+        "z": "8f89ead049d40e28",
+        "name": "Switch 0 ON",
+        "func": "msg.payload = JSON.stringify({\n    \"id\": 1,\n    \"src\": \"nodered\",\n    \"method\": \"Switch.Set\",\n    \"params\": {\n        \"id\": 0,\n        \"on\": true\n    }\n});\nmsg.topic = \"shellypro2pm-ec62608840a4/rpc\";\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 330,
+        "y": 80,
+        "wires": [
+            [
+                "f6190166877ac5be"
+            ]
+        ]
+    },
+    {
+        "id": "77082fdcb2e46b72",
+        "type": "function",
+        "z": "8f89ead049d40e28",
+        "name": "Switch 0 OFF",
+        "func": "msg.payload = JSON.stringify({\n    \"id\": 2,\n    \"src\": \"nodered\",\n    \"method\": \"Switch.Set\",\n    \"params\": {\n        \"id\": 0,\n        \"on\": false\n    }\n});\nmsg.topic = \"shellypro2pm-ec62608840a4/rpc\";\nreturn msg;",
+        "outputs": 1,
+        "x": 330,
+        "y": 120,
+        "wires": [
+            [
+                "f6190166877ac5be"
+            ]
+        ]
+    },
+    {
+        "id": "6c2928fb37c39c24",
+        "type": "function",
+        "z": "8f89ead049d40e28",
+        "name": "Switch 1 ON",
+        "func": "msg.payload = JSON.stringify({\n    \"id\": 3,\n    \"src\": \"nodered\",\n    \"method\": \"Switch.Set\",\n    \"params\": {\n        \"id\": 1,\n        \"on\": true\n    }\n});\nmsg.topic = \"shellypro2pm-ec62608840a4/rpc\";\nreturn msg;",
+        "outputs": 1,
+        "x": 330,
+        "y": 200,
+        "wires": [
+            [
+                "f6190166877ac5be"
+            ]
+        ]
+    },
+    {
+        "id": "7a8b3df7c1715de8",
+        "type": "function",
+        "z": "8f89ead049d40e28",
+        "name": "Switch 1 OFF",
+        "func": "msg.payload = JSON.stringify({\n    \"id\": 4,\n    \"src\": \"nodered\",\n    \"method\": \"Switch.Set\",\n    \"params\": {\n        \"id\": 1,\n        \"on\": false\n    }\n});\nmsg.topic = \"shellypro2pm-ec62608840a4/rpc\";\nreturn msg;",
+        "outputs": 1,
+        "x": 330,
+        "y": 240,
+        "wires": [
+            [
+                "f6190166877ac5be"
+            ]
+        ]
+    },
+    {
+        "id": "f6190166877ac5be",
+        "type": "mqtt out",
+        "z": "8f89ead049d40e28",
+        "name": "Shelly Command",
+        "topic": "",
+        "qos": "0",
+        "retain": "false",
+        "broker": "victron_mqtt",
+        "x": 560,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "ae6c60de0bcdd948",
+        "type": "mqtt in",
+        "z": "8f89ead049d40e28",
+        "name": "Shelly Events",
+        "topic": "shellypro2pm-ec62608840a4/events/rpc",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "victron_mqtt",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 90,
+        "y": 320,
+        "wires": [
+            [
+                "7b3e8a012aea0cf5"
+            ]
+        ]
+    },
+    {
+        "id": "7b3e8a012aea0cf5",
+        "type": "function",
+        "z": "8f89ead049d40e28",
+        "name": "Parse Events",
+        "func": "const data = msg.payload;\n\nif (data.method === \"NotifyStatus\" && data.params) {\n    const msgs = [];\n    \n    // Switch 0\n    if (data.params[\"switch:0\"]) {\n        const sw0 = data.params[\"switch:0\"];\n        msgs[0] = {\n            payload: {\n                switch: 0,\n                output: sw0.output,\n                apower: sw0.apower || 0,\n                voltage: sw0.voltage || 0,\n                current: sw0.current || 0,\n                temperature: sw0.temperature ? sw0.temperature.tC : null\n            },\n            topic: \"switch0\"\n        };\n    }\n    \n    // Switch 1\n    if (data.params[\"switch:1\"]) {\n        const sw1 = data.params[\"switch:1\"];\n        msgs[1] = {\n            payload: {\n                switch: 1,\n                output: sw1.output,\n                apower: sw1.apower || 0,\n                voltage: sw1.voltage || 0,\n                current: sw1.current || 0,\n                temperature: sw1.temperature ? sw1.temperature.tC : null\n            },\n            topic: \"switch1\"\n        };\n    }\n    \n    return msgs;\n}\n\nreturn null;",
+        "outputs": 2,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 250,
+        "y": 320,
+        "wires": [
+            [
+                "daa99576dad04814"
+            ],
+            [
+                "9ba28eb8d3fedf18"
+            ]
+        ]
+    },
+    {
+        "id": "daa99576dad04814",
+        "type": "function",
+        "z": "8f89ead049d40e28",
+        "name": "Format Switch 0",
+        "func": "const p = msg.payload;\nmsg.payload = `Switch 0: ${p.output ? 'ON' : 'OFF'} | ${p.apower}W | ${p.voltage}V | ${p.current}A | ${p.temperature}°C`;\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 440,
+        "y": 280,
+        "wires": [
+            [
+                "ac10fe249936ad68"
+            ]
+        ]
+    },
+    {
+        "id": "9ba28eb8d3fedf18",
+        "type": "function",
+        "z": "8f89ead049d40e28",
+        "name": "Format Switch 1",
+        "func": "const p = msg.payload;\nmsg.payload = `Switch 1: ${p.output ? 'ON' : 'OFF'} | ${p.apower}W | ${p.voltage}V | ${p.current}A | ${p.temperature}°C`;\nreturn msg;",
+        "outputs": 1,
+        "x": 440,
+        "y": 340,
+        "wires": [
+            [
+                "9ad8487646312679"
+            ]
+        ]
+    },
+    {
+        "id": "ac10fe249936ad68",
+        "type": "debug",
+        "z": "8f89ead049d40e28",
+        "name": "Switch 0 Status",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "payload",
+        "statusType": "auto",
+        "x": 620,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "9ad8487646312679",
+        "type": "debug",
+        "z": "8f89ead049d40e28",
+        "name": "Switch 1 Status",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "payload",
+        "statusType": "auto",
+        "x": 620,
+        "y": 340,
+        "wires": []
+    },
+    {
+        "id": "c0c9e9b556ebdb1c",
+        "type": "mqtt in",
+        "z": "8f89ead049d40e28",
+        "name": "Shelly Online",
+        "topic": "shellypro2pm-ec62608840a4/online",
+        "qos": "0",
+        "datatype": "auto",
+        "broker": "victron_mqtt",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 530,
+        "y": 80,
+        "wires": [
+            [
+                "e94563564fd5b412"
+            ]
+        ]
+    },
+    {
+        "id": "e94563564fd5b412",
+        "type": "debug",
+        "z": "8f89ead049d40e28",
+        "name": "Connection",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "payload",
+        "statusType": "auto",
+        "x": 690,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "cf464b268d406e30",
+        "type": "debug",
+        "z": "8f89ead049d40e28",
+        "name": "",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 670,
+        "y": 460,
+        "wires": []
+    },
+    {
+        "id": "f9fed070ea6c64ac",
+        "type": "function",
+        "z": "8f89ead049d40e28",
+        "name": "0 on",
+        "func": "msg.payload = {\n    method: \"Switch.Set\",\n    parameters : {\n        id : 0,\n        on : true,\n        toggle_after : 2 // optional flip back time in seconds\n    }\n};\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 250,
+        "y": 460,
+        "wires": [
+            [
+                "1d8d5dc6d02269f2"
+            ]
+        ]
+    },
+    {
+        "id": "06c57a3aba8814c9",
+        "type": "function",
+        "z": "8f89ead049d40e28",
+        "name": "0 off",
+        "func": "msg.payload = {\n    method: \"Switch.Set\",\n    parameters : {\n        id : 0,\n        on : false,\n        toggle_after : 2 // optional flip back time in seconds\n    }\n};\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 250,
+        "y": 520,
+        "wires": [
+            [
+                "1d8d5dc6d02269f2"
+            ]
+        ]
+    },
+    {
+        "id": "daf90645acba8287",
+        "type": "inject",
+        "z": "8f89ead049d40e28",
+        "name": "Turn On",
+        "props": [
+            {
+                "p": "payload",
+                "v": "",
+                "vt": "date"
+            },
+            {
+                "p": "topic",
+                "v": "",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 124.99413108825684,
+        "y": 460.193359375,
+        "wires": [
+            [
+                "f9fed070ea6c64ac"
+            ]
+        ]
+    },
+    {
+        "id": "7864e9f2ceeb3cca",
+        "type": "inject",
+        "z": "8f89ead049d40e28",
+        "name": "Turn Off",
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 120,
+        "y": 520,
+        "wires": [
+            [
+                "06c57a3aba8814c9"
+            ]
+        ]
+    },
+    {
+        "id": "9447d612a6a84202",
+        "type": "inject",
+        "z": "8f89ead049d40e28",
+        "name": "Get Status",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 120,
+        "y": 400,
+        "wires": [
+            [
+                "1d8d5dc6d02269f2"
+            ]
+        ]
+    },
+    {
+        "id": "9eeb783c5b41ace7",
+        "type": "function",
+        "z": "8f89ead049d40e28",
+        "name": "0 toggle",
+        "func": "msg.payload = {\n    method: \"Switch.Toggle\",\n    parameters : {\n        id : 0,\n    }\n};\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 260,
+        "y": 580,
+        "wires": [
+            [
+                "1d8d5dc6d02269f2"
+            ]
+        ]
+    },
+    {
+        "id": "2aae3ac55972b409",
+        "type": "inject",
+        "z": "8f89ead049d40e28",
+        "name": "Toggle",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 110,
+        "y": 580,
+        "wires": [
+            [
+                "9eeb783c5b41ace7"
+            ]
+        ]
+    },
+    {
+        "id": "aab0d3d4c78247e0",
+        "type": "function",
+        "z": "8f89ead049d40e28",
+        "name": "id 0",
+        "func": "msg.payload = {\n    method: \"Switch.GetConfig\",\n    parameters : {\n        id : 0,\n    }\n};\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 250,
+        "y": 640,
+        "wires": [
+            [
+                "1d8d5dc6d02269f2"
+            ]
+        ]
+    },
+    {
+        "id": "71c23a20d5e29331",
+        "type": "inject",
+        "z": "8f89ead049d40e28",
+        "name": "Get Config",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 120,
+        "y": 640,
+        "wires": [
+            [
+                "aab0d3d4c78247e0"
+            ]
+        ]
+    },
+    {
+        "id": "139e7071e8ce9265",
+        "type": "function",
+        "z": "8f89ead049d40e28",
+        "name": "id 0",
+        "func": "msg.payload = {\n    method: \"Switch.SetConfig\",\n    parameters : {\n        id : 0,\n        config : {\n            // name : \"switch\",\n            // in_mode : \"follow\",\n            // initial_state : \"restore_last\",\n            auto_on : true,\n            // auto_on_delay : 60.00,\n            // auto_off : false,\n            // auto_off_delay : 60.00,\n            // power_limit : 3500\n        }\n    }\n};\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 250,
+        "y": 680,
+        "wires": [
+            [
+                "1d8d5dc6d02269f2"
+            ]
+        ]
+    },
+    {
+        "id": "c8b78034c4795468",
+        "type": "inject",
+        "z": "8f89ead049d40e28",
+        "name": "Set Config",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 120,
+        "y": 680,
+        "wires": [
+            [
+                "139e7071e8ce9265"
+            ]
+        ]
+    },
+    {
+        "id": "1d8d5dc6d02269f2",
+        "type": "shelly-gen2",
+        "z": "8f89ead049d40e28",
+        "hostname": "192.168.1.136",
+        "description": "",
+        "mode": "polling",
+        "verbose": false,
+        "server": "04263f2d054cc2a1",
+        "uploadretryinterval": "5000",
+        "pollinginterval": 5000,
+        "pollstatus": false,
+        "getstatusoncommand": false,
+        "devicetype": "Relay",
+        "devicetypemustmatchexactly": false,
+        "captureblutooth": false,
+        "outputs": 1,
+        "x": 480,
+        "y": 460,
+        "wires": [
+            [
+                "cf464b268d406e30"
+            ]
+        ]
+    },
+    {
+        "id": "fe635e664d29fa2f",
+        "type": "comment",
+        "z": "ad164b51b52261a6",
+        "name": "Conditions",
+        "info": "WaterHeater doit être en mode VACATION pour une des conditions suivantes\nSi AC in est connecté: Read AC input = 0\nOu\nSi SOC < 85%\nOu\nSi Batterie décharge en cours: smartshunt <= 0\nOu\nSi Total de production solaire inferieure a 2500W \n\nSinon WaterHeater doit être en mode Heat_PUMP\n\nau demmarage il doit etre en mode VACATION",
+        "x": 100,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "cda7d3746309c319",
+        "type": "inject",
+        "z": "ad164b51b52261a6",
+        "name": "SET HEAT_PUMP",
+        "props": [],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": "",
+        "topic": "",
+        "x": 150,
+        "y": 120,
+        "wires": [
+            [
+                "5f57f76086b6d51a"
+            ]
+        ]
+    },
+    {
+        "id": "5f57f76086b6d51a",
+        "type": "function",
+        "z": "ad164b51b52261a6",
+        "name": "HEAT_PUMP",
+        "func": "msg.headers = {\n    'Authorization': 'Bearer thinqpat_975d93159fdcf31033e33a3b9c49009ae1ffbf345dfa6dcb4e2f',\n    'x-message-id': 'fNvdZ1brTn-wWKUIWGoSVw',\n    'x-country': 'FR',\n    'x-client-id': 'Santuario-123456',\n    'x-api-key': 'v6GFvkweNo7DK7yD3ylIZ9w52aKBU0eJ7wLXkSR3',\n    'Content-Type': 'application/json'\n};\n\nmsg.payload = {\n    \"waterHeaterJobMode\": {\n        \"currentJobMode\": \"HEAT_PUMP\"\n    }\n};\n\nmsg.url = 'https://api-eic.lgthinq.com/devices/918c240ab4c6e3eee70a4e9ac015c18ddd8b4f933c3d9ff813446d8f8dddf720/control';\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 420,
+        "y": 120,
+        "wires": [
+            [
+                "6eef494dc196deae",
+                "7abc148937594992"
+            ]
+        ]
+    },
+    {
+        "id": "6eef494dc196deae",
+        "type": "http request",
+        "z": "ad164b51b52261a6",
+        "name": "Post",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 610,
+        "y": 120,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "7abc148937594992",
+        "type": "delay",
+        "z": "ad164b51b52261a6",
+        "name": "15s",
+        "pauseType": "delay",
+        "timeout": "15",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 410,
+        "y": 60,
+        "wires": [
+            [
+                "df4cad34c280708d"
+            ]
+        ]
+    },
+    {
+        "id": "df4cad34c280708d",
+        "type": "function",
+        "z": "ad164b51b52261a6",
+        "name": "Set 60 °C Jour",
+        "func": "msg.headers = {\n    'Authorization': 'Bearer thinqpat_975d93159fdcf31033e33a3b9c49009ae1ffbf345dfa6dcb4e2f',\n    'x-message-id': 'fNvdZ1brTn-wWKUIWGoSVw',\n    'x-country': 'FR',\n    'x-client-id': 'Santuario-123456',\n    'x-api-key': 'v6GFvkweNo7DK7yD3ylIZ9w52aKBU0eJ7wLXkSR3',\n    'Content-Type': 'application/json'\n};\n\nmsg.payload = {\n    \"temperature\": {\n        \"targetTemperature\": 60\n    }\n};\nmsg.url = 'https://api-eic.lgthinq.com/devices/918c240ab4c6e3eee70a4e9ac015c18ddd8b4f933c3d9ff813446d8f8dddf720/control';\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 580,
+        "y": 60,
+        "wires": [
+            [
+                "068837d2a21ab591"
+            ]
+        ]
+    },
+    {
+        "id": "068837d2a21ab591",
+        "type": "http request",
+        "z": "ad164b51b52261a6",
+        "name": "Post",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 750,
+        "y": 60,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "087a90147518a286",
+        "type": "function",
+        "z": "ad164b51b52261a6",
+        "name": "Détecter changement Heat Pump",
+        "func": "const previousMode = flow.get('current_mode') || null;\nconst lastChangeTime = flow.get('last_change_time') || 0;\nconst currentMode = 'heat_pump';\n\nconst MIN_DELAY_MINUTES = 15;\nconst timeSinceLastChange = (Date.now() - lastChangeTime) / 1000 / 60;\n\nif (previousMode !== currentMode) {\n    if (timeSinceLastChange >= MIN_DELAY_MINUTES || previousMode === null) {\n        flow.set('current_mode', currentMode);\n        flow.set('last_change_time', Date.now());\n        node.status({fill:\"cyan\",shape:\"dot\",text:`✓ Changement: ${previousMode} → HEAT_PUMP`});\n        return msg;\n    } else {\n        node.status({\n            fill:\"orange\",\n            shape:\"ring\",\n            text:`⏳ Trop tôt (${timeSinceLastChange.toFixed(1)}/${MIN_DELAY_MINUTES} min)`\n        });\n        return null;\n    }\n}\n\nnode.status({fill:\"grey\",shape:\"ring\",text:\"➔ Déjà en HEAT_PUMP\"});\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 700,
+        "y": 180,
+        "wires": [
+            [
+                "5f57f76086b6d51a"
+            ]
+        ]
+    },
+    {
+        "id": "bffc6be1b1d55b05",
+        "type": "mqtt in",
+        "z": "ad164b51b52261a6",
+        "name": "Read AC Input Ignored",
+        "topic": "N/c0619ab9929a/vebus/275/Ac/State/IgnoreAcIn1",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_wh",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 140,
+        "y": 220,
+        "wires": [
+            [
+                "c95ef390d03334fb"
+            ]
+        ]
+    },
+    {
+        "id": "c95ef390d03334fb",
+        "type": "function",
+        "z": "ad164b51b52261a6",
+        "name": "Stocker AC Input Ignored",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('wh_ac_ignored', v);\nnode.status({fill:'blue',shape:'dot',text:`AC ignored: ${v}`});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 390,
+        "y": 220,
+        "wires": [
+            [
+                "5385927cc343805f"
+            ]
+        ]
+    },
+    {
+        "id": "fbc560011e39fcd5",
+        "type": "mqtt in",
+        "z": "ad164b51b52261a6",
+        "name": "Battery State of Charge (%)",
+        "topic": "N/c0619ab9929a/system/0/Dc/Battery/Soc",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_wh",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 190,
+        "y": 280,
+        "wires": [
+            [
+                "b266dc7ac1ffed1c"
+            ]
+        ]
+    },
+    {
+        "id": "b266dc7ac1ffed1c",
+        "type": "function",
+        "z": "ad164b51b52261a6",
+        "name": "Stocker SOC WH",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('wh_soc', v);\nnode.status({fill:'blue',shape:'dot',text:`SOC: ${v}%`});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 490,
+        "y": 280,
+        "wires": [
+            [
+                "5385927cc343805f"
+            ]
+        ]
+    },
+    {
+        "id": "4650a43f37e357d6",
+        "type": "mqtt in",
+        "z": "ad164b51b52261a6",
+        "name": "SmartShunt 300A | Battery current (A)",
+        "topic": "N/c0619ab9929a/battery/274/Dc/0/Current",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_wh",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 190,
+        "y": 340,
+        "wires": [
+            [
+                "804aff5307eb1877"
+            ]
+        ]
+    },
+    {
+        "id": "804aff5307eb1877",
+        "type": "function",
+        "z": "ad164b51b52261a6",
+        "name": "Stocker Current WH",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('wh_battery_current', v);\nnode.status({fill:'blue',shape:'dot',text:`Current: ${v}A`});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 480,
+        "y": 340,
+        "wires": [
+            [
+                "5385927cc343805f"
+            ]
+        ]
+    },
+    {
+        "id": "ad43fae482502444",
+        "type": "mqtt in",
+        "z": "ad164b51b52261a6",
+        "name": "PV DC Power",
+        "topic": "N/c0619ab9929a/system/0/Dc/Pv/Power",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_wh",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 110,
+        "y": 400,
+        "wires": [
+            [
+                "9506268f39236482"
+            ]
+        ]
+    },
+    {
+        "id": "9506268f39236482",
+        "type": "function",
+        "z": "ad164b51b52261a6",
+        "name": "Stocker PV DC",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('wh_pv_dc', v || 0);\nnode.status({fill:'blue',shape:'dot',text:`PV DC: ${v}W`});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 280,
+        "y": 400,
+        "wires": [
+            [
+                "1db2c5203f6d62b4"
+            ]
+        ]
+    },
+    {
+        "id": "cc75cdde65912d71",
+        "type": "mqtt in",
+        "z": "ad164b51b52261a6",
+        "name": "PV AC Power",
+        "topic": "N/c0619ab9929a/system/0/Ac/PvOnOutput/L1/Power",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_wh",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 110,
+        "y": 460,
+        "wires": [
+            [
+                "9f209af47fa3d8ae"
+            ]
+        ]
+    },
+    {
+        "id": "9f209af47fa3d8ae",
+        "type": "function",
+        "z": "ad164b51b52261a6",
+        "name": "Stocker PV AC",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('wh_pv_ac', v || 0);\nnode.status({fill:'blue',shape:'dot',text:`PV AC: ${v}W`});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 280,
+        "y": 460,
+        "wires": [
+            [
+                "1db2c5203f6d62b4"
+            ]
+        ]
+    },
+    {
+        "id": "1db2c5203f6d62b4",
+        "type": "function",
+        "z": "ad164b51b52261a6",
+        "name": "Calcul Production Totale",
+        "func": "const pvDC = flow.get('wh_pv_dc') || 0;\nconst pvAC = flow.get('wh_pv_ac') || 0;\nconst total = pvDC + pvAC;\nflow.set('wh_production', total);\nnode.status({fill:'green',shape:'dot',text:`Total: ${total}W (DC:${pvDC}W + AC:${pvAC}W)`});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 510,
+        "y": 420,
+        "wires": [
+            [
+                "5385927cc343805f"
+            ]
+        ]
+    },
+    {
+        "id": "05a4845fa4a215d2",
+        "type": "inject",
+        "z": "ad164b51b52261a6",
+        "name": "Initialisation au démarrage",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "2",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 180,
+        "y": 540,
+        "wires": [
+            [
+                "0bcc315ef2b11023"
+            ]
+        ]
+    },
+    {
+        "id": "0bcc315ef2b11023",
+        "type": "function",
+        "z": "ad164b51b52261a6",
+        "name": "Forcer l'initialisation",
+        "func": "flow.set('current_mode', null);\nflow.set('last_change_time', 0);\nflow.set('wh_ac_ignored', null);\nflow.set('wh_soc', null);\nflow.set('wh_battery_current', null);\nflow.set('wh_pv_dc', 0);\nflow.set('wh_pv_ac', 0);\nflow.set('wh_production', 0);\n\nnode.status({fill:'green',shape:'dot',text:'Initialisé'});\n\n// Forcer VACATION au démarrage\nmsg.payload = {mode: 'vacation', reasons: ['Démarrage']};\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 420,
+        "y": 540,
+        "wires": [
+            [
+                "5065647e66fc5217"
+            ]
+        ]
+    },
+    {
+        "id": "5385927cc343805f",
+        "type": "function",
+        "z": "ad164b51b52261a6",
+        "name": "Évaluation",
+        "func": "const PRODUCTION_MIN    = 2000;  // W\nconst DEBOUNCE_MINUTES  = 5;     // délai de confirmation pour conditions instables\n\nconst acIgnored  = flow.get('wh_ac_ignored');\nconst soc        = flow.get('wh_soc');\nconst current    = flow.get('wh_battery_current');\nconst production = flow.get('wh_production') || 0;\nconst now        = Date.now();\n\n// --- Conditions immédiates (stables) ---\nconst acConnected = (acIgnored !== null && acIgnored !== undefined && acIgnored === 0);\nconst socLow      = (soc !== null && soc !== undefined && soc < 95);\n\n// --- Conditions avec debounce (instables) ---\n// discharging\nconst dischargingNow = (current !== null && current !== undefined && current <= 0);\nif (dischargingNow) {\n    if (!context.get('dischargeStart')) {\n        context.set('dischargeStart', now);\n    }\n} else {\n    context.set('dischargeStart', null);\n}\nconst dischargeStart    = context.get('dischargeStart');\nconst dischargeElapsed  = dischargeStart ? (now - dischargeStart) / 60000 : 0;\nconst discharging       = dischargingNow && (dischargeElapsed >= DEBOUNCE_MINUTES);\n\n// prodInsuff\nconst prodInsuffNow = (production <= PRODUCTION_MIN);\nif (prodInsuffNow) {\n    if (!context.get('prodInsuffStart')) {\n        context.set('prodInsuffStart', now);\n    }\n} else {\n    context.set('prodInsuffStart', null);\n}\nconst prodInsuffStart   = context.get('prodInsuffStart');\nconst prodInsuffElapsed = prodInsuffStart ? (now - prodInsuffStart) / 60000 : 0;\nconst prodInsuff        = prodInsuffNow && (prodInsuffElapsed >= DEBOUNCE_MINUTES);\n\n// --- Décision ---\nconst vacation = acConnected || socLow || discharging || prodInsuff;\n\nlet reasons = [];\nif (acConnected) reasons.push('AC connecté');\nif (socLow)      reasons.push(`SOC ${soc}%<85%`);\nif (discharging) reasons.push(`Décharge ${current}A (${dischargeElapsed.toFixed(1)}min)`);\nif (prodInsuff)  reasons.push(`Prod ${production}W≤${PRODUCTION_MIN}W (${prodInsuffElapsed.toFixed(1)}min)`);\n\n// Statut détaillé même quand en attente de confirmation\nlet pending = [];\nif (dischargingNow && !discharging) pending.push(`Décharge ${dischargeElapsed.toFixed(1)}/${DEBOUNCE_MINUTES}min`);\nif (prodInsuffNow  && !prodInsuff)  pending.push(`Prod ${prodInsuffElapsed.toFixed(1)}/${DEBOUNCE_MINUTES}min`);\n\nmsg.payload = {\n    mode: vacation ? 'vacation' : 'heat_pump',\n    ac_ignored: acIgnored,\n    soc: soc,\n    battery_current: current,\n    production: production,\n    reasons: vacation ? reasons : [`SOC≥85%, AC ignoré, Charge, Prod ${production}W>${PRODUCTION_MIN}W`]\n};\n\nif (vacation) {\n    node.status({fill:'yellow', shape:'ring', text:`VACATION: ${reasons.join(' | ')}`});\n    return [null, msg];\n} else if (pending.length > 0) {\n    node.status({fill:'orange', shape:'ring', text:`⏳ Attente: ${pending.join(' | ')}`});\n    return [null, null];\n} else {\n    node.status({fill:'cyan', shape:'dot', text:`HEAT_PUMP: Prod ${production}W, SOC ${soc}%`});\n    return [msg, null];\n}\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 690,
+        "y": 280,
+        "wires": [
+            [
+                "087a90147518a286"
+            ],
+            [
+                "5065647e66fc5217"
+            ]
+        ]
+    },
+    {
+        "id": "5065647e66fc5217",
+        "type": "function",
+        "z": "ad164b51b52261a6",
+        "name": "Détecter changement Vacation",
+        "func": "const previousMode = flow.get('current_mode') || null;\nconst lastChangeTime = flow.get('last_change_time') || 0;\nconst currentMode = 'vacation';\n\nconst MIN_DELAY_MINUTES = 15;\nconst timeSinceLastChange = (Date.now() - lastChangeTime) / 1000 / 60;\n\nif (previousMode !== currentMode) {\n    if (timeSinceLastChange >= MIN_DELAY_MINUTES || previousMode === null) {\n        flow.set('current_mode', currentMode);\n        flow.set('last_change_time', Date.now());\n        node.status({fill:\"yellow\",shape:\"dot\",text:`⚠ Changement: ${previousMode} → VACATION`});\n        return msg;\n    } else {\n        node.status({\n            fill:\"orange\",\n            shape:\"ring\",\n            text:`⏳ Trop tôt (${timeSinceLastChange.toFixed(1)}/${MIN_DELAY_MINUTES} min)`\n        });\n        return null;\n    }\n}\n\nnode.status({fill:\"grey\",shape:\"ring\",text:\"➔ Déjà en VACATION\"});\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 690,
+        "y": 540,
+        "wires": [
+            [
+                "d24f200bae0ee106"
+            ]
+        ]
+    },
+    {
+        "id": "d24f200bae0ee106",
+        "type": "function",
+        "z": "ad164b51b52261a6",
+        "name": "Prepare VACATION",
+        "func": "msg.headers = {\n    'Authorization': 'Bearer thinqpat_975d93159fdcf31033e33a3b9c49009ae1ffbf345dfa6dcb4e2f',\n    'x-message-id': 'fNvdZ1brTn-wWKUIWGoSVw',\n    'x-country': 'FR',\n    'x-client-id': 'Santuario-123456',\n    'x-api-key': 'v6GFvkweNo7DK7yD3ylIZ9w52aKBU0eJ7wLXkSR3',\n    'Content-Type': 'application/json'\n};\n\nmsg.payload = {\n    \"waterHeaterJobMode\": {\n        \"currentJobMode\": \"VACATION\"\n    }\n};\n\nmsg.url = 'https://api-eic.lgthinq.com/devices/918c240ab4c6e3eee70a4e9ac015c18ddd8b4f933c3d9ff813446d8f8dddf720/control';\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 150,
+        "y": 640,
+        "wires": [
+            [
+                "6b455684a8734876"
+            ]
+        ]
+    },
+    {
+        "id": "6b455684a8734876",
+        "type": "http request",
+        "z": "ad164b51b52261a6",
+        "name": "Post",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 330,
+        "y": 640,
+        "wires": [
+            [
+                "893a7297932dbdd4"
+            ]
+        ]
+    },
+    {
+        "id": "893a7297932dbdd4",
+        "type": "delay",
+        "z": "ad164b51b52261a6",
+        "name": "15s",
+        "pauseType": "delay",
+        "timeout": "15",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 450,
+        "y": 640,
+        "wires": [
+            [
+                "c15562413002313f"
+            ]
+        ]
+    },
+    {
+        "id": "c15562413002313f",
+        "type": "function",
+        "z": "ad164b51b52261a6",
+        "name": "Set 45 °C Nuit",
+        "func": "msg.headers = {\n    'Authorization': 'Bearer thinqpat_975d93159fdcf31033e33a3b9c49009ae1ffbf345dfa6dcb4e2f',\n    'x-message-id': 'fNvdZ1brTn-wWKUIWGoSVw',\n    'x-country': 'FR',\n    'x-client-id': 'Santuario-123456',\n    'x-api-key': 'v6GFvkweNo7DK7yD3ylIZ9w52aKBU0eJ7wLXkSR3',\n    'Content-Type': 'application/json'\n};\n\nmsg.payload = {\n    \"temperature\": {\n        \"targetTemperature\": 45\n    }\n};\nmsg.url = 'https://api-eic.lgthinq.com/devices/918c240ab4c6e3eee70a4e9ac015c18ddd8b4f933c3d9ff813446d8f8dddf720/control';\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 620,
+        "y": 640,
+        "wires": [
+            [
+                "c37da29f46104987"
+            ]
+        ]
+    },
+    {
+        "id": "c37da29f46104987",
+        "type": "http request",
+        "z": "ad164b51b52261a6",
+        "name": "Post",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 770,
+        "y": 640,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ce42bcbd0f244759",
+        "type": "mqtt in",
+        "z": "ad164b51b52261a6",
+        "name": "PV AC-coupled output L1 (W)",
+        "topic": "N/c0619ab9929a/system/0/Ac/PvOnOutput/L1/Power",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_wh",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 230,
+        "y": 760,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "c0c3580aaf1afeff",
+        "type": "mqtt in",
+        "z": "ad164b51b52261a6",
+        "name": "MPPTs - power (W)",
+        "topic": "N/c0619ab9929a/system/0/Dc/Pv/Power",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_wh",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 180,
+        "y": 700,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "acb0a1ec27fcb517",
+        "type": "comment",
+        "z": "8d21ed03a188a188",
+        "name": "Architecture : LG ThinQ API → Node-RED → MQTT → Rust → D-Bus Venus OS",
+        "info": "API LG ThinQ (HTTPS) → parse état → publish santuario/heatpump/1/venus\nBridge Mosquitto Pi5 → NanoPi (out) → service dbus-mqtt-venus\nD-Bus : com.victronenergy.heatpump.mqtt_1\n\nPayload publié :\n{\n  \"State\": 1,               // 0=Off 1=HeatPump 2=Turbo\n  \"Temperature\": 60.0,      // température eau courante °C\n  \"TargetTemperature\": 52.0, // température cible °C\n  \"Position\": 0             // 0=AC Output\n}\n\nKeepalive : 25s (< watchdog Rust 30s)\nFetch API  : toutes les 10 min (600s)",
+        "x": 300,
+        "y": 20,
+        "wires": []
+    },
+    {
+        "id": "cad74951ddeb2e26",
+        "type": "comment",
+        "z": "8d21ed03a188a188",
+        "name": "State mapping : HEAT_PUMP=1  TURBO=2  VACATION=0  POWER_OFF=0",
+        "info": "Réponse API LG ThinQ (GET /state) :\n{\n  \"waterHeaterJobMode\": { \"currentJobMode\": \"HEAT_PUMP\" },\n  \"operation\":          { \"waterHeaterOperationMode\": \"POWER_ON\" },\n  \"temperature\":        { \"currentTemperature\": 60, \"targetTemperature\": 52, \"unit\": \"C\" }\n}",
+        "x": 300,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "4a7b69c1a1afb25e",
+        "type": "inject",
+        "z": "8d21ed03a188a188",
+        "name": "GET état (toutes les 10 min)",
+        "props": [],
+        "repeat": "600",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "5",
+        "topic": "",
+        "x": 150,
+        "y": 140,
+        "wires": [
+            [
+                "09708a345f98aaed"
+            ]
+        ]
+    },
+    {
+        "id": "dae8406fe966d745",
+        "type": "inject",
+        "z": "8d21ed03a188a188",
+        "name": "Test manuel",
+        "props": [],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": "",
+        "topic": "",
+        "x": 150,
+        "y": 200,
+        "wires": [
+            [
+                "09708a345f98aaed"
+            ]
+        ]
+    },
+    {
+        "id": "09708a345f98aaed",
+        "type": "function",
+        "z": "8d21ed03a188a188",
+        "name": "Préparer GET état",
+        "func": "msg.headers = {\n    'Authorization': 'Bearer thinqpat_975d93159fdcf31033e33a3b9c49009ae1ffbf345dfa6dcb4e2f',\n    'x-message-id': 'fNvdZ1brTn-wWKUIWGoSVw',\n    'x-country': 'FR',\n    'x-client-id': 'Santuario-123456',\n    'x-api-key': 'v6GFvkweNo7DK7yD3ylIZ9w52aKBU0eJ7wLXkSR3',\n    'Content-Type': 'application/json'\n};\nmsg.url = 'https://api-eic.lgthinq.com/devices/918c240ab4c6e3eee70a4e9ac015c18ddd8b4f933c3d9ff813446d8f8dddf720/state';\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 370,
+        "y": 170,
+        "wires": [
+            [
+                "47257272758a8c5c"
+            ]
+        ]
+    },
+    {
+        "id": "47257272758a8c5c",
+        "type": "http request",
+        "z": "8d21ed03a188a188",
+        "name": "GET /state LG ThinQ",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 460,
+        "y": 100,
+        "wires": [
+            [
+                "7192957b12c0f2b1"
+            ]
+        ]
+    },
+    {
+        "id": "7192957b12c0f2b1",
+        "type": "function",
+        "z": "8d21ed03a188a188",
+        "name": "Parser état → HeatpumpPayload",
+        "func": "if (msg.statusCode !== 200) {\n    node.error('Erreur API LG ThinQ: ' + msg.statusCode + ' ' + JSON.stringify(msg.payload));\n    return null;\n}\n\nconst r = msg.payload.response;\nif (!r || !r.waterHeaterJobMode || !r.temperature) {\n    node.error('Réponse API inattendue: ' + JSON.stringify(msg.payload));\n    return null;\n}\n\nconst mode        = r.waterHeaterJobMode.currentJobMode;    // 'HEAT_PUMP' | 'TURBO' | 'VACATION'\nconst operation   = r.operation ? r.operation.waterHeaterOperationMode : 'POWER_ON';\nconst currentTemp = r.temperature.currentTemperature;\nconst targetTemp  = r.temperature.targetTemperature;\n\n// State mapping → /State D-Bus Venus OS (com.victronenergy.heatpump)\n// 0 = Off / Vacation\n// 1 = Heat Pump (pompe à chaleur mode normal)\n// 2 = Turbo / Boost\nconst stateMapping = {\n    'HEAT_PUMP': 1,\n    'TURBO':     2,\n    'VACATION':  0\n};\nconst isPoweredOn = operation === 'POWER_ON';\nconst state = isPoweredOn ? (stateMapping[mode] ?? 1) : 0;\n\n// Payload Venus OS D-Bus heatpump\nconst payload = {\n    State:             state,\n    Temperature:       currentTemp,\n    TargetTemperature: targetTemp,\n    Position:          0          // 0 = AC Output\n};\n\n// Stocker dans le contexte global pour le keepalive\nglobal.set('heatpump_payload', payload);\n\n// Afficher le statut du nœud\nconst modeLabel = isPoweredOn ? mode : 'OFF';\nnode.status({\n    fill:  mode === 'TURBO' ? 'red' : mode === 'HEAT_PUMP' ? 'green' : 'yellow',\n    shape: 'dot',\n    text:  `${modeLabel} | ${currentTemp}°C → ${targetTemp}°C`\n});\n\n// Output 1 : payload MQTT pour Venus OS\n// Output 2 : debug complet\nconst out1 = { topic: 'santuario/heatpump/1/venus', payload: JSON.stringify(payload) };\nconst out2 = { payload: { mode, operation, state, currentTemp, targetTemp, rawResponse: r } };\n\nreturn [out1, out2];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 620,
+        "y": 240,
+        "wires": [
+            [
+                "3aa64e086c505a2e"
+            ],
+            [
+                "b751dad1070b3b71"
+            ]
+        ]
+    },
+    {
+        "id": "3aa64e086c505a2e",
+        "type": "mqtt out",
+        "z": "8d21ed03a188a188",
+        "name": "santuario/heatpump/1/venus",
+        "topic": "santuario/heatpump/1/venus",
+        "qos": "1",
+        "retain": "true",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "pi5_mqtt_broker_swh",
+        "x": 800,
+        "y": 340,
+        "wires": []
+    },
+    {
+        "id": "b751dad1070b3b71",
+        "type": "debug",
+        "z": "8d21ed03a188a188",
+        "name": "Debug état complet",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 790,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "689d7f9820d9e9d9",
+        "type": "comment",
+        "z": "8d21ed03a188a188",
+        "name": "Keepalive 25s (obligatoire : watchdog Rust = 30s — sinon /Connected = 0)",
+        "info": "Le service dbus-mqtt-venus surveille l'activité MQTT.\nSi aucun message n'arrive pendant 30s (watchdog_sec), /Connected passe à 0\net le device disparaît du VRM. Ce keepalive republie le dernier état connu\ndepuis le contexte global toutes les 25s.",
+        "x": 270,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "c6f9f621836a08e9",
+        "type": "inject",
+        "z": "8d21ed03a188a188",
+        "name": "Keepalive 25s",
+        "props": [],
+        "repeat": "25",
+        "crontab": "",
+        "once": false,
+        "onceDelay": "",
+        "topic": "",
+        "x": 150,
+        "y": 360,
+        "wires": [
+            [
+                "57c5cca91eebf2bb"
+            ]
+        ]
+    },
+    {
+        "id": "57c5cca91eebf2bb",
+        "type": "function",
+        "z": "8d21ed03a188a188",
+        "name": "Republier depuis contexte",
+        "func": "const payload = global.get('heatpump_payload');\nif (!payload) {\n    node.status({ fill: 'grey', shape: 'ring', text: 'en attente du 1er fetch' });\n    return null;\n}\nnode.status({\n    fill:  'blue',\n    shape: 'ring',\n    text:  `keepalive | ${payload.Temperature}°C → ${payload.TargetTemperature}°C`\n});\nreturn {\n    topic:   'santuario/heatpump/1/venus',\n    payload: JSON.stringify(payload)\n};",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 380,
+        "y": 360,
+        "wires": [
+            [
+                "3aa64e086c505a2e"
+            ]
+        ]
+    },
+    {
+        "id": "274209dc5c41d0a5",
+        "type": "comment",
+        "z": "8d21ed03a188a188",
+        "name": "Commandes SET (manuelles / futures automatisations)",
+        "info": "POST https://api-eic.lgthinq.com/devices/{id}/control\nExemples de payload :\n  Mode TURBO   : { \"waterHeaterJobMode\": { \"currentJobMode\": \"TURBO\" } }\n  Mode HEAT_PUMP : { \"waterHeaterJobMode\": { \"currentJobMode\": \"HEAT_PUMP\" } }\n  Temp 40°C    : { \"temperature\": { \"targetTemperature\": 40 } }\n  Temp 55°C    : { \"temperature\": { \"targetTemperature\": 55 } }",
+        "x": 200,
+        "y": 460,
+        "wires": []
+    },
+    {
+        "id": "a3c8f2df3faf94ad",
+        "type": "inject",
+        "z": "8d21ed03a188a188",
+        "name": "SET TURBO",
+        "props": [],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": "",
+        "topic": "",
+        "x": 130,
+        "y": 520,
+        "wires": [
+            [
+                "5282327b91207a41"
+            ]
+        ]
+    },
+    {
+        "id": "5282327b91207a41",
+        "type": "function",
+        "z": "8d21ed03a188a188",
+        "name": "Préparer SET TURBO",
+        "func": "msg.headers = {\n    'Authorization': 'Bearer thinqpat_975d93159fdcf31033e33a3b9c49009ae1ffbf345dfa6dcb4e2f',\n    'x-message-id': 'fNvdZ1brTn-wWKUIWGoSVw',\n    'x-country': 'FR',\n    'x-client-id': 'Santuario-123456',\n    'x-api-key': 'v6GFvkweNo7DK7yD3ylIZ9w52aKBU0eJ7wLXkSR3',\n    'Content-Type': 'application/json'\n};\nmsg.payload = { \"waterHeaterJobMode\": { \"currentJobMode\": \"TURBO\" } };\nmsg.url = 'https://api-eic.lgthinq.com/devices/918c240ab4c6e3eee70a4e9ac015c18ddd8b4f933c3d9ff813446d8f8dddf720/control';\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 340,
+        "y": 520,
+        "wires": [
+            [
+                "d1ba4d3cfe123af2"
+            ]
+        ]
+    },
+    {
+        "id": "e591a839c8173cdf",
+        "type": "inject",
+        "z": "8d21ed03a188a188",
+        "name": "SET HEAT_PUMP",
+        "props": [],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": "",
+        "topic": "",
+        "x": 130,
+        "y": 580,
+        "wires": [
+            [
+                "9c918e706f5dfe72"
+            ]
+        ]
+    },
+    {
+        "id": "9c918e706f5dfe72",
+        "type": "function",
+        "z": "8d21ed03a188a188",
+        "name": "Préparer SET HEAT_PUMP",
+        "func": "msg.headers = {\n    'Authorization': 'Bearer thinqpat_975d93159fdcf31033e33a3b9c49009ae1ffbf345dfa6dcb4e2f',\n    'x-message-id': 'fNvdZ1brTn-wWKUIWGoSVw',\n    'x-country': 'FR',\n    'x-client-id': 'Santuario-123456',\n    'x-api-key': 'v6GFvkweNo7DK7yD3ylIZ9w52aKBU0eJ7wLXkSR3',\n    'Content-Type': 'application/json'\n};\nmsg.payload = { \"waterHeaterJobMode\": { \"currentJobMode\": \"HEAT_PUMP\" } };\nmsg.url = 'https://api-eic.lgthinq.com/devices/918c240ab4c6e3eee70a4e9ac015c18ddd8b4f933c3d9ff813446d8f8dddf720/control';\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 350,
+        "y": 580,
+        "wires": [
+            [
+                "d1ba4d3cfe123af2"
+            ]
+        ]
+    },
+    {
+        "id": "df386fadeedbdc4a",
+        "type": "inject",
+        "z": "8d21ed03a188a188",
+        "name": "SET 40°C (Nuit)",
+        "props": [],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": "",
+        "topic": "",
+        "x": 130,
+        "y": 640,
+        "wires": [
+            [
+                "dd7d536cfa576901"
+            ]
+        ]
+    },
+    {
+        "id": "dd7d536cfa576901",
+        "type": "function",
+        "z": "8d21ed03a188a188",
+        "name": "Préparer SET 40°C",
+        "func": "msg.headers = {\n    'Authorization': 'Bearer thinqpat_975d93159fdcf31033e33a3b9c49009ae1ffbf345dfa6dcb4e2f',\n    'x-message-id': 'fNvdZ1brTn-wWKUIWGoSVw',\n    'x-country': 'FR',\n    'x-client-id': 'Santuario-123456',\n    'x-api-key': 'v6GFvkweNo7DK7yD3ylIZ9w52aKBU0eJ7wLXkSR3',\n    'Content-Type': 'application/json'\n};\nmsg.payload = { \"temperature\": { \"targetTemperature\": 40 } };\nmsg.url = 'https://api-eic.lgthinq.com/devices/918c240ab4c6e3eee70a4e9ac015c18ddd8b4f933c3d9ff813446d8f8dddf720/control';\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 340,
+        "y": 640,
+        "wires": [
+            [
+                "d1ba4d3cfe123af2"
+            ]
+        ]
+    },
+    {
+        "id": "b95676880b5da3f9",
+        "type": "inject",
+        "z": "8d21ed03a188a188",
+        "name": "SET 55°C (Jour)",
+        "props": [],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": "",
+        "topic": "",
+        "x": 130,
+        "y": 700,
+        "wires": [
+            [
+                "cd7a466e73036da8"
+            ]
+        ]
+    },
+    {
+        "id": "cd7a466e73036da8",
+        "type": "function",
+        "z": "8d21ed03a188a188",
+        "name": "Préparer SET 55°C",
+        "func": "msg.headers = {\n    'Authorization': 'Bearer thinqpat_975d93159fdcf31033e33a3b9c49009ae1ffbf345dfa6dcb4e2f',\n    'x-message-id': 'fNvdZ1brTn-wWKUIWGoSVw',\n    'x-country': 'FR',\n    'x-client-id': 'Santuario-123456',\n    'x-api-key': 'v6GFvkweNo7DK7yD3ylIZ9w52aKBU0eJ7wLXkSR3',\n    'Content-Type': 'application/json'\n};\nmsg.payload = { \"temperature\": { \"targetTemperature\": 55 } };\nmsg.url = 'https://api-eic.lgthinq.com/devices/918c240ab4c6e3eee70a4e9ac015c18ddd8b4f933c3d9ff813446d8f8dddf720/control';\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 340,
+        "y": 700,
+        "wires": [
+            [
+                "d1ba4d3cfe123af2"
+            ]
+        ]
+    },
+    {
+        "id": "d1ba4d3cfe123af2",
+        "type": "http request",
+        "z": "8d21ed03a188a188",
+        "name": "POST /control LG ThinQ",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 650,
+        "y": 560,
+        "wires": [
+            [
+                "12b4374f97e823cf"
+            ]
+        ]
+    },
+    {
+        "id": "12b4374f97e823cf",
+        "type": "debug",
+        "z": "8d21ed03a188a188",
+        "name": "Debug réponse SET",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "complete": "true",
+        "targetType": "full",
+        "x": 740,
+        "y": 440,
+        "wires": []
+    },
+    {
+        "id": "2035cebadd88c951",
+        "type": "inject",
+        "z": "61c4471c0dc1e9fd",
+        "name": "État ON — chauffe (State=2)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 190,
+        "y": 100,
+        "wires": [
+            [
+                "0bd3acfbea59bfd6"
+            ]
+        ]
+    },
+    {
+        "id": "0e66919f4ad094a8",
+        "type": "inject",
+        "z": "61c4471c0dc1e9fd",
+        "name": "État OFF — standby (State=0)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 190,
+        "y": 160,
+        "wires": [
+            [
+                "d0deea5ec80f42fa"
+            ]
+        ]
+    },
+    {
+        "id": "9135faa290aa9ea3",
+        "type": "inject",
+        "z": "61c4471c0dc1e9fd",
+        "name": "Heartbeat 60s (retain keepalive)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "60",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 2,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 200,
+        "y": 220,
+        "wires": [
+            [
+                "0bd3acfbea59bfd6"
+            ]
+        ]
+    },
+    {
+        "id": "0bd3acfbea59bfd6",
+        "type": "function",
+        "z": "61c4471c0dc1e9fd",
+        "name": "Payload Heatpump ON",
+        "func": "// com.victronenergy.heatpump — State values :\n// 0=Standby, 1=On/Idle, 2=Heating, 3=Cooling, 4=Hot water, 5=Defrost\nmsg.payload = {\n    \"State\": 2,\n    \"Temperature\": 52.5,\n    \"TargetTemperature\": 55.0,\n    \"Ac\": {\n        \"Power\": 1200.0,\n        \"Energy\": {\n            \"Forward\": 145.3\n        }\n    },\n    \"Position\": 0\n};\nreturn msg;",
+        "outputs": 1,
+        "x": 460,
+        "y": 100,
+        "wires": [
+            [
+                "2e0c013cccfb9000",
+                "b322b97da9d330b0"
+            ]
+        ]
+    },
+    {
+        "id": "d0deea5ec80f42fa",
+        "type": "function",
+        "z": "61c4471c0dc1e9fd",
+        "name": "Payload Heatpump OFF",
+        "func": "msg.payload = {\n    \"State\": 0,\n    \"Temperature\": 48.0,\n    \"TargetTemperature\": 55.0,\n    \"Ac\": {\n        \"Power\": 0.0,\n        \"Energy\": {\n            \"Forward\": 145.3\n        }\n    },\n    \"Position\": 0\n};\nreturn msg;",
+        "outputs": 1,
+        "x": 460,
+        "y": 160,
+        "wires": [
+            [
+                "2e0c013cccfb9000",
+                "b322b97da9d330b0"
+            ]
+        ]
+    },
+    {
+        "id": "2e0c013cccfb9000",
+        "type": "mqtt out",
+        "z": "61c4471c0dc1e9fd",
+        "name": "→ santuario/heatpump/1/venus",
+        "topic": "santuario/heatpump/1/venus",
+        "qos": "0",
+        "retain": "true",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "70fe638e52f74a89",
+        "x": 790,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "b322b97da9d330b0",
+        "type": "debug",
+        "z": "61c4471c0dc1e9fd",
+        "name": "Heatpump publié",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 710,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "7aa202def31462c2",
+        "type": "comment",
+        "z": "61c4471c0dc1e9fd",
+        "name": "Vérification D-Bus",
+        "info": "ssh root@192.168.1.120\ndbus -y com.victronenergy.heatpump.mqtt_1 /State GetValue\ndbus -y com.victronenergy.heatpump.mqtt_1 /Temperature GetValue\ndbus -y com.victronenergy.heatpump.mqtt_1 /Ac/Power GetValue\ndbus -y com.victronenergy.heatpump.mqtt_1 / GetItems\n\nState : 0=Standby, 1=Idle, 2=Heating, 3=Cooling, 4=HotWater, 5=Defrost",
+        "x": 240,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "dc68fd75dcbfa1b5",
+        "type": "inject",
+        "z": "fcd40bfe59dbb32b",
+        "name": "Position 0 — Réseau (AC1)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 190,
+        "y": 100,
+        "wires": [
+            [
+                "820375422c435a21"
+            ]
+        ]
+    },
+    {
+        "id": "7cf1c45bc2ed5645",
+        "type": "inject",
+        "z": "fcd40bfe59dbb32b",
+        "name": "Position 1 — Générateur (AC2)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 190,
+        "y": 160,
+        "wires": [
+            [
+                "fbef11ee3668e76b"
+            ]
+        ]
+    },
+    {
+        "id": "0b5275c912fb267d",
+        "type": "inject",
+        "z": "fcd40bfe59dbb32b",
+        "name": "État ALERTE (State=2)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 170,
+        "y": 220,
+        "wires": [
+            [
+                "8e55386114b3e813"
+            ]
+        ]
+    },
+    {
+        "id": "820375422c435a21",
+        "type": "function",
+        "z": "fcd40bfe59dbb32b",
+        "name": "Switch → Réseau",
+        "func": "// Position : 0=AC1 (Réseau), 1=AC2 (Générateur/Onduleur)\n// State    : 0=inactive, 1=active, 2=alerted\nmsg.payload = {\n    \"Position\": 0,\n    \"State\": 1\n};\nreturn msg;",
+        "outputs": 1,
+        "x": 450,
+        "y": 100,
+        "wires": [
+            [
+                "7ffc28e7a76775dd",
+                "07041ac4c6f721d9"
+            ]
+        ]
+    },
+    {
+        "id": "fbef11ee3668e76b",
+        "type": "function",
+        "z": "fcd40bfe59dbb32b",
+        "name": "Switch → Générateur",
+        "func": "msg.payload = {\n    \"Position\": 1,\n    \"State\": 1\n};\nreturn msg;",
+        "outputs": 1,
+        "x": 450,
+        "y": 160,
+        "wires": [
+            [
+                "7ffc28e7a76775dd",
+                "07041ac4c6f721d9"
+            ]
+        ]
+    },
+    {
+        "id": "8e55386114b3e813",
+        "type": "function",
+        "z": "fcd40bfe59dbb32b",
+        "name": "Switch → Alerte",
+        "func": "msg.payload = {\n    \"Position\": 0,\n    \"State\": 2\n};\nreturn msg;",
+        "outputs": 1,
+        "x": 450,
+        "y": 220,
+        "wires": [
+            [
+                "7ffc28e7a76775dd",
+                "07041ac4c6f721d9"
+            ]
+        ]
+    },
+    {
+        "id": "7ffc28e7a76775dd",
+        "type": "mqtt out",
+        "z": "fcd40bfe59dbb32b",
+        "name": "→ santuario/switch/1/venus",
+        "topic": "santuario/switch/1/venus",
+        "qos": "0",
+        "retain": "true",
+        "broker": "70fe638e52f74a89",
+        "x": 700,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "07041ac4c6f721d9",
+        "type": "debug",
+        "z": "fcd40bfe59dbb32b",
+        "name": "Switch publié",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 700,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "850f2ac39d380ba9",
+        "type": "comment",
+        "z": "fcd40bfe59dbb32b",
+        "name": "Vérification D-Bus",
+        "info": "ssh root@192.168.1.120\ndbus -y com.victronenergy.switch.mqtt_1 /Position GetValue\ndbus -y com.victronenergy.switch.mqtt_1 /State GetValue\ndbus -y com.victronenergy.switch.mqtt_1 / GetItems\n\nPosition : 0=AC1/Réseau  1=AC2/Générateur\nState    : 0=inactive    1=active    2=alerted",
+        "x": 240,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "03f8c7a84e521a7c",
+        "type": "inject",
+        "z": "59bb727e9697e20a",
+        "name": "Backup OK",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 160,
+        "y": 100,
+        "wires": [
+            [
+                "55ea799be365d9e8"
+            ]
+        ]
+    },
+    {
+        "id": "1c526d79bde7b79d",
+        "type": "inject",
+        "z": "59bb727e9697e20a",
+        "name": "Backup en cours",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 170,
+        "y": 160,
+        "wires": [
+            [
+                "7225f23d6f352faa"
+            ]
+        ]
+    },
+    {
+        "id": "9e5a2ddd506c7430",
+        "type": "inject",
+        "z": "59bb727e9697e20a",
+        "name": "Backup erreur",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 160,
+        "y": 220,
+        "wires": [
+            [
+                "89bc989450734a18"
+            ]
+        ]
+    },
+    {
+        "id": "0b597313481a5c36",
+        "type": "inject",
+        "z": "59bb727e9697e20a",
+        "name": "Heartbeat idle (60s)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "60",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 3,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 180,
+        "y": 280,
+        "wires": [
+            [
+                "55ea799be365d9e8"
+            ]
+        ]
+    },
+    {
+        "id": "55ea799be365d9e8",
+        "type": "function",
+        "z": "59bb727e9697e20a",
+        "name": "Platform Backup OK",
+        "func": "// Status : 0=idle, 1=running, 2=OK, 3=error\n// LastRun : timestamp Unix secondes\nmsg.payload = {\n    \"Backup\": {\n        \"Status\": 2,\n        \"LastRun\": Math.floor(Date.now() / 1000)\n    },\n    \"Restore\": {\n        \"Status\": 0,\n        \"LastRun\": 0\n    }\n};\nreturn msg;",
+        "outputs": 1,
+        "x": 450,
+        "y": 100,
+        "wires": [
+            [
+                "bacb2f5a8f440d45",
+                "fbcef0d0380d130c"
+            ]
+        ]
+    },
+    {
+        "id": "7225f23d6f352faa",
+        "type": "function",
+        "z": "59bb727e9697e20a",
+        "name": "Platform Backup running",
+        "func": "msg.payload = {\n    \"Backup\": {\n        \"Status\": 1,\n        \"LastRun\": Math.floor(Date.now() / 1000)\n    },\n    \"Restore\": {\n        \"Status\": 0,\n        \"LastRun\": 0\n    }\n};\nreturn msg;",
+        "outputs": 1,
+        "x": 460,
+        "y": 160,
+        "wires": [
+            [
+                "bacb2f5a8f440d45",
+                "fbcef0d0380d130c"
+            ]
+        ]
+    },
+    {
+        "id": "89bc989450734a18",
+        "type": "function",
+        "z": "59bb727e9697e20a",
+        "name": "Platform Backup error",
+        "func": "msg.payload = {\n    \"Backup\": {\n        \"Status\": 3,\n        \"LastRun\": Math.floor(Date.now() / 1000)\n    },\n    \"Restore\": {\n        \"Status\": 0,\n        \"LastRun\": 0\n    }\n};\nreturn msg;",
+        "outputs": 1,
+        "x": 450,
+        "y": 220,
+        "wires": [
+            [
+                "bacb2f5a8f440d45",
+                "fbcef0d0380d130c"
+            ]
+        ]
+    },
+    {
+        "id": "bacb2f5a8f440d45",
+        "type": "mqtt out",
+        "z": "59bb727e9697e20a",
+        "name": "→ santuario/platform/venus",
+        "topic": "santuario/platform/venus",
+        "qos": "0",
+        "retain": "true",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "70fe638e52f74a89",
+        "x": 710,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "fbcef0d0380d130c",
+        "type": "debug",
+        "z": "59bb727e9697e20a",
+        "name": "Platform publié",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 710,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "933651e39e143841",
+        "type": "comment",
+        "z": "59bb727e9697e20a",
+        "name": "Vérification D-Bus",
+        "info": "ssh root@192.168.1.120\ndbus -y | grep platform\ndbus -y com.victronenergy.platform /Backup/Status GetValue\ndbus -y com.victronenergy.platform /Backup/LastRun GetValue\ndbus -y com.victronenergy.platform / GetItems\n\nStatus : 0=idle  1=running  2=OK  3=error",
+        "x": 240,
+        "y": 380,
+        "wires": []
+    },
+    {
+        "id": "84a9ecd9b2b3414d",
+        "type": "comment",
+        "z": "937d07520c270483",
+        "name": "Irradiance RS485 Modbus RTU — Capteur solaire addr=0x05",
+        "info": "Flow passif : souscrit uniquement MQTT.\nLa lecture RS485 est assurée par le service systemd `irradiance-rs485` sur le Pi5.\n\nSi le service est arrêté, `irradiance_wm2` conserve la dernière valeur connue\njusqu'au redémarrage de Node-RED (la valeur dans meteo restera à 0 si jamais reçue).",
+        "x": 250,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "ee93dd65bc85456b",
+        "type": "mqtt in",
+        "z": "937d07520c270483",
+        "name": "santuario/irradiance/raw",
+        "topic": "santuario/irradiance/raw",
+        "qos": "0",
+        "datatype": "str",
+        "broker": "pi5_mqtt_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 1,
+        "inputs": 0,
+        "x": 180,
+        "y": 140,
+        "wires": [
+            [
+                "6ea119a3d5d7d09a"
+            ]
+        ]
+    },
+    {
+        "id": "6ea119a3d5d7d09a",
+        "type": "function",
+        "z": "937d07520c270483",
+        "name": "Mettre à jour global irradiance_wm2",
+        "func": "const raw = parseInt(msg.payload, 10);\n\n// Valider : 0–2000 W/m² (plage capteur)\nif (isNaN(raw) || raw < 0 || raw > 2000) {\n    node.warn('Valeur irradiance invalide : ' + msg.payload);\n    node.status({fill:'red', shape:'ring', text:'Valeur invalide : ' + msg.payload});\n    return null;\n}\n\nglobal.set('irradiance_wm2', raw);\n\n// Statut visuel selon intensité solaire\nlet fill = 'grey';\nif (raw === 0)        fill = 'grey';\nelse if (raw < 200)   fill = 'yellow';\nelse if (raw < 600)   fill = 'yellow';\nelse                  fill = 'green';\n\nnode.status({fill, shape: 'dot', text: raw + ' W/m²'});\n\nmsg.payload = raw;\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "// Initialiser à 0 au démarrage (évite undefined dans meteo)\nglobal.set('irradiance_wm2', 0);",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 140,
+        "wires": [
+            [
+                "48e16fbc96f90729"
+            ]
+        ]
+    },
+    {
+        "id": "48e16fbc96f90729",
+        "type": "debug",
+        "z": "937d07520c270483",
+        "name": "Irradiance W/m²",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 750,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "4c58b69fb61d054e",
+        "type": "comment",
+        "z": "937d07520c270483",
+        "name": "Diagnostic service Pi5",
+        "info": "```bash\n# État du service\nsystemctl status irradiance-rs485\njournalctl -u irradiance-rs485 -f\n\n# Vérifier MQTT reçu\nmosquitto_sub -h localhost -p 1883 -t 'santuario/irradiance/raw' -v\n\n# Vérifier D-Bus Venus\nssh root@192.168.1.120\ndbus -y com.victronenergy.meteo /Irradiance GetValue\n```",
+        "x": 220,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "5974c1e62343458a",
+        "type": "inject",
+        "z": "73ef7c83945b9aaa",
+        "name": "Récupération météo (toutes les 5 min)",
+        "props": [],
+        "repeat": "300",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "topic": "",
+        "x": 200,
+        "y": 40,
+        "wires": [
+            [
+                "afead4b6cba490fc"
+            ]
+        ]
+    },
+    {
+        "id": "afead4b6cba490fc",
+        "type": "http request",
+        "z": "73ef7c83945b9aaa",
+        "name": "Open-Meteo API - Badalucco",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "https://api.open-meteo.com/v1/forecast?latitude=43.8833&longitude=7.8667&current=temperature_2m,relative_humidity_2m,pressure_msl,wind_speed_10m,wind_direction_10m&timezone=Europe%2FRome&wind_speed_unit=ms",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 540,
+        "y": 40,
+        "wires": [
+            [
+                "cfb2f37c8c40ec39"
+            ]
+        ]
+    },
+    {
+        "id": "cfb2f37c8c40ec39",
+        "type": "function",
+        "z": "73ef7c83945b9aaa",
+        "name": "Extraire et publier météo",
+        "func": "const cur = msg.payload.current;\nconst temp      = cur.temperature_2m;\nconst humidity  = cur.relative_humidity_2m;\nconst pressure  = cur.pressure_msl;\nconst windSpeed = cur.wind_speed_10m;\nconst windDir   = cur.wind_direction_10m;\n\nglobal.set('outdoor_temp',       temp);\nglobal.set('outdoor_humidity',   humidity);\nglobal.set('outdoor_pressure',   pressure);\nglobal.set('outdoor_wind_speed', windSpeed);\nglobal.set('outdoor_wind_dir',   windDir);\n\nconst todaysYield    = global.get('total_yield_today')  || 0;\nconst yieldYesterday = global.get('yield_yesterday')     || 0;\nconst irradiance     = global.get('irradiance_wm2')      || 0;\n\nnode.status({fill:'green', shape:'dot', text:`${temp}°C — ${irradiance} W/m² — ${todaysYield.toFixed(2)} kWh`});\n\nconst heatMsg = {\n    topic:   'santuario/heat/1/venus',\n    payload: JSON.stringify({\n        Temperature:     temp,\n        TemperatureType: 4,\n        Humidity:        humidity,\n        Pressure:        pressure\n    })\n};\nconst meteoMsg = {\n    topic:   'santuario/meteo/venus',\n    payload: JSON.stringify({\n        Irradiance:     irradiance,\n        TodaysYield:    Math.round(todaysYield * 10) / 10,\n        YieldYesterday: yieldYesterday,\n        WindSpeed:      windSpeed,\n        WindDirection:  windDir\n    })\n};\nreturn [[heatMsg, meteoMsg]];",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 830,
+        "y": 40,
+        "wires": [
+            [
+                "0bd7a9e467c77f73",
+                "1aa55cf611ee93ae"
+            ]
+        ]
+    },
+    {
+        "id": "151efd51d530da76",
+        "type": "inject",
+        "z": "73ef7c83945b9aaa",
+        "name": "Keepalive Venus (toutes les 5 min)",
+        "props": [],
+        "repeat": "300",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0,
+        "topic": "",
+        "x": 180,
+        "y": 240,
+        "wires": [
+            [
+                "bd8a09cdce9e5d52"
+            ]
+        ]
+    },
+    {
+        "id": "bd8a09cdce9e5d52",
+        "type": "function",
+        "z": "73ef7c83945b9aaa",
+        "name": "Republier depuis contexte",
+        "func": "const temp      = global.get('outdoor_temp');\nconst humidity  = global.get('outdoor_humidity');\nconst pressure  = global.get('outdoor_pressure');\nconst windSpeed = global.get('outdoor_wind_speed');\nconst windDir   = global.get('outdoor_wind_dir');\n\nif (temp === undefined || temp === null) return null;\n\nconst todaysYield    = global.get('total_yield_today')  || 0;\nconst yieldYesterday = global.get('yield_yesterday')     || 0;\nconst irradiance     = global.get('irradiance_wm2')      || 0;\n\nconst heatMsg = {\n    topic:   'santuario/heat/1/venus',\n    payload: JSON.stringify({\n        Temperature:     temp,\n        TemperatureType: 4,\n        Humidity:        humidity,\n        Pressure:        pressure\n    })\n};\nconst meteoMsg = {\n    topic:   'santuario/meteo/venus',\n    payload: JSON.stringify({\n        Irradiance:     irradiance,\n        TodaysYield:    Math.round(todaysYield * 10) / 10,\n        YieldYesterday: yieldYesterday,\n        WindSpeed:      windSpeed,\n        WindDirection:  windDir\n    })\n};\nreturn [[heatMsg, meteoMsg]];",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 670,
+        "y": 240,
+        "wires": [
+            [
+                "0bd7a9e467c77f73",
+                "99cfe98afde21fd9"
+            ]
+        ]
+    },
+    {
+        "id": "0bd7a9e467c77f73",
+        "type": "mqtt out",
+        "z": "73ef7c83945b9aaa",
+        "name": "Venus Météo",
+        "topic": "",
+        "qos": "1",
+        "retain": "true",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "pi5_mqtt_broker",
+        "x": 1090,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "1aa55cf611ee93ae",
+        "type": "debug",
+        "z": "73ef7c83945b9aaa",
+        "name": "debug météo",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1070,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "a39da0bb34b520a2",
+        "type": "comment",
+        "z": "73ef7c83945b9aaa",
+        "name": "Production solaire — MPPT + PVInverter delta — Persistance MQTT retained",
+        "info": "## Sources production solaire\n- MPPT SmartSolar → N/c0619ab9929a/solarcharger/+/History/Daily/0/Yield\n  Venus OS remet à zéro à minuit automatiquement.\n- Micro-onduleurs → N/c0619ab9929a/pvinverter/+/Ac/Energy/Forward\n  Valeur cumulée → delta journalier via baseline.\n\n## Persistance pvinv_baseline (survit aux redémarrages)\n  topic: santuario/persist/pvinv_baseline  (retain:true, qos:1)\n  Mosquitto persistence=true + volume Docker → persiste sur disque\n  Au démarrage Node-RED : mqtt-in (rap:true) reçoit immédiatement la baseline\n  Le bridge NanoPi reconnecte en ~30s → PVInverter arrive après baseline ✓\n\n## Reset minuit\n  L'inject cron 00:00 remet pvinv_baseline à null et publie payload vide\n  (supprime le retained dans Mosquitto).\n  Au premier message PVInverter du matin → nouvelle baseline posée.\n\n## Vérification NanoPi\n  dbus -y | grep pvinverter\n  dbus -y com.victronenergy.pvinverter.cgwacs_ttyUSB0_mb2 /Ac/Energy/Forward GetValue\n\n## Vérifier la baseline persistée\n  mosquitto_sub -h localhost -p 1883 -t santuario/persist/pvinv_baseline -C 1",
+        "x": 290,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "c014144f28a73742",
+        "type": "mqtt in",
+        "z": "73ef7c83945b9aaa",
+        "name": "MPPT History/Daily/0/Yield (kWh aujourd'hui)",
+        "topic": "N/c0619ab9929a/solarcharger/+/History/Daily/0/Yield",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 270,
+        "y": 420,
+        "wires": [
+            [
+                "54577f6c66262d65"
+            ]
+        ]
+    },
+    {
+        "id": "54577f6c66262d65",
+        "type": "function",
+        "z": "73ef7c83945b9aaa",
+        "name": "Accumuler MPPT yields",
+        "func": "const val = msg.payload && msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nif (val === null || val === undefined || isNaN(val)) return null;\n\nlet mpptYields = global.get('mppt_yields') || {};\nmpptYields[msg.topic] = parseFloat(val) || 0;\nglobal.set('mppt_yields', mpptYields);\n\nconst mpptTotal = Object.values(mpptYields).reduce((a, b) => a + b, 0);\nglobal.set('mppt_yield_today', mpptTotal);\n\n// Mettre à jour total si pvinvToday déjà calculé\nconst pvinvToday = global.get('pvinv_yield_today') || 0;\nconst total = parseFloat((mpptTotal + pvinvToday).toFixed(3));\nif (pvinvToday > 0 || mpptTotal > 0) {\n    global.set('total_yield_today', total);\n}\n\nnode.status({fill:'green', shape:'dot', text:'MPPT: ' + mpptTotal.toFixed(2) + ' kWh'});\nreturn [msg, {}, {}];",
+        "outputs": 3,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 630,
+        "y": 420,
+        "wires": [
+            [
+                "2aecda08c51ff786"
+            ],
+            [
+                "496bea69688a4979"
+            ],
+            [
+                "99cfe98afde21fd9"
+            ]
+        ]
+    },
+    {
+        "id": "740531440d006939",
+        "type": "mqtt in",
+        "z": "73ef7c83945b9aaa",
+        "name": "ET112 mqtt_7 énergie cumulée (kWh)",
+        "topic": "N/c0619ab9929a/pvinverter/32/Ac/Energy/Forward",
+        "qos": "0",
+        "datatype": "auto",
+        "broker": "pi5_mqtt_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 190,
+        "y": 480,
+        "wires": [
+            [
+                "6669e8e938a19084"
+            ]
+        ]
+    },
+    {
+        "id": "6669e8e938a19084",
+        "type": "function",
+        "z": "73ef7c83945b9aaa",
+        "name": "Delta journalier PVInverter (mqtt_7 instance 32) → total_yield",
+        "func": "// Gérer payload string ou objet (datatype auto)\nlet payload = msg.payload;\nif (typeof payload === 'string') {\n    try { payload = JSON.parse(payload); } catch(e) { return null; }\n}\nconst val = payload && payload.value !== undefined ? payload.value : payload;\nif (val === null || val === undefined || isNaN(val)) return null;\n\nconst current = parseFloat(parseFloat(val).toFixed(3));\nif (isNaN(current) || current <= 0) return null;\n\n// Baseline posée au 1er message de la journée (ou après reset minuit)\nlet baseline = global.get('pvinv_baseline');\nif (baseline === null || baseline === undefined) {\n    global.set('pvinv_baseline', current);\n    baseline = current;\n}\n\n// Sécurité : si le compteur ET112 a été remis à zéro\nif (current < baseline) {\n    global.set('pvinv_baseline', current);\n    baseline = current;\n}\n\nconst pvinvToday = Math.max(0, parseFloat((current - baseline).toFixed(3)));\nglobal.set('pvinv_yield_today', pvinvToday);\n\nconst mpptToday = global.get('mppt_yield_today') || 0;\nconst total = parseFloat((mpptToday + pvinvToday).toFixed(3));\nglobal.set('total_yield_today', total);\n\nnode.status({fill:'green', shape:'dot', text:'PVInv: ' + pvinvToday.toFixed(2) + ' + MPPT: ' + mpptToday.toFixed(2) + ' = ' + total.toFixed(2) + ' kWh'});\n\n// out1=debug | out2=persist baseline | out3=InfluxDB trigger | out4=push serveur\nreturn [msg, {payload: String(baseline)}, {}, {}];",
+        "outputs": 4,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 620,
+        "y": 480,
+        "wires": [
+            [
+                "2aecda08c51ff786"
+            ],
+            [
+                "c0ae6aa23b367aee"
+            ],
+            [
+                "496bea69688a4979"
+            ],
+            [
+                "99cfe98afde21fd9"
+            ]
+        ]
+    },
+    {
+        "id": "ad0512d0a5964617",
+        "type": "inject",
+        "z": "73ef7c83945b9aaa",
+        "name": "Reset minuit (00:00)",
+        "props": [],
+        "repeat": "",
+        "crontab": "0 0 * * *",
+        "once": false,
+        "onceDelay": 0,
+        "topic": "",
+        "x": 140,
+        "y": 560,
+        "wires": [
+            [
+                "fa23f4c55ddb3ea9"
+            ]
+        ]
+    },
+    {
+        "id": "fa23f4c55ddb3ea9",
+        "type": "function",
+        "z": "73ef7c83945b9aaa",
+        "name": "Reset production du jour (minuit)",
+        "func": "// Sauvegarder la production d'aujourd'hui comme hier AVANT le reset\nconst yieldToday = global.get('total_yield_today') || 0;\nglobal.set('yield_yesterday', yieldToday);\n\n// Reset des compteurs du jour\nglobal.set('total_yield_today', 0);\nglobal.set('pvinv_yield_today', 0);\nglobal.set('pvinv_baseline', null);\nglobal.set('mppt_yield_today', 0);\nglobal.set('mppt_yields', {});\n\nnode.status({fill:'blue', shape:'dot', text:'Reset minuit — hier: ' + yieldToday.toFixed(2) + ' kWh'});\n// out1: n/a | out2: efface retained pvinv_baseline | out3: persiste yield_yesterday\nreturn [null, {payload: ''}, {payload: String(yieldToday)}];",
+        "outputs": 3,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 430,
+        "y": 560,
+        "wires": [
+            [],
+            [
+                "c0ae6aa23b367aee"
+            ],
+            [
+                "8b81693287bb4118"
+            ]
+        ]
+    },
+    {
+        "id": "2aecda08c51ff786",
+        "type": "debug",
+        "z": "73ef7c83945b9aaa",
+        "name": "debug yield",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 950,
+        "y": 420,
+        "wires": []
+    },
+    {
+        "id": "c6abd9d27e38fd0e",
+        "type": "comment",
+        "z": "73ef7c83945b9aaa",
+        "name": "PERSISTANCE pvinv_baseline — MQTT retained (Mosquitto persistence=true)",
+        "info": "## Principe\npvinv_baseline est publiée en retained sur santuario/persist/pvinv_baseline\nMosquitto stocke ce message sur disque (persistence=true + volume Docker).\n\nAu redémarrage Node-RED / Pi5 :\n1. pvinv_persist_in (rap:true) reçoit immédiatement la baseline depuis Mosquitto local\n2. restore_baseline_fn repose global.pvinv_baseline\n3. Bridge NanoPi reconnecte ~30s plus tard\n4. Premier PVInverter reçu → baseline déjà posée → delta correct ✓\n\n## Vérification\nmosquitto_sub -h localhost -p 1883 -t santuario/persist/pvinv_baseline -C 1\n# → doit afficher la baseline (ex: 587.2)\n\n## Reset manuel si baseline incorrecte\nSe référer à fix-pvinv-baseline.json (CLAUDE.md §10)",
+        "x": 280,
+        "y": 680,
+        "wires": []
+    },
+    {
+        "id": "c0ae6aa23b367aee",
+        "type": "mqtt out",
+        "z": "73ef7c83945b9aaa",
+        "name": "Persist pvinv_baseline (retained)",
+        "topic": "santuario/persist/pvinv_baseline",
+        "qos": "1",
+        "retain": "true",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "pi5_mqtt_broker",
+        "x": 770,
+        "y": 560,
+        "wires": []
+    },
+    {
+        "id": "da88abe3e1b490ad",
+        "type": "comment",
+        "z": "73ef7c83945b9aaa",
+        "name": "PERSISTANCE InfluxDB — solar_persist (pvinv_baseline + production du jour)",
+        "info": "## Principe (solution pérenne)\npvinv_baseline, mppt_yield_today, pvinv_yield_today, total_yield_today\nsont écrits dans InfluxDB (measurement: solar_persist) avec un tag 'day' = date locale Paris.\n\n## Au démarrage (+5s)\n  influx_startup_inject → influx_restore_fn → influx_query_req → influx_restore_result_fn\n  Requête Flux : dernier enregistrement solar_persist pour aujourd'hui (tag day=YYYY-MM-DD)\n  → pvinv_baseline restaurée → 1er PVInverter calcule delta correct ✓\n\n## Écriture\n  mppt_yield_fn (output 2) → influx_write_fn → influx_write_req\n  pvinv_daily_fn (output 3) → influx_write_fn → influx_write_req\n  Line protocol : solar_persist,day=2026-03-22,host=pi5 pvinv_baseline=587.2,...\n\n## Variables d'environnement requises dans docker-compose.infra.yml\n  INFLUX_TOKEN, INFLUX_ORG, INFLUX_BUCKET\n\n## Vérification (Pi5)\n  # Voir les derniers enregistrements\n  docker exec dalybms-influxdb influx query \\\n    'from(bucket:\"daly_bms\") |> range(start:-2h) |> filter(fn:(r)=>r._measurement==\"solar_persist\") |> last()'",
+        "x": 270,
+        "y": 740,
+        "wires": []
+    },
+    {
+        "id": "c26b7ce380da93be",
+        "type": "inject",
+        "z": "73ef7c83945b9aaa",
+        "name": "Restaurer/Synchroniser depuis InfluxDB (démarrage +5s puis toutes les 5 min)",
+        "props": [],
+        "repeat": "300",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 5,
+        "topic": "",
+        "x": 320,
+        "y": 100,
+        "wires": [
+            [
+                "65f7a483dd6f5302"
+            ]
+        ]
+    },
+    {
+        "id": "65f7a483dd6f5302",
+        "type": "function",
+        "z": "73ef7c83945b9aaa",
+        "name": "Préparer requête Flux (restore baseline)",
+        "func": "// Date locale Paris pour filtrer uniquement les données d'aujourd'hui\nconst now = new Date();\nconst parisISO = now.toLocaleString('sv-SE', {timeZone: 'Europe/Paris'});\nconst today = parisISO.substring(0, 10); // YYYY-MM-DD\n\nconst token = env.get('INFLUX_TOKEN');\nif (!token) {\n    node.status({fill:'red', shape:'ring', text:'INFLUX_TOKEN manquant dans docker-compose'});\n    return null;\n}\n\nconst org    = env.get('INFLUX_ORG')    || 'santuario';\nconst bucket = env.get('INFLUX_BUCKET') || 'daly_bms';\n\n// range -30h pour couvrir les décalages de fuseau horaire\n// tag 'day' garantit qu'on ne récupère QUE les données du jour Paris\nconst fluxQuery = [\n    'from(bucket: \"' + bucket + '\")',\n    '  |> range(start: -30h)',\n    '  |> filter(fn: (r) => r._measurement == \"solar_persist\")',\n    '  |> filter(fn: (r) => r.day == \"' + today + '\")',\n    '  |> last()'\n].join('\\n');\n\nmsg.url     = 'http://192.168.1.141:8086/api/v2/query?org=' + org;\nmsg.method  = 'POST';\nmsg.payload = fluxQuery;\nmsg.headers = {\n    'Authorization': 'Token ' + token,\n    'Content-Type': 'application/vnd.flux',\n    'Accept': 'application/csv'\n};\nnode.status({fill:'blue', shape:'dot', text:'Requête Flux pour ' + today});\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 200,
+        "y": 160,
+        "wires": [
+            [
+                "ea4681fe4ba37b72"
+            ]
+        ]
+    },
+    {
+        "id": "ea4681fe4ba37b72",
+        "type": "http request",
+        "z": "73ef7c83945b9aaa",
+        "name": "InfluxDB Query (Flux)",
+        "method": "POST",
+        "ret": "txt",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 500,
+        "y": 160,
+        "wires": [
+            [
+                "23f92cd4da5344ae"
+            ]
+        ]
+    },
+    {
+        "id": "23f92cd4da5344ae",
+        "type": "function",
+        "z": "73ef7c83945b9aaa",
+        "name": "Restaurer globals depuis InfluxDB",
+        "func": "const csv = msg.payload || '';\nconst lines = csv.split('\\n').filter(l => l.trim() && !l.startsWith('#'));\nif (lines.length < 2) {\n    node.status({fill:'grey', shape:'ring', text:'Pas de données InfluxDB pour aujourd\\'hui'});\n    return null;\n}\n\nconst header = lines[0].split(',');\nconst fieldIdx = header.findIndex(h => h.trim() === '_field');\nconst valueIdx = header.findIndex(h => h.trim() === '_value');\nif (fieldIdx === -1 || valueIdx === -1) return null;\n\nconst data = {};\nfor (let i = 1; i < lines.length; i++) {\n    const cols = lines[i].split(',');\n    const field = (cols[fieldIdx] || '').trim();\n    const value = parseFloat((cols[valueIdx] || '').trim());\n    if (field && !isNaN(value)) data[field] = value;\n}\n\nif (data.mppt_yield_today !== undefined) global.set('mppt_yield_today', data.mppt_yield_today || 0);\n\nconst currentTotal = global.get('total_yield_today') || 0;\nconst influxTotal  = data.total_yield_today || 0;\nif (currentTotal <= 0 && influxTotal > 0) {\n    global.set('total_yield_today', influxTotal);\n}\n\nconst total = global.get('total_yield_today') || 0;\nconst mppt  = global.get('mppt_yield_today')  || 0;\nnode.status({fill:'green', shape:'dot',\n    text: 'InfluxDB ✓ Total=' + total.toFixed(2) + ' MPPT=' + mppt.toFixed(2) + ' kWh'});\n\nif (total <= 0) return null;\n\nconst irradiance     = global.get('irradiance_wm2')     || 0;\nconst yieldYesterday = global.get('yield_yesterday')     || 0;\nconst windSpeed      = global.get('outdoor_wind_speed')  || 0;\nconst windDir        = global.get('outdoor_wind_dir')    || 0;\nconst temp           = global.get('outdoor_temp')        || 0;\n\nreturn [[\n    { topic: 'santuario/heat/1/venus', payload: JSON.stringify({\n        Temperature: temp, TemperatureType: 4,\n        Humidity: global.get('outdoor_humidity') || 0,\n        Pressure: global.get('outdoor_pressure') || 0\n    })},\n    { topic: 'santuario/meteo/venus', payload: JSON.stringify({\n        Irradiance: irradiance, TodaysYield: Math.round(total * 10) / 10,\n        YieldYesterday: yieldYesterday,\n        WindSpeed: windSpeed, WindDirection: windDir\n    })}\n]];",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 780,
+        "y": 160,
+        "wires": [
+            [
+                "0bd7a9e467c77f73"
+            ]
+        ]
+    },
+    {
+        "id": "496bea69688a4979",
+        "type": "function",
+        "z": "73ef7c83945b9aaa",
+        "name": "Formater line protocol InfluxDB",
+        "func": "const token  = env.get('INFLUX_TOKEN');\nconst org    = env.get('INFLUX_ORG')    || 'santuario';\nconst bucket = env.get('INFLUX_BUCKET') || 'daly_bms';\nif (!token) return null;\n\nconst mppt  = global.get('mppt_yield_today')  || 0;\nconst total = global.get('total_yield_today') || 0;\n\nconst now = new Date();\nconst parisISO = now.toLocaleString('sv-SE', {timeZone: 'Europe/Paris'});\nconst day = parisISO.substring(0, 10);\nconst ts  = Math.floor(Date.now() / 1000);\n\nconst hostname = (env.get('HOSTNAME') || 'pi5').replace(/[^a-zA-Z0-9_-]/g, '_');\nconst line = `solar_persist,day=${day},host=${hostname} mppt_yield_today=${mppt},total_yield_today=${total} ${ts}`;\n\nmsg.url     = `http://dalybms-influxdb:8086/api/v2/write?org=${org}&bucket=${bucket}&precision=s`;\nmsg.method  = 'POST';\nmsg.payload = line;\nmsg.headers = {\n    'Authorization': 'Token ' + token,\n    'Content-Type':  'text/plain; charset=utf-8'\n};\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1090,
+        "y": 480,
+        "wires": [
+            [
+                "24537ecfc5667ce1"
+            ]
+        ]
+    },
+    {
+        "id": "24537ecfc5667ce1",
+        "type": "http request",
+        "z": "73ef7c83945b9aaa",
+        "name": "InfluxDB Write (solar_persist)",
+        "method": "POST",
+        "ret": "txt",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 1060,
+        "y": 540,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "8b81693287bb4118",
+        "type": "mqtt out",
+        "z": "73ef7c83945b9aaa",
+        "name": "Persist yield_yesterday (retained)",
+        "topic": "santuario/persist/yield_yesterday",
+        "qos": "0",
+        "retain": "true",
+        "broker": "pi5_mqtt_broker",
+        "x": 1000,
+        "y": 620,
+        "wires": []
+    },
+    {
+        "id": "1b40aebe159460f1",
+        "type": "mqtt in",
+        "z": "73ef7c83945b9aaa",
+        "name": "Restore yield_yesterday (au démarrage)",
+        "topic": "santuario/persist/yield_yesterday",
+        "qos": "0",
+        "datatype": "auto",
+        "broker": "pi5_mqtt_broker",
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 200,
+        "y": 620,
+        "wires": [
+            [
+                "4a9065650f9e8fdf"
+            ]
+        ]
+    },
+    {
+        "id": "4a9065650f9e8fdf",
+        "type": "function",
+        "z": "73ef7c83945b9aaa",
+        "name": "Restaurer yield_yesterday",
+        "func": "const raw = msg.payload;\nif (raw === '' || raw === null || raw === undefined) {\n    global.set('yield_yesterday', 0);\n    node.status({fill:'grey', shape:'ring', text:'Pas de yield_yesterday (1er jour)'});\n    return null;\n}\nconst val = parseFloat(raw);\n// Seuil raisonnable : production max journalière ~50 kWh sur cette installation\nconst MAX_DAILY_KWH = 50;\nif (!isNaN(val) && val >= 0 && val <= MAX_DAILY_KWH) {\n    global.set('yield_yesterday', val);\n    node.status({fill:'yellow', shape:'dot', text:'Hier: ' + val.toFixed(2) + ' kWh'});\n} else if (!isNaN(val) && val > MAX_DAILY_KWH) {\n    // Valeur aberrante (cumul brut) — réinitialiser et nettoyer le retained\n    global.set('yield_yesterday', 0);\n    node.status({fill:'orange', shape:'ring', text:'Valeur aberrante ignorée: ' + val.toFixed(1) + ' kWh → reset'});\n    // Publier 0 pour écraser le retained incorrect\n    return {payload: '0', topic: 'santuario/persist/yield_yesterday', retain: true};\n}\nreturn null;",
+        "outputs": 1,
+        "x": 530,
+        "y": 620,
+        "wires": [
+            [
+                "8b81693287bb4118"
+            ]
+        ]
+    },
+    {
+        "id": "99cfe98afde21fd9",
+        "type": "function",
+        "z": "73ef7c83945b9aaa",
+        "name": "Préparer POST mppt-yield",
+        "func": "// Envoyer total_yield_today + mppt_power_w vers daly-bms-server\n// total_yield_kwh = MPPT + ET112 delta journalier (même valeur que Victron 'Solaire totale')\n// mppt_power_w    = puissance instantanée totale des chargeurs MPPT en W\nconst kwh = global.get('total_yield_today') || 0;\nconst pw  = global.get('mppt_power_w')      || 0;\nmsg.payload = { total_yield_kwh: kwh, mppt_power_w: pw };\nmsg.headers = { 'Content-Type': 'application/json' };\nnode.status({fill:'blue', shape:'dot', text: kwh.toFixed(2) + ' kWh / ' + Math.round(pw) + ' W → serveur'});\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 940,
+        "y": 340,
+        "wires": [
+            [
+                "8352bf02584d975a"
+            ]
+        ]
+    },
+    {
+        "id": "8352bf02584d975a",
+        "type": "http request",
+        "z": "73ef7c83945b9aaa",
+        "name": "POST /api/v1/solar/mppt-yield",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://192.168.1.141:8080/api/v1/solar/mppt-yield",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 1050,
+        "y": 260,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "678f24cdd2a57aba",
+        "type": "comment",
+        "z": "73ef7c83945b9aaa",
+        "name": "mppt_power_w → global posé par Solar_power.json (topics Yield/Power corrects)",
+        "info": "La puissance MPPT instantanée (global.mppt_power_w) est alimentée par\nle flow Solar_power.json qui subscribe aux topics corrects :\n  N/c0619ab9929a/solarcharger/273/Yield/Power\n  N/c0619ab9929a/solarcharger/289/Yield/Power\n\nLes nœuds mppt_power_in / mppt_power_fn ont été supprimés car ils\nutilisaient le mauvais topic solarcharger/+/Dc/Power.",
+        "x": 300,
+        "y": 360,
+        "wires": []
+    },
+    {
+        "id": "a5be39c5920af9d6",
+        "type": "mqtt in",
+        "z": "0bc19373f927ae02",
+        "name": "Inverter DC Voltage",
+        "topic": "N/c0619ab9929a/vebus/275/Dc/0/Voltage",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "28f0f7c4bcdb97e9",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 150,
+        "y": 60,
+        "wires": [
+            [
+                "37dff5eb0689e0a1"
+            ]
+        ]
+    },
+    {
+        "id": "38c99062fb09703c",
+        "type": "mqtt in",
+        "z": "0bc19373f927ae02",
+        "name": "Inverter DC Current",
+        "topic": "N/c0619ab9929a/vebus/275/Dc/0/Current",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "28f0f7c4bcdb97e9",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 150,
+        "y": 120,
+        "wires": [
+            [
+                "9f1e5594a79209da"
+            ]
+        ]
+    },
+    {
+        "id": "d6591c2047437613",
+        "type": "mqtt in",
+        "z": "0bc19373f927ae02",
+        "name": "Inverter DC Power",
+        "topic": "N/c0619ab9929a/vebus/275/Dc/0/Power",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "28f0f7c4bcdb97e9",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 150,
+        "y": 180,
+        "wires": [
+            [
+                "0a313055d755dcd2"
+            ]
+        ]
+    },
+    {
+        "id": "1e3eb5ba95b10204",
+        "type": "mqtt in",
+        "z": "0bc19373f927ae02",
+        "name": "Inverter AC L1 Voltage",
+        "topic": "N/c0619ab9929a/vebus/275/Ac/Out/L1/V",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "28f0f7c4bcdb97e9",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 140,
+        "y": 240,
+        "wires": [
+            [
+                "7c068889ededd997"
+            ]
+        ]
+    },
+    {
+        "id": "4b218d16e18239ac",
+        "type": "mqtt in",
+        "z": "0bc19373f927ae02",
+        "name": "Inverter AC Output Power",
+        "topic": "N/c0619ab9929a/system/0/Ac/ConsumptionOnOutput/L1/Power",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "28f0f7c4bcdb97e9",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 150,
+        "y": 300,
+        "wires": [
+            [
+                "24e782ec14fe4dfe"
+            ]
+        ]
+    },
+    {
+        "id": "37dff5eb0689e0a1",
+        "type": "function",
+        "z": "0bc19373f927ae02",
+        "name": "Store Voltage",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('voltage_v', v);\nnode.status({fill:'blue', text:`Voltage: ${v}V`});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 350,
+        "y": 60,
+        "wires": [
+            [
+                "cd6cafd72389b5bf"
+            ]
+        ]
+    },
+    {
+        "id": "9f1e5594a79209da",
+        "type": "function",
+        "z": "0bc19373f927ae02",
+        "name": "Store Current",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('current_a', v);\nnode.status({fill:'blue', text:`Current: ${v}A`});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 350,
+        "y": 120,
+        "wires": [
+            [
+                "cd6cafd72389b5bf"
+            ]
+        ]
+    },
+    {
+        "id": "0a313055d755dcd2",
+        "type": "function",
+        "z": "0bc19373f927ae02",
+        "name": "Store Power",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('power_w', v);\nnode.status({fill:'blue', text:`Power: ${v}W`});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 350,
+        "y": 180,
+        "wires": [
+            [
+                "cd6cafd72389b5bf"
+            ]
+        ]
+    },
+    {
+        "id": "7c068889ededd997",
+        "type": "function",
+        "z": "0bc19373f927ae02",
+        "name": "Store AC Voltage",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('ac_voltage_v', v);\nnode.status({fill:'green', text:`AC Voltage: ${v}V`});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 350,
+        "y": 240,
+        "wires": [
+            [
+                "cd6cafd72389b5bf"
+            ]
+        ]
+    },
+    {
+        "id": "24e782ec14fe4dfe",
+        "type": "function",
+        "z": "0bc19373f927ae02",
+        "name": "Store AC Power",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('ac_power_w', v);\nnode.status({fill:'green', text:`AC Power: ${v}W`});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 350,
+        "y": 300,
+        "wires": [
+            [
+                "cd6cafd72389b5bf"
+            ]
+        ]
+    },
+    {
+        "id": "cd6cafd72389b5bf",
+        "type": "function",
+        "z": "0bc19373f927ae02",
+        "name": "Publish to MQTT",
+        "func": "const voltage = flow.get('voltage_v') || 0;\nconst current = flow.get('current_a') || 0;\nconst power = flow.get('power_w') || 0;\nconst ac_voltage = flow.get('ac_voltage_v') || 0;\nconst ac_current = flow.get('ac_current_a') || 0;\nconst ac_power = flow.get('ac_power_w') || 0;\n\nnode.status({fill:'green', shape:'dot', text:`DC: ${voltage}V ${current}A | AC: ${ac_voltage}V ${ac_power}W`});\n\nconst msg_out = {\n    topic: 'santuario/inverter/venus',\n    payload: JSON.stringify({\n        Voltage: voltage,\n        Current: current,\n        Power: power,\n        AcVoltage: ac_voltage,\n        AcCurrent: ac_current,\n        AcPower: ac_power,\n        State: 'on',\n        Mode: 'inverter'\n    }),\n    retain: true\n};\n\nreturn msg_out;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 550,
+        "y": 180,
+        "wires": [
+            [
+                "f6fc163b829421f7"
+            ]
+        ]
+    },
+    {
+        "id": "f6fc163b829421f7",
+        "type": "mqtt out",
+        "z": "0bc19373f927ae02",
+        "name": "MQTT out",
+        "topic": "",
+        "qos": "1",
+        "retain": true,
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "28f0f7c4bcdb97e9",
+        "x": 750,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "4cc2aa0645b2987c",
+        "type": "mqtt in",
+        "z": "0bc19373f927ae02",
+        "name": "Fréquence AC Out",
+        "topic": "N/c0619ab9929a/vebus/275/Ac/Out/L1/F",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "victron_mqtt",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 150,
+        "y": 400,
+        "wires": [
+            [
+                "e3ba65e71353e7b8"
+            ]
+        ]
+    },
+    {
+        "id": "a9490e44b2d5cb2b",
+        "type": "debug",
+        "z": "0bc19373f927ae02",
+        "name": "debug 14",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 720,
+        "y": 400,
+        "wires": []
+    },
+    {
+        "id": "1cd64a3ff88108c5",
+        "type": "mqtt in",
+        "z": "0bc19373f927ae02",
+        "name": "AC Out Voltage",
+        "topic": "N/c0619ab9929a/vebus/275/Ac/Out/L1/V",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "victron_mqtt",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 140,
+        "y": 460,
+        "wires": [
+            [
+                "62d1874d30a2f355"
+            ]
+        ]
+    },
+    {
+        "id": "0dcf4ea4be656ba1",
+        "type": "debug",
+        "z": "0bc19373f927ae02",
+        "name": "debug 15",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 720,
+        "y": 460,
+        "wires": []
+    },
+    {
+        "id": "2195ea88eadeb6cf",
+        "type": "mqtt in",
+        "z": "0bc19373f927ae02",
+        "name": "AC Out Current",
+        "topic": "N/c0619ab9929a/vebus/275/Ac/Out/L1/I",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "victron_mqtt",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 140,
+        "y": 520,
+        "wires": [
+            [
+                "977c8221b5853b0f"
+            ]
+        ]
+    },
+    {
+        "id": "e0375f7947da6c17",
+        "type": "debug",
+        "z": "0bc19373f927ae02",
+        "name": "debug 16",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 720,
+        "y": 520,
+        "wires": []
+    },
+    {
+        "id": "af9d8c6875f0aa2a",
+        "type": "mqtt in",
+        "z": "0bc19373f927ae02",
+        "name": "vebus/275/Energy/InverterToAcOut (kWh)",
+        "topic": "N/c0619ab9929a/vebus/275/Energy/InverterToAcOut",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "victron_mqtt",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 220,
+        "y": 580,
+        "wires": [
+            [
+                "0db73193a1307c3d"
+            ]
+        ]
+    },
+    {
+        "id": "e897073e190ae1d5",
+        "type": "debug",
+        "z": "0bc19373f927ae02",
+        "name": "debug 18",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 720,
+        "y": 580,
+        "wires": []
+    },
+    {
+        "id": "0f3431ec193606c1",
+        "type": "comment",
+        "z": "0bc19373f927ae02",
+        "name": "/Energy/OutToInverter",
+        "info": "",
+        "x": 940,
+        "y": 600,
+        "wires": []
+    },
+    {
+        "id": "94c0aff9d5d408b6",
+        "type": "mqtt in",
+        "z": "0bc19373f927ae02",
+        "name": "/Energy/OutToInverter (kWh)",
+        "topic": "N/c0619ab9929a/vebus/275/Energy/OutToInverter",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "victron_mqtt",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 180,
+        "y": 640,
+        "wires": [
+            [
+                "28675f236db6adf3"
+            ]
+        ]
+    },
+    {
+        "id": "6f0c2d413699bb7a",
+        "type": "debug",
+        "z": "0bc19373f927ae02",
+        "name": "debug 19",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 720,
+        "y": 640,
+        "wires": []
+    },
+    {
+        "id": "e3ba65e71353e7b8",
+        "type": "function",
+        "z": "0bc19373f927ae02",
+        "name": "function 1",
+        "func": "\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 420,
+        "y": 400,
+        "wires": [
+            [
+                "a9490e44b2d5cb2b"
+            ]
+        ]
+    },
+    {
+        "id": "62d1874d30a2f355",
+        "type": "function",
+        "z": "0bc19373f927ae02",
+        "name": "function 2",
+        "func": "\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 420,
+        "y": 460,
+        "wires": [
+            [
+                "0dcf4ea4be656ba1"
+            ]
+        ]
+    },
+    {
+        "id": "977c8221b5853b0f",
+        "type": "function",
+        "z": "0bc19373f927ae02",
+        "name": "function 3",
+        "func": "\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 420,
+        "y": 520,
+        "wires": [
+            [
+                "e0375f7947da6c17"
+            ]
+        ]
+    },
+    {
+        "id": "0db73193a1307c3d",
+        "type": "function",
+        "z": "0bc19373f927ae02",
+        "name": "function 4",
+        "func": "\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 520,
+        "y": 580,
+        "wires": [
+            [
+                "e897073e190ae1d5"
+            ]
+        ]
+    },
+    {
+        "id": "28675f236db6adf3",
+        "type": "function",
+        "z": "0bc19373f927ae02",
+        "name": "function 5",
+        "func": "\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 460,
+        "y": 640,
+        "wires": [
+            [
+                "6f0c2d413699bb7a"
+            ]
+        ]
+    },
+    {
+        "id": "08cd3b7abbb3dbec",
+        "type": "comment",
+        "z": "0bc19373f927ae02",
+        "name": "Path À mettre en place",
+        "info": "N/c0619ab9929a/vebus/275/Ac/State/IgnoreAcIn1\n\n/Ac/State/IgnoreAcIn1\n\n/State\n0=Off;1=Low Power;\n2=Fault;3=Bulk;\n4=Absorption;5=Float;\n6=Storage;7=Equalize;\n8=Passthru;9=Inverting;1\n0=Power assist;11=Power supply;\n244=Sustain;252=External control\n\n/Energy/AcIn1ToAcOut\n/Ac/ActiveIn/L1/I\n/Ac/ActiveIn/L1/F\n/Ac/ActiveIn/L1/P\n/Ac/ActiveIn/L1/V",
+        "x": 620,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "f9965fefa26e0b2b",
+        "type": "mqtt in",
+        "z": "868c5ce8bd74c7b1",
+        "name": "SmartShunt SOC",
+        "topic": "N/c0619ab9929a/system/0/Dc/Battery/Soc",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_ss",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 150,
+        "y": 60,
+        "wires": [
+            [
+                "813bcc8e9d28048a"
+            ]
+        ]
+    },
+    {
+        "id": "3ae40bc591180ec3",
+        "type": "mqtt in",
+        "z": "868c5ce8bd74c7b1",
+        "name": "SmartShunt Voltage",
+        "topic": "N/c0619ab9929a/system/0/Dc/Battery/Voltage",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_ss",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 150,
+        "y": 120,
+        "wires": [
+            [
+                "798a37c08a164531"
+            ]
+        ]
+    },
+    {
+        "id": "fea4a40dd9052c0a",
+        "type": "mqtt in",
+        "z": "868c5ce8bd74c7b1",
+        "name": "SmartShunt Current",
+        "topic": "N/c0619ab9929a/system/0/Dc/Battery/Current",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_ss",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 150,
+        "y": 180,
+        "wires": [
+            [
+                "6c3b28566493b112"
+            ]
+        ]
+    },
+    {
+        "id": "00dff61098e8530c",
+        "type": "mqtt in",
+        "z": "868c5ce8bd74c7b1",
+        "name": "SmartShunt Power",
+        "topic": "N/c0619ab9929a/system/0/Dc/Battery/Power",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_ss",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 150,
+        "y": 240,
+        "wires": [
+            [
+                "ae72d0c0d5eb0b83"
+            ]
+        ]
+    },
+    {
+        "id": "813bcc8e9d28048a",
+        "type": "function",
+        "z": "868c5ce8bd74c7b1",
+        "name": "Store SOC",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('soc_percent', v);\nnode.status({fill:'blue', text:`SOC: ${v}%`});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 350,
+        "y": 60,
+        "wires": [
+            [
+                "47a9e870e2c9f6e0"
+            ]
+        ]
+    },
+    {
+        "id": "798a37c08a164531",
+        "type": "function",
+        "z": "868c5ce8bd74c7b1",
+        "name": "Store Voltage",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('voltage_v', v);\nnode.status({fill:'blue', text:`V: ${v}V`});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 350,
+        "y": 120,
+        "wires": [
+            [
+                "47a9e870e2c9f6e0"
+            ]
+        ]
+    },
+    {
+        "id": "6c3b28566493b112",
+        "type": "function",
+        "z": "868c5ce8bd74c7b1",
+        "name": "Store Current",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('current_a', v);\nnode.status({fill:'blue', text:`I: ${v}A`});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 350,
+        "y": 180,
+        "wires": [
+            [
+                "47a9e870e2c9f6e0"
+            ]
+        ]
+    },
+    {
+        "id": "ae72d0c0d5eb0b83",
+        "type": "function",
+        "z": "868c5ce8bd74c7b1",
+        "name": "Store Power",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('power_w', v);\nnode.status({fill:'blue', text:`P: ${v}W`});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 350,
+        "y": 240,
+        "wires": [
+            [
+                "47a9e870e2c9f6e0"
+            ]
+        ]
+    },
+    {
+        "id": "47a9e870e2c9f6e0",
+        "type": "function",
+        "z": "868c5ce8bd74c7b1",
+        "name": "Publish to MQTT",
+        "func": "const soc      = flow.get('soc_percent') || 0;\nconst voltage  = flow.get('voltage_v')   || 0;\nconst current  = flow.get('current_a')   || 0;\nconst power    = flow.get('power_w')     || 0;\n\nnode.status({fill:'green', shape:'dot', text:`${soc}% | ${voltage}V | ${current}A | ${power}W`});\n\nconst msg_out = {\n    topic: 'santuario/system/venus',\n    payload: JSON.stringify({\n        Soc: soc,\n        Voltage: voltage,\n        Current: current,\n        Power: power\n    }),\n    retain: true\n};\n\nreturn msg_out;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 550,
+        "y": 150,
+        "wires": [
+            [
+                "3c72714e7accb089"
+            ]
+        ]
+    },
+    {
+        "id": "3c72714e7accb089",
+        "type": "mqtt out",
+        "z": "868c5ce8bd74c7b1",
+        "name": "MQTT out",
+        "topic": "",
+        "qos": "1",
+        "retain": true,
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "pi5_mqtt_broker_ss",
+        "x": 750,
+        "y": 150,
+        "wires": []
+    },
+    {
+        "id": "18f4ae4df7a00db0",
+        "type": "mqtt in",
+        "z": "868c5ce8bd74c7b1",
+        "name": "N/c0619ab9929a/vebus/274/Dc/0/Power",
+        "topic": "N/c0619ab9929a/vebus/274/Dc/0/Power",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_ss",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 220,
+        "y": 320,
+        "wires": [
+            [
+                "6ada3ab31c69f03f"
+            ]
+        ]
+    },
+    {
+        "id": "6ada3ab31c69f03f",
+        "type": "debug",
+        "z": "868c5ce8bd74c7b1",
+        "name": "debug 17",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 520,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "7f263ecb3cf5ec71",
+        "type": "mqtt in",
+        "z": "868c5ce8bd74c7b1",
+        "name": "N/c0619ab9929a/vebus/274/Dc/0/Voltage",
+        "topic": "N/c0619ab9929a/vebus/274/Dc/0/Voltage",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_ss",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 220,
+        "y": 400,
+        "wires": [
+            [
+                "7ab7e697e2417c1f"
+            ]
+        ]
+    },
+    {
+        "id": "7ab7e697e2417c1f",
+        "type": "debug",
+        "z": "868c5ce8bd74c7b1",
+        "name": "debug 20",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 520,
+        "y": 400,
+        "wires": []
+    },
+    {
+        "id": "358ecc0e7388a19d",
+        "type": "mqtt in",
+        "z": "868c5ce8bd74c7b1",
+        "name": "N/c0619ab9929a/vebus/274/Dc/0/Current",
+        "topic": "N/c0619ab9929a/vebus/274/Dc/0/Current",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_ss",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 220,
+        "y": 480,
+        "wires": [
+            [
+                "94e82d58b863b86e"
+            ]
+        ]
+    },
+    {
+        "id": "94e82d58b863b86e",
+        "type": "debug",
+        "z": "868c5ce8bd74c7b1",
+        "name": "debug 21",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 520,
+        "y": 480,
+        "wires": []
+    },
+    {
+        "id": "dffc06858355cb83",
+        "type": "inject",
+        "z": "b8d77b9de0e8bb69",
+        "name": "ON",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "topic": "",
+        "payload": "ON",
+        "payloadType": "str",
+        "x": 110,
+        "y": 60,
+        "wires": [
+            [
+                "eab697b3e57125d9"
+            ]
+        ]
+    },
+    {
+        "id": "1b892f6b71cb80c4",
+        "type": "inject",
+        "z": "b8d77b9de0e8bb69",
+        "name": "OFF",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "topic": "",
+        "payload": "OFF",
+        "payloadType": "str",
+        "x": 110,
+        "y": 100,
+        "wires": [
+            [
+                "eab697b3e57125d9"
+            ]
+        ]
+    },
+    {
+        "id": "7554320d56377a22",
+        "type": "inject",
+        "z": "b8d77b9de0e8bb69",
+        "name": "TOGGLE",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "topic": "",
+        "payload": "TOGGLE",
+        "payloadType": "str",
+        "x": 120,
+        "y": 140,
+        "wires": [
+            [
+                "eab697b3e57125d9"
+            ]
+        ]
+    },
+    {
+        "id": "ea2325e7f65d27e6",
+        "type": "inject",
+        "z": "b8d77b9de0e8bb69",
+        "name": "Lire état",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "2",
+        "topic": "",
+        "payload": "",
+        "payloadType": "str",
+        "x": 120,
+        "y": 180,
+        "wires": [
+            [
+                "eab697b3e57125d9"
+            ]
+        ]
+    },
+    {
+        "id": "eab697b3e57125d9",
+        "type": "mqtt out",
+        "z": "b8d77b9de0e8bb69",
+        "name": "cmnd/tongou_3BC764/Power",
+        "topic": "cmnd/tongou_3BC764/Power",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "tasmota-broker",
+        "x": 360,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "6fee02128af1ab4c",
+        "type": "mqtt in",
+        "z": "b8d77b9de0e8bb69",
+        "name": "stat/tongou_3BC764/POWER",
+        "topic": "stat/tongou_3BC764/POWER",
+        "qos": "0",
+        "datatype": "auto",
+        "broker": "tasmota-broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 160,
+        "y": 220,
+        "wires": [
+            [
+                "511d4e1574a9ed3e",
+                "54dd2cd4c2153aad"
+            ]
+        ]
+    },
+    {
+        "id": "511d4e1574a9ed3e",
+        "type": "function",
+        "z": "b8d77b9de0e8bb69",
+        "name": "État → global",
+        "func": "const etat = msg.payload;\nconst on = (etat === 'ON');\nflow.set('tongou_sy2_state', on);\nnode.status({fill: on ? 'green' : 'grey', shape: 'dot', text: etat});\nmsg.payload = on;\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 420,
+        "y": 220,
+        "wires": [
+            [
+                "3a068bda4cb993d8"
+            ]
+        ]
+    },
+    {
+        "id": "54dd2cd4c2153aad",
+        "type": "debug",
+        "z": "b8d77b9de0e8bb69",
+        "name": "POWER état",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 410,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "3a068bda4cb993d8",
+        "type": "debug",
+        "z": "b8d77b9de0e8bb69",
+        "name": "État bool",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 400,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "829befde0bf741ff",
+        "type": "mqtt in",
+        "z": "b8d77b9de0e8bb69",
+        "name": "tele/tongou_3BC764/SENSOR",
+        "topic": "tele/tongou_3BC764/SENSOR",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "tasmota-broker",
+        "nl": false,
+        "rap": false,
+        "rh": 0,
+        "inputs": 0,
+        "x": 170,
+        "y": 340,
+        "wires": [
+            [
+                "716411515129c7fa",
+                "852ddf49c98020d5"
+            ]
+        ]
+    },
+    {
+        "id": "716411515129c7fa",
+        "type": "function",
+        "z": "b8d77b9de0e8bb69",
+        "name": "Énergie → globals",
+        "func": "const d = msg.payload;\nif (d && d.ENERGY) {\n    const e = d.ENERGY;\n    flow.set('tongou_sy2_power_w',   e.Power   || 0);\n    flow.set('tongou_sy2_voltage_v', e.Voltage || 0);\n    flow.set('tongou_sy2_current_a', e.Current || 0);\n    flow.set('tongou_sy2_today_kwh', e.Today   || 0);\n    flow.set('tongou_sy2_total_kwh', e.Total   || 0);\n    node.status({fill:'blue', shape:'dot',\n        text: `${e.Power}W  ${e.Voltage}V  ${e.Current}A`});\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 430,
+        "y": 340,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "852ddf49c98020d5",
+        "type": "debug",
+        "z": "b8d77b9de0e8bb69",
+        "name": "Télémétrie",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 190,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "1df9f5397c13676f",
+        "type": "mqtt in",
+        "z": "b8d77b9de0e8bb69",
+        "name": "tele/tongou_3BC764/STATE",
+        "topic": "tele/tongou_3BC764/STATE",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "tasmota-broker",
+        "nl": false,
+        "rap": false,
+        "rh": 0,
+        "inputs": 0,
+        "x": 160,
+        "y": 400,
+        "wires": [
+            [
+                "924962a3076bcae8"
+            ]
+        ]
+    },
+    {
+        "id": "924962a3076bcae8",
+        "type": "debug",
+        "z": "b8d77b9de0e8bb69",
+        "name": "STATE complet",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 420,
+        "y": 400,
+        "wires": []
+    },
+    {
+        "id": "4f798d47874919fa",
+        "type": "comment",
+        "z": "b8d77b9de0e8bb69",
+        "name": "tongou_3BC764 Chauffe-eau",
+        "info": "",
+        "x": 360,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "e507fb6b679648ec",
+        "type": "mqtt in",
+        "z": "56b6f8e9da8a7ef8",
+        "name": "SmartSolar Charger MPPT 150/35 VRM 289 (W)",
+        "topic": "N/c0619ab9929a/solarcharger/289/Yield/Power",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 200,
+        "y": 160,
+        "wires": [
+            [
+                "e8a301bd7a26a969"
+            ]
+        ]
+    },
+    {
+        "id": "e828133206267384",
+        "type": "mqtt in",
+        "z": "56b6f8e9da8a7ef8",
+        "name": "PV Inverter ET112 VRM 32 (W)",
+        "topic": "N/c0619ab9929a/pvinverter/32/Ac/L1/Power",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 150,
+        "y": 220,
+        "wires": [
+            [
+                "66faa0b5c35b39c6"
+            ]
+        ]
+    },
+    {
+        "id": "a53c49b2ec58014b",
+        "type": "mqtt in",
+        "z": "56b6f8e9da8a7ef8",
+        "name": "SmartSolar MPPT VE.Can 250/100 VRM 273 (W)",
+        "topic": "N/c0619ab9929a/solarcharger/273/Yield/Power",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 200,
+        "y": 100,
+        "wires": [
+            [
+                "8a4e4132a3514200"
+            ]
+        ]
+    },
+    {
+        "id": "e8a301bd7a26a969",
+        "type": "function",
+        "z": "56b6f8e9da8a7ef8",
+        "name": "Stocker vrm 289 power",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('w_vrm_289', v);\nnode.status({fill:'blue',shape:'dot',text:`vrm_289: ${v}W`});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 550,
+        "y": 160,
+        "wires": [
+            [
+                "4186535082aafc23"
+            ]
+        ]
+    },
+    {
+        "id": "8a4e4132a3514200",
+        "type": "function",
+        "z": "56b6f8e9da8a7ef8",
+        "name": "Stocker vrm 273 power",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('w_vrm_273', v);\nnode.status({fill:'blue',shape:'dot',text:`vrm_273: ${v}W`});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 550,
+        "y": 100,
+        "wires": [
+            [
+                "4186535082aafc23"
+            ]
+        ]
+    },
+    {
+        "id": "66faa0b5c35b39c6",
+        "type": "function",
+        "z": "56b6f8e9da8a7ef8",
+        "name": "Stocker vrm 32 power",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('w_vrm_32', v);\nnode.status({fill:'blue',shape:'dot',text:`vrm_32: ${v}W`});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 420,
+        "y": 220,
+        "wires": [
+            [
+                "4186535082aafc23"
+            ]
+        ]
+    },
+    {
+        "id": "4186535082aafc23",
+        "type": "function",
+        "z": "56b6f8e9da8a7ef8",
+        "name": "Formater + POST serveur BMS + MQTT",
+        "func": "const token  = env.get('INFLUX_TOKEN');\nconst org    = env.get('INFLUX_ORG')    || 'santuario';\nconst bucket = env.get('INFLUX_BUCKET') || 'daly_bms';\n\nconst mppt_273   = flow.get('w_vrm_273')     || 0;\nconst mppt_289   = flow.get('w_vrm_289')     || 0;\nconst pvinverter = flow.get('w_vrm_32')      || 0;\nconst house_pw   = flow.get('house_power_w') || 0;\n\nconst mppt_only   = mppt_273 + mppt_289;\nconst solar_total = mppt_only + pvinverter;\n\nglobal.set('mppt_power_w', mppt_only);\nflow.set('solar_pw', solar_total);\nnode.status({ fill: 'green', shape: 'dot', text: `Sol: ${solar_total}W  Maison: ${house_pw}W` });\n\n// — Output 1 : InfluxDB line protocol —\nlet influxMsg = null;\nif (token) {\n    const now = new Date();\n    const parisISO = now.toLocaleString('sv-SE', { timeZone: 'Europe/Paris' });\n    const day = parisISO.substring(0, 10);\n    const ts  = Math.floor(Date.now() / 1000);\n    const hostname = (env.get('HOSTNAME') || 'pi5').replace(/[^a-zA-Z0-9_-]/g, '_');\n    const line = `solar_power,day=${day},host=${hostname} w_vrm_273=${mppt_273},w_vrm_289=${mppt_289},w_vrm_32=${pvinverter},solar_total=${solar_total},house_power=${house_pw} ${ts}`;\n    influxMsg = {\n        url:     `http://dalybms-influxdb:8086/api/v2/write?org=${org}&bucket=${bucket}&precision=s`,\n        method:  'POST',\n        payload: line,\n        headers: {\n            'Authorization': 'Token ' + token,\n            'Content-Type':  'text/plain; charset=utf-8'\n        }\n    };\n}\n\n// — Output 2 : POST vers daly-bms-server —\nconst serverMsg = {\n    url:     'http://192.168.1.141:8080/api/v1/solar/mppt-yield',\n    method:  'POST',\n    payload: JSON.stringify({ solar_total_w: solar_total, mppt_power_w: mppt_only, house_power_w: house_pw }),\n    headers: { 'Content-Type': 'application/json' }\n};\n\n// — Données individuelles par MPPT (format v2) —\nconst mppts = [\n    {\n        Instance:   273,\n        State:      flow.get('mppt_273_state')     || null,\n        PvVoltage:  flow.get('mppt_273_pv_v')      !== undefined ? flow.get('mppt_273_pv_v')  : null,\n        DcCurrent:  flow.get('mppt_273_dc_i')      !== undefined ? flow.get('mppt_273_dc_i')  : null,\n        Power:      mppt_273,\n        YieldToday: flow.get('mppt_273_yield_kwh') !== undefined ? flow.get('mppt_273_yield_kwh') : null\n    },\n    {\n        Instance:   289,\n        State:      flow.get('mppt_289_state')     || null,\n        PvVoltage:  flow.get('mppt_289_pv_v')      !== undefined ? flow.get('mppt_289_pv_v')  : null,\n        DcCurrent:  flow.get('mppt_289_dc_i')      !== undefined ? flow.get('mppt_289_dc_i')  : null,\n        Power:      mppt_289,\n        YieldToday: flow.get('mppt_289_yield_kwh') !== undefined ? flow.get('mppt_289_yield_kwh') : null\n    }\n];\n\n// — Output 3 : MQTT pour santuario/meteo/venus (daly-bms-server l'écoute) —\nconst mqttMsg = {\n    topic: 'santuario/meteo/venus',\n    payload: JSON.stringify({\n        Irradiance:     global.get('irradiance_wm2') || 0,\n        TodaysYield:    Math.round((global.get('total_yield_today') || 0) * 10) / 10,\n        YieldYesterday: global.get('yield_yesterday') || 0,\n        WindSpeed:      global.get('outdoor_wind_speed') || 0,\n        WindDirection:  global.get('outdoor_wind_dir') || 0,\n        MpptPower:      mppt_only,\n        SolarTotal:     solar_total,\n        Mppts:          mppts\n    }),\n    retain: true\n};\n\nreturn [influxMsg, serverMsg, mqttMsg];",
+        "outputs": 3,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 600,
+        "y": 320,
+        "wires": [
+            [
+                "67fbfce629027868"
+            ],
+            [
+                "0ca879281cf5c955"
+            ],
+            [
+                "659c5b710a56682c"
+            ]
+        ]
+    },
+    {
+        "id": "67fbfce629027868",
+        "type": "http request",
+        "z": "56b6f8e9da8a7ef8",
+        "name": "InfluxDB Write (solar_power)",
+        "method": "use",
+        "ret": "txt",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 1000,
+        "y": 360,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "0ca879281cf5c955",
+        "type": "http request",
+        "z": "56b6f8e9da8a7ef8",
+        "name": "POST mppt_power_w → daly-bms-server",
+        "method": "use",
+        "ret": "txt",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 1000,
+        "y": 420,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "0e9ac6e89f660fca",
+        "type": "comment",
+        "z": "56b6f8e9da8a7ef8",
+        "name": "Solar power → InfluxDB + daly-bms-server",
+        "info": "Sujets MQTT utilisés :\n\nSmartSolar MPPT VE.Can 250/100 (instance 273)\nN/c0619ab9929a/solarcharger/273/Yield/Power\n\nSmartSolar Charger MPPT 150/35 (instance 289)\nN/c0619ab9929a/solarcharger/289/Yield/Power\n\nPV Inverter ET112 addr 0x07 (instance 32)\nN/c0619ab9929a/pvinverter/32/Ac/L1/Power\n\nESS AC Output Consumption (Maison)\nN/c0619ab9929a/system/0/Ac/ConsumptionOnOutput/L1/Power\n\n---\nPOST /api/v1/solar/mppt-yield envoie :\n  solar_total_w = 273+289+ET112 (source de vérité VRM)\n  mppt_power_w  = 273+289 seulement (pour meteo.json Venus OS)\n  house_power_w = ConsumptionOnOutput (valeur directe VRM, pas calculée)\n\nglobal.mppt_power_w est aussi lu par meteo.json keepalive (push Venus OS).",
+        "x": 180,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "a43a0bebdea7c67a",
+        "type": "mqtt in",
+        "z": "56b6f8e9da8a7ef8",
+        "name": "ESS AC Output Consumption L1 (W)",
+        "topic": "N/c0619ab9929a/system/0/Ac/ConsumptionOnOutput/L1/Power",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 860,
+        "y": 140,
+        "wires": [
+            [
+                "9d08df3631193ce9"
+            ]
+        ]
+    },
+    {
+        "id": "9d08df3631193ce9",
+        "type": "function",
+        "z": "56b6f8e9da8a7ef8",
+        "name": "Stocker house_power_w",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('house_power_w', v);\nnode.status({fill:'purple',shape:'dot',text:`maison: ${v}W`});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 790,
+        "y": 240,
+        "wires": [
+            [
+                "4186535082aafc23"
+            ]
+        ]
+    },
+    {
+        "id": "659c5b710a56682c",
+        "type": "mqtt out",
+        "z": "56b6f8e9da8a7ef8",
+        "name": "MQTT out santuario/meteo/venus",
+        "topic": "",
+        "qos": "1",
+        "retain": true,
+        "broker": "pi5_mqtt_broker",
+        "x": 980,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "8d5a26f187984994",
+        "type": "mqtt in",
+        "z": "56b6f8e9da8a7ef8",
+        "name": "MPPT 273 State",
+        "topic": "N/c0619ab9929a/solarcharger/273/State",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 110,
+        "y": 400,
+        "wires": [
+            [
+                "85a8a78545c4675f"
+            ]
+        ]
+    },
+    {
+        "id": "952e7fe567817089",
+        "type": "mqtt in",
+        "z": "56b6f8e9da8a7ef8",
+        "name": "MPPT 273 PV Voltage",
+        "topic": "N/c0619ab9929a/solarcharger/273/Pv/V",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 110,
+        "y": 440,
+        "wires": [
+            [
+                "8b18d47bfedaa144"
+            ]
+        ]
+    },
+    {
+        "id": "1eb5955b85ac1655",
+        "type": "mqtt in",
+        "z": "56b6f8e9da8a7ef8",
+        "name": "MPPT 273 DC Current",
+        "topic": "N/c0619ab9929a/solarcharger/273/Dc/0/Current",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 110,
+        "y": 480,
+        "wires": [
+            [
+                "5367223d1c77a0bc"
+            ]
+        ]
+    },
+    {
+        "id": "87f9821cb563c876",
+        "type": "mqtt in",
+        "z": "56b6f8e9da8a7ef8",
+        "name": "MPPT 273 Yield Today",
+        "topic": "N/c0619ab9929a/solarcharger/273/History/Daily/0/Yield",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 110,
+        "y": 520,
+        "wires": [
+            [
+                "6ba5814e77bc7bb6"
+            ]
+        ]
+    },
+    {
+        "id": "85a8a78545c4675f",
+        "type": "function",
+        "z": "56b6f8e9da8a7ef8",
+        "name": "Store MPPT 273 State",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nconst labels = {0:'Off',2:'Fault',3:'Bulk',4:'Absorption',5:'Float',6:'Storage',7:'Equalize',11:'HV Solar',252:'Ext Ctrl'};\nconst lbl = labels[v] || `State ${v}`;\nflow.set('mppt_273_state', lbl);\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 380,
+        "y": 400,
+        "wires": [
+            [
+                "4186535082aafc23"
+            ]
+        ]
+    },
+    {
+        "id": "8b18d47bfedaa144",
+        "type": "function",
+        "z": "56b6f8e9da8a7ef8",
+        "name": "Store MPPT 273 PV V",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('mppt_273_pv_v', v);\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 380,
+        "y": 440,
+        "wires": [
+            [
+                "4186535082aafc23"
+            ]
+        ]
+    },
+    {
+        "id": "5367223d1c77a0bc",
+        "type": "function",
+        "z": "56b6f8e9da8a7ef8",
+        "name": "Store MPPT 273 DC I",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('mppt_273_dc_i', v);\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 380,
+        "y": 480,
+        "wires": [
+            [
+                "4186535082aafc23"
+            ]
+        ]
+    },
+    {
+        "id": "6ba5814e77bc7bb6",
+        "type": "function",
+        "z": "56b6f8e9da8a7ef8",
+        "name": "Store MPPT 273 Yield",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('mppt_273_yield_kwh', v);\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 380,
+        "y": 520,
+        "wires": [
+            [
+                "4186535082aafc23"
+            ]
+        ]
+    },
+    {
+        "id": "cbdf45f4ebdda935",
+        "type": "mqtt in",
+        "z": "56b6f8e9da8a7ef8",
+        "name": "MPPT 289 State",
+        "topic": "N/c0619ab9929a/solarcharger/289/State",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 130,
+        "y": 600,
+        "wires": [
+            [
+                "7f1eac73a0839e24"
+            ]
+        ]
+    },
+    {
+        "id": "34a1ad30860a8dc9",
+        "type": "mqtt in",
+        "z": "56b6f8e9da8a7ef8",
+        "name": "MPPT 289 PV Voltage",
+        "topic": "N/c0619ab9929a/solarcharger/289/Pv/V",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 130,
+        "y": 640,
+        "wires": [
+            [
+                "df883f0d81d22370"
+            ]
+        ]
+    },
+    {
+        "id": "6af688fec8fafd32",
+        "type": "mqtt in",
+        "z": "56b6f8e9da8a7ef8",
+        "name": "MPPT 289 DC Current",
+        "topic": "N/c0619ab9929a/solarcharger/289/Dc/0/Current",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 130,
+        "y": 680,
+        "wires": [
+            [
+                "46b7bae14fa1ac85"
+            ]
+        ]
+    },
+    {
+        "id": "9375660791d09b52",
+        "type": "mqtt in",
+        "z": "56b6f8e9da8a7ef8",
+        "name": "MPPT 289 Yield Today",
+        "topic": "N/c0619ab9929a/solarcharger/289/History/Daily/0/Yield",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 130,
+        "y": 720,
+        "wires": [
+            [
+                "edb3e06774e464ed"
+            ]
+        ]
+    },
+    {
+        "id": "7f1eac73a0839e24",
+        "type": "function",
+        "z": "56b6f8e9da8a7ef8",
+        "name": "Store MPPT 289 State",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nconst labels = {0:'Off',2:'Fault',3:'Bulk',4:'Absorption',5:'Float',6:'Storage',7:'Equalize',11:'HV Solar',252:'Ext Ctrl'};\nconst lbl = labels[v] || `State ${v}`;\nflow.set('mppt_289_state', lbl);\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 420,
+        "y": 600,
+        "wires": [
+            [
+                "4186535082aafc23"
+            ]
+        ]
+    },
+    {
+        "id": "df883f0d81d22370",
+        "type": "function",
+        "z": "56b6f8e9da8a7ef8",
+        "name": "Store MPPT 289 PV V",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('mppt_289_pv_v', v);\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 640,
+        "wires": [
+            [
+                "4186535082aafc23"
+            ]
+        ]
+    },
+    {
+        "id": "46b7bae14fa1ac85",
+        "type": "function",
+        "z": "56b6f8e9da8a7ef8",
+        "name": "Store MPPT 289 DC I",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('mppt_289_dc_i', v);\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 680,
+        "wires": [
+            [
+                "4186535082aafc23"
+            ]
+        ]
+    },
+    {
+        "id": "edb3e06774e464ed",
+        "type": "function",
+        "z": "56b6f8e9da8a7ef8",
+        "name": "Store MPPT 289 Yield",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('mppt_289_yield_kwh', v);\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 720,
+        "wires": [
+            [
+                "4186535082aafc23"
+            ]
+        ]
+    }
+]
