@@ -29,9 +29,6 @@
 <div class="page-hdr" style="margin-bottom:1.25rem">
   <a href="/dashboard" class="btn btn-outline" style="font-size:0.75rem;padding:0.3rem 0.7rem;">← Retour</a>
   <h1>🔋 {{ detail.summary.name }}</h1>
-  <span class="badge {% if detail.summary.any_alarm %}alarm{% else %}ok{% endif %}">
-    {% if detail.summary.any_alarm %}⚠ ALARME{% else %}✓ Normal{% endif %}
-  </span>
   <div class="page-hdr-meta" style="margin-left:auto">
     <span>{{ detail.summary.address_hex }}</span>
     <span class="sep">·</span>
@@ -146,36 +143,6 @@
     <span class="chart-hdr-meta">min · Q1 · médiane · Q3 · max — 30 dernières secondes</span>
   </div>
   <div id="chart-boxplot" style="height:240px"></div>
-</div>
-
-{# ─── Alarmes ─────────────────────────────────────────────────────────── #}
-<div class="chart-card" style="margin-bottom:1rem">
-  <div class="chart-hdr">
-    <span class="chart-hdr-title">État des alarmes</span>
-    <span class="chart-hdr-meta">{{ detail.alarms|length }} alarmes surveillées</span>
-  </div>
-  <table>
-    <thead>
-      <tr>
-        <th>Alarme</th>
-        <th style="text-align:center;width:120px">État</th>
-      </tr>
-    </thead>
-    <tbody>
-    {% for alarm in detail.alarms %}
-      <tr>
-        <td style="color:var(--text2)">{{ alarm.name }}</td>
-        <td style="text-align:center">
-          {% if alarm.active %}
-            <span class="badge alarm">⚠ ACTIF</span>
-          {% else %}
-            <span class="badge ok">✓ OK</span>
-          {% endif %}
-        </td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
 </div>
 
 {# ─── Actions BMS ─────────────────────────────────────────────────────── #}
