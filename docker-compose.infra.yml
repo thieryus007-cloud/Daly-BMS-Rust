@@ -92,6 +92,8 @@ services:
       - VRM_INSTALLATION_ID=${VRM_INSTALLATION_ID:-865936}
     volumes:
       - nodered-data:/data
+      # flows.json bind-monté = auto-chargement au démarrage (git = source de vérité)
+      - ./flux-nodered/All-nodered-flow.json:/data/flows.json
     depends_on:
       mosquitto:
         condition: service_started

@@ -47,30 +47,22 @@ def post_flows(flows):
 
 
 def load_git_flows():
-    """Lit tous les *.json depuis flux-nodered/ et fusionne en une seule liste dédupliquée."""
-    pattern = os.path.join(FLOWS_DIR, "*.json")
-    files   = sorted(glob.glob(pattern))
-    if not files:
-        print(f"ERREUR : aucun fichier .json dans {FLOWS_DIR}")
+    """Lit UNIQUEMENT All-nodered-flow.json — source de vérité unique."""
+    all_flow = os.path.join(FLOWS_DIR, "All-nodered-flow.json")
+    if not os.path.exists(all_flow):
+        print(f"ERREUR : {all_flow} introuvable")
         sys.exit(1)
-
-    nodes_by_id = {}  # déduplication par ID (dernier lu gagne)
-    for fpath in files:
-        fname = os.path.basename(fpath)
-        try:
-            with open(fpath, encoding="utf-8") as f:
-                nodes = json.load(f)
-            if not isinstance(nodes, list):
-                print(f"  [SKIP] {fname} : format inattendu (pas un tableau)")
-                continue
-            for node in nodes:
-                if "id" in node:
-                    nodes_by_id[node["id"]] = node
-            print(f"  [OK]   {fname} ({len(nodes)} nœuds)")
-        except Exception as e:
-            print(f"  [ERR]  {fname} : {e}")
-
-    return list(nodes_by_id.values())
+    try:
+        with open(all_flow, encoding="utf-8") as f:
+            nodes = json.load(f)
+        if not isinstance(nodes, list):
+            print(f"ERREUR : All-nodered-flow.json n'est pas un tableau JSON")
+            sys.exit(1)
+        print(f"  [OK]   All-nodered-flow.json ({len(nodes)} nœuds)")
+        return nodes
+    except Exception as e:
+        print(f"ERREUR lecture All-nodered-flow.json : {e}")
+        sys.exit(1)
 
 
 def wait_for_nodered(max_wait=30):

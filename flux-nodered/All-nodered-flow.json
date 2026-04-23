@@ -4242,7 +4242,7 @@
         "type": "function",
         "z": "0bc19373f927ae02",
         "name": "Publish to MQTT",
-        "func": "const voltage = flow.get('voltage_v') || 0;\nconst current = flow.get('current_a') || 0;\nconst power = flow.get('power_w') || 0;\nconst ac_voltage = flow.get('ac_voltage_v') || 0;\nconst ac_current = flow.get('ac_current_a') || 0;\nconst ac_power = flow.get('ac_power_w') || 0;\n\nnode.status({fill:'green', shape:'dot', text:`DC: ${voltage}V ${current}A | AC: ${ac_voltage}V ${ac_power}W`});\n\nconst msg_out = {\n    topic: 'santuario/inverter/venus',\n    payload: JSON.stringify({\n        Voltage: voltage,\n        Current: current,\n        Power: power,\n        AcVoltage: ac_voltage,\n        AcCurrent: ac_current,\n        AcPower: ac_power,\n        State: 'on',\n        Mode: 'inverter'\n    }),\n    retain: true\n};\n\nreturn msg_out;",
+        "func": "const voltage    = flow.get('voltage_v')    || 0;\nconst current    = flow.get('current_a')    || 0;\nconst power      = flow.get('power_w')      || 0;\nconst ac_voltage = flow.get('ac_voltage_v') || 0;\nconst ac_current = flow.get('ac_current_a') || 0;\nconst ac_power   = flow.get('ac_power_w')   || 0;\nconst ac_freq    = flow.get('ac_freq_hz');\nconst ignore_acin = flow.get('ignore_acin');\nconst vebus_state = flow.get('vebus_state');\n\nnode.status({fill:'green', shape:'dot', text:`DC: ${voltage}V ${current}A | AC: ${ac_voltage}V ${ac_power}W`});\n\nconst payload = {\n    Voltage:   voltage,\n    Current:   current,\n    Power:     power,\n    AcVoltage: ac_voltage,\n    AcCurrent: ac_current,\n    AcPower:   ac_power,\n    State:     'on',\n    Mode:      'inverter'\n};\nif (ac_freq    !== null && ac_freq    !== undefined) payload.AcFrequency = ac_freq;\nif (ignore_acin !== null && ignore_acin !== undefined) payload.IgnoreAcIn = ignore_acin;\nif (vebus_state !== null && vebus_state !== undefined) payload.VebusState = vebus_state;\n\nconst msg_out = { topic: 'santuario/inverter/venus', payload: JSON.stringify(payload), retain: true };\nreturn msg_out;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -4474,8 +4474,8 @@
         "id": "e3ba65e71353e7b8",
         "type": "function",
         "z": "0bc19373f927ae02",
-        "name": "function 1",
-        "func": "\nreturn msg;",
+        "name": "Store AC Frequency",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('ac_freq_hz', v);\nnode.status({{fill:'blue', text:`Freq: ${{v}}Hz`}});\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -4486,7 +4486,7 @@
         "y": 400,
         "wires": [
             [
-                "a9490e44b2d5cb2b"
+                "cd6cafd72389b5bf"
             ]
         ]
     },
@@ -4494,8 +4494,8 @@
         "id": "62d1874d30a2f355",
         "type": "function",
         "z": "0bc19373f927ae02",
-        "name": "function 2",
-        "func": "\nreturn msg;",
+        "name": "Store AC Voltage Out",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('ac_voltage_v', v);\nnode.status({{fill:'blue', text:`AC V: ${{v}}V`}});\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -4506,7 +4506,7 @@
         "y": 460,
         "wires": [
             [
-                "0dcf4ea4be656ba1"
+                "cd6cafd72389b5bf"
             ]
         ]
     },
@@ -4514,8 +4514,8 @@
         "id": "977c8221b5853b0f",
         "type": "function",
         "z": "0bc19373f927ae02",
-        "name": "function 3",
-        "func": "\nreturn msg;",
+        "name": "Store AC Current",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('ac_current_a', v);\nnode.status({{fill:'blue', text:`AC I: ${{v}}A`}});\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -4526,7 +4526,7 @@
         "y": 520,
         "wires": [
             [
-                "e0375f7947da6c17"
+                "cd6cafd72389b5bf"
             ]
         ]
     },
@@ -4534,8 +4534,8 @@
         "id": "0db73193a1307c3d",
         "type": "function",
         "z": "0bc19373f927ae02",
-        "name": "function 4",
-        "func": "\nreturn msg;",
+        "name": "Store Energy InvToAcOut",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('energy_inv_to_acout_kwh', v);\nnode.status({{fill:'blue', text:`E InvOut: ${{v}}kWh`}});\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -4546,7 +4546,7 @@
         "y": 580,
         "wires": [
             [
-                "e897073e190ae1d5"
+                "cd6cafd72389b5bf"
             ]
         ]
     },
@@ -4554,8 +4554,8 @@
         "id": "28675f236db6adf3",
         "type": "function",
         "z": "0bc19373f927ae02",
-        "name": "function 5",
-        "func": "\nreturn msg;",
+        "name": "Store Energy OutToInv",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('energy_out_to_inv_kwh', v);\nnode.status({{fill:'blue', text:`E OutInv: ${{v}}kWh`}});\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -4566,7 +4566,7 @@
         "y": 640,
         "wires": [
             [
-                "6f0c2d413699bb7a"
+                "cd6cafd72389b5bf"
             ]
         ]
     },
@@ -4749,7 +4749,7 @@
         "type": "function",
         "z": "868c5ce8bd74c7b1",
         "name": "Publish to MQTT",
-        "func": "const soc      = flow.get('soc_percent') || 0;\nconst voltage  = flow.get('voltage_v')   || 0;\nconst current  = flow.get('current_a')   || 0;\nconst power    = flow.get('power_w')     || 0;\n\nnode.status({fill:'green', shape:'dot', text:`${soc}% | ${voltage}V | ${current}A | ${power}W`});\n\nconst msg_out = {\n    topic: 'santuario/system/venus',\n    payload: JSON.stringify({\n        Soc: soc,\n        Voltage: voltage,\n        Current: current,\n        Power: power\n    }),\n    retain: true\n};\n\nreturn msg_out;",
+        "func": "const soc       = flow.get('soc_percent')  || 0;\nconst voltage   = flow.get('voltage_v')    || 0;\nconst current   = flow.get('current_a')    || 0;\nconst power     = flow.get('power_w')      || 0;\nconst state_raw = flow.get('battery_state');\nconst ttg_s     = flow.get('time_to_go_s');\n\nnode.status({fill:'green', shape:'dot', text:`${soc}% | ${voltage}V | ${current}A`});\n\nconst payload = {\n    Soc:     soc,\n    Voltage: voltage,\n    Current: current,\n    Power:   power\n};\nif (state_raw !== null && state_raw !== undefined) payload.State    = state_raw;\nif (ttg_s     !== null && ttg_s     !== undefined) payload.TimeToGo = ttg_s;\n\nconst msg_out = { topic: 'santuario/system/venus', payload: JSON.stringify(payload), retain: true };\nreturn msg_out;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -5761,6 +5761,170 @@
         "wires": [
             [
                 "4186535082aafc23"
+            ]
+        ]
+    },
+    {
+        "id": "inv_mqtt_ignore_acin",
+        "type": "mqtt in",
+        "z": "0bc19373f927ae02",
+        "name": "IgnoreAcIn1",
+        "topic": "N/c0619ab9929a/vebus/275/Ac/State/IgnoreAcIn1",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "28f0f7c4bcdb97e9",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 150,
+        "y": 700,
+        "wires": [
+            [
+                "inv_fn_ignore_acin"
+            ]
+        ]
+    },
+    {
+        "id": "inv_fn_ignore_acin",
+        "type": "function",
+        "z": "0bc19373f927ae02",
+        "name": "Store IgnoreAcIn",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('ignore_acin', v);\nnode.status({{fill:'blue', text:`IgnoreAcIn: ${{v}}`}});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 370,
+        "y": 700,
+        "wires": [
+            [
+                "cd6cafd72389b5bf"
+            ]
+        ]
+    },
+    {
+        "id": "inv_mqtt_vebus_state",
+        "type": "mqtt in",
+        "z": "0bc19373f927ae02",
+        "name": "VEBus State",
+        "topic": "N/c0619ab9929a/vebus/275/State",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "28f0f7c4bcdb97e9",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 150,
+        "y": 760,
+        "wires": [
+            [
+                "inv_fn_vebus_state"
+            ]
+        ]
+    },
+    {
+        "id": "inv_fn_vebus_state",
+        "type": "function",
+        "z": "0bc19373f927ae02",
+        "name": "Store VEBus State",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('vebus_state', v);\nnode.status({{fill:'blue', text:`VEBus: ${{v}}`}});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 370,
+        "y": 760,
+        "wires": [
+            [
+                "cd6cafd72389b5bf"
+            ]
+        ]
+    },
+    {
+        "id": "ss_mqtt_state",
+        "type": "mqtt in",
+        "z": "868c5ce8bd74c7b1",
+        "name": "SmartShunt State",
+        "topic": "N/c0619ab9929a/system/0/Dc/Battery/State",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_ss",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 150,
+        "y": 540,
+        "wires": [
+            [
+                "ss_fn_state"
+            ]
+        ]
+    },
+    {
+        "id": "ss_fn_state",
+        "type": "function",
+        "z": "868c5ce8bd74c7b1",
+        "name": "Store State",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('battery_state', v);\nnode.status({{fill:'blue', text:`State: ${{v}}`}});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 370,
+        "y": 540,
+        "wires": [
+            [
+                "47a9e870e2c9f6e0"
+            ]
+        ]
+    },
+    {
+        "id": "ss_mqtt_timetogo",
+        "type": "mqtt in",
+        "z": "868c5ce8bd74c7b1",
+        "name": "SmartShunt TimeToGo",
+        "topic": "N/c0619ab9929a/system/0/Dc/Battery/TimeToGo",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "pi5_mqtt_broker_ss",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 150,
+        "y": 600,
+        "wires": [
+            [
+                "ss_fn_timetogo"
+            ]
+        ]
+    },
+    {
+        "id": "ss_fn_timetogo",
+        "type": "function",
+        "z": "868c5ce8bd74c7b1",
+        "name": "Store TimeToGo",
+        "func": "const v = msg.payload.value !== undefined ? msg.payload.value : msg.payload;\nflow.set('time_to_go_s', v);\nnode.status({{fill:'blue', text:`TimeToGo: ${{v}}s`}});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 370,
+        "y": 600,
+        "wires": [
+            [
+                "47a9e870e2c9f6e0"
             ]
         ]
     }
