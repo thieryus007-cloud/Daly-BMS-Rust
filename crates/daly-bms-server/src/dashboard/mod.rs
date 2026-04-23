@@ -61,11 +61,6 @@ mod filters {
     pub fn pluralize(v: &usize) -> ::askama::Result<String> {
         Ok(if *v == 1 { String::new() } else { "s".to_string() })
     }
-    /// Longueur d'un slice/Vec — remplace le filtre built-in Askama
-    /// (nécessaire quand un module `filters` custom est défini dans le crate)
-    pub fn length<T>(v: &[T]) -> ::askama::Result<usize> {
-        Ok(v.len())
-    }
 }
 
 // =============================================================================
@@ -213,31 +208,6 @@ impl BmsSummary {
     }
 }
 
-/// Ligne d'alarme pour le tableau de la page détail.
-#[derive(Debug, Clone)]
-pub struct AlarmRow {
-    pub name:   &'static str,
-    pub active: bool,
-}
-
-fn build_alarms(snap: &BmsSnapshot) -> Vec<AlarmRow> {
-    let a = &snap.alarms;
-    vec![
-        AlarmRow { name: "Sur-tension pack",          active: a.high_voltage != 0 },
-        AlarmRow { name: "Sous-tension pack",          active: a.low_voltage  != 0 },
-        AlarmRow { name: "Cellule sous-tension",       active: a.low_cell_voltage != 0 },
-        AlarmRow { name: "SOC bas",                    active: a.low_soc != 0 },
-        AlarmRow { name: "Sur-temp. charge",           active: a.high_charge_temperature != 0 },
-        AlarmRow { name: "Sous-temp. charge",          active: a.low_charge_temperature  != 0 },
-        AlarmRow { name: "Sur-température",            active: a.high_temperature != 0 },
-        AlarmRow { name: "Sous-température",           active: a.low_temperature  != 0 },
-        AlarmRow { name: "Sur-courant charge",         active: a.high_charge_current    != 0 },
-        AlarmRow { name: "Sur-courant décharge",       active: a.high_discharge_current != 0 },
-        AlarmRow { name: "Déséquilibre cellules",      active: a.cell_imbalance != 0 },
-        AlarmRow { name: "Fusible grillé",             active: a.fuse_blown != 0 },
-    ]
-}
-
 /// Détails complets pour la page d'un BMS.
 pub struct BmsDetail {
     pub summary:            BmsSummary,
@@ -251,8 +221,6 @@ pub struct BmsDetail {
     pub soh:                f32,
     pub cycles:             u32,
     pub time_to_go_h:       f32,
-    // Alarmes
-    pub alarms:             Vec<AlarmRow>,
     // Options ECharts (JSON brut, injectés dans <script>)
     pub cells_bar_json:     String,
     pub cells_boxplot_json: String,
@@ -350,7 +318,6 @@ pub async fn dashboard_bms(
         soh:                snap.soh,
         cycles:             snap.history.charge_cycles,
         time_to_go_h,
-        alarms:             build_alarms(&snap),
         cells_bar_json:     charts::cell_voltages_bar(
                                 &snap.voltages,
                                 &snap.system.min_voltage_cell_id,
