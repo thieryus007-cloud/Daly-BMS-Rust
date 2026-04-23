@@ -80,9 +80,6 @@
     html.dark .bms-hdr {
       background: linear-gradient(135deg, #1a2f4e 0%, #1e3a5f 100%);
     }
-    html.dark .bms-hdr.alarm-hdr {
-      background: linear-gradient(135deg, #3b1212 0%, #4c1a1a 100%);
-    }
     html.dark .bms-hdr-name  { color: #93c5fd; }
     html.dark .bms-live       { color: rgba(147,197,253,.65); }
     html.dark .bms-badge      { background: rgba(147,197,253,.08); border-color: rgba(147,197,253,.18); color: rgba(147,197,253,.85); }
@@ -280,11 +277,6 @@
       box-shadow: 0 0 8px rgba(63,185,80,0.5);
       animation: pulse-dot 2s infinite;
     }
-    .ws-dot.alarm {
-      background: var(--red);
-      box-shadow: 0 0 8px rgba(248,81,73,0.5);
-      animation: pulse-dot 1s infinite;
-    }
     @keyframes pulse-dot {
       0%, 100% { opacity: 1; }
       50%       { opacity: 0.4; }
@@ -448,10 +440,6 @@
       box-shadow: var(--shadow-lg);
       text-decoration: none;
     }
-    .bms-card.alarm {
-      border-color: rgba(248,81,73,0.45);
-      box-shadow: 0 0 0 1px rgba(248,81,73,0.15), var(--shadow);
-    }
 
     .bms-hdr {
       padding: 0.75rem 0.9rem;
@@ -461,9 +449,6 @@
       background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
       border-bottom: 1px solid rgba(255,255,255,0.05);
       flex-shrink: 0;
-    }
-    .bms-hdr.alarm-hdr {
-      background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
     }
     .bms-hdr-left  { display: flex; align-items: center; gap: 0.55rem; }
     .bms-hdr-name  { font-size: 0.92rem; font-weight: 700; color: #1e3a5f; }
@@ -627,7 +612,6 @@
     }
     .badge.ok    { background: rgba(63,185,80,0.12);  color: var(--green);  border: 1px solid rgba(63,185,80,0.25); }
     .badge.warn  { background: rgba(210,153,34,0.12); color: var(--yellow); border: 1px solid rgba(210,153,34,0.25); }
-    .badge.alarm { background: rgba(248,81,73,0.14);  color: var(--red);    border: 1px solid rgba(248,81,73,0.3); }
     .badge.muted { background: var(--surface2);        color: var(--muted);  border: 1px solid var(--border); }
     .badge.blue  { background: rgba(88,166,255,0.12); color: var(--accent); border: 1px solid rgba(88,166,255,0.25); }
 
