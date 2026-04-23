@@ -143,8 +143,6 @@ services:
       GF_USERS_ALLOW_SIGN_UP:        "false"
       GF_AUTH_ANONYMOUS_ENABLED:     "false"
       GF_SECURITY_ALLOW_EMBEDDING:   "true"
-      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
-      GF_SERVER_ROOT_URL:            "http://localhost:8080/api/v1/grafana/"
       GF_LOG_LEVEL:                  info
       INFLUX_TOKEN:                  ${INFLUX_TOKEN:?INFLUX_TOKEN manquant dans .env}
       INFLUX_ORG:                    ${INFLUX_ORG:-santuario}
