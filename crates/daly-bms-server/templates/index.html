@@ -47,10 +47,10 @@
 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(540px,1fr));gap:1.25rem;" id="bms-grid">
 
 {% for bms in bms_list %}
-<a href="/dashboard/bms/{{ bms.address }}" class="bms-card {% if bms.any_alarm %}alarm{% endif %}" data-addr="{{ bms.address }}">
+<a href="/dashboard/bms/{{ bms.address }}" class="bms-card" data-addr="{{ bms.address }}">
 
   {# ── Header ── #}
-  <div class="bms-hdr {% if bms.any_alarm %}alarm-hdr{% endif %}">
+  <div class="bms-hdr">
     <div class="bms-hdr-left">
       <div class="bms-live"><div class="live-dot"></div>LIVE</div>
       <span class="bms-hdr-name">{{ bms.name }}</span>
@@ -154,41 +154,8 @@
         {% if bms.bms_capacity_ah > 0.1 %}{{ bms.bms_capacity_ah|f1 }} Ah{% else %}—{% endif %}
       </span>
     </div>
-    <div class="icell">
-      <span class="i-lbl">Statut</span>
-      <span class="i-val {% if bms.any_alarm %}bad{% else %}ok{% endif %}">
-        {% if bms.any_alarm %}⚠ ALARME{% else %}✓ Normal{% endif %}
-      </span>
-    </div>
   </div>
 
-  {# ── Alarmes ── #}
-  <div class="istrip c4">
-    <div class="icell">
-      <span class="i-lbl">Sur-tension</span>
-      <span class="i-val {% if bms.alarm_high_voltage %}bad{% else %}ok{% endif %}">
-        {% if bms.alarm_high_voltage %}ALARM{% else %}OK{% endif %}
-      </span>
-    </div>
-    <div class="icell">
-      <span class="i-lbl">Sous-tension</span>
-      <span class="i-val {% if bms.alarm_low_voltage %}bad{% else %}ok{% endif %}">
-        {% if bms.alarm_low_voltage %}ALARM{% else %}OK{% endif %}
-      </span>
-    </div>
-    <div class="icell">
-      <span class="i-lbl">Temp. haute</span>
-      <span class="i-val {% if bms.alarm_high_temp %}bad{% else %}ok{% endif %}">
-        {% if bms.alarm_high_temp %}ALARM{% else %}OK{% endif %}
-      </span>
-    </div>
-    <div class="icell" style="border-bottom:none">
-      <span class="i-lbl">Déséquilibre</span>
-      <span class="i-val {% if bms.alarm_imbalance %}bad{% else %}ok{% endif %}">
-        {% if bms.alarm_imbalance %}ALARM{% else %}OK{% endif %}
-      </span>
-    </div>
-  </div>
 
 </a>
 {% endfor %}
@@ -297,15 +264,6 @@ window.onBmsUpdate = function(snaps) {
     // Températures
     set('tmin', f1(s.System.MinCellTemperature) + ' °C', +s.System.MinCellTemperature);
     set('tmax', f1(s.System.MaxCellTemperature) + ' °C', +s.System.MaxCellTemperature);
-
-    // Alarme carte
-    const card = document.querySelector('.bms-card[data-addr="' + a + '"]');
-    if (card) {
-      const hasAlarm = s.Alarms && Object.values(s.Alarms).some(function(v) { return v !== 0; });
-      card.classList.toggle('alarm', !!hasAlarm);
-      const hdr = card.querySelector('.bms-hdr');
-      if (hdr) hdr.classList.toggle('alarm-hdr', !!hasAlarm);
-    }
 
     // Grille cellules
     const cellsDiv = el('cells');
