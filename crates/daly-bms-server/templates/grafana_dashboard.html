@@ -25,10 +25,5 @@
   📊 Dashboard Grafana Santuario Solar System (données InfluxDB en direct, refresh 30s)
 </div>
 
-<script>
-  const host = window.location.hostname;
-  const port = 3001;
-  const dashUrl = `http://${host}:${port}/d/santuario?orgId=1&refresh=30s&from=now-24h&to=now`;
-  document.write(`<iframe id="grafana-frame" src="${dashUrl}" allow="clipboard-write" allowfullscreen></iframe>`);
-</script>
+<iframe id="grafana-frame" src="/api/v1/grafana/d/santuario?orgId=1&refresh=30s&from=now-24h&to=now" allow="clipboard-write" allowfullscreen></iframe>
 {% endblock %}
