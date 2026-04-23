@@ -137,27 +137,6 @@
     .toast-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1.1rem; padding: 0; line-height: 1; flex-shrink: 0; }
     .toast-close:hover { color: var(--text); }
 
-    /* ─── Alarm banner ───────────────────────────────────────── */
-    .alarm-banner {
-      display: none;
-      align-items: center;
-      gap: 10px;
-      padding: 7px 16px;
-      background: rgba(220,38,38,.92);
-      color: #fff;
-      font-size: 0.8rem;
-      font-weight: 600;
-      position: sticky;
-      top: var(--topbar-h);
-      z-index: 99;
-      backdrop-filter: blur(4px);
-    }
-    @keyframes slide-down { from{transform:translateY(-100%);opacity:0} to{transform:translateY(0);opacity:1} }
-    .alarm-banner.visible { display: flex; animation: slide-down 0.28s ease; }
-    .alarm-banner a { color: rgba(255,255,255,.85); text-decoration: underline; margin-left: auto; font-size: 0.75rem; }
-    .alarm-banner-close { background: none; border: none; color: rgba(255,255,255,.65); cursor: pointer; font-size: 1.1rem; line-height: 1; padding: 0 0 0 6px; }
-    .alarm-banner-close:hover { color: #fff; }
-
     /* ─── Toolbar icon buttons ───────────────────────────────── */
     .tb-btn {
       background: none;
@@ -874,13 +853,6 @@
     <div class="topbar-clock" id="tb-clock"></div>
   </header>
 
-  <div id="alarm-banner" class="alarm-banner">
-    <span>⚠️</span>
-    <span id="alarm-text">Alarme BMS active</span>
-    <a id="alarm-link" href="/dashboard">Voir batteries →</a>
-    <button class="alarm-banner-close" onclick="dismissAlarm()" title="Fermer">×</button>
-  </div>
-
   <main>
     {% block content %}{% endblock %}
   </main>
@@ -937,18 +909,6 @@ function closeSidebar() {
       try { snaps = JSON.parse(ev.data); } catch { return; }
       if (!Array.isArray(snaps)) return;
       if (typeof window.onBmsUpdate === 'function') window.onBmsUpdate(snaps);
-      // Détection alarmes BMS
-      const alarmed = snaps.filter(s =>
-        s.Alarms && Object.values(s.Alarms).some(v => v !== 0)
-      );
-      if (alarmed.length > 0) {
-        const names = alarmed.map(s => s.Name || 'BMS').join(', ');
-        showAlarmBanner('Alarme : ' + names, '/dashboard');
-        dot.className = 'ws-dot alarm';
-      } else if (dot.className.includes('alarm')) {
-        dot.className = 'ws-dot live';
-        dismissAlarm(true);
-      }
     };
     sock.onclose = () => {
       dot.className   = 'ws-dot';
@@ -1004,33 +964,6 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'f' || e.key === 'F') toggleFullscreen();
   if (e.key === 'Escape' && document.fullscreenElement) document.exitFullscreen();
 });
-
-// ── Bannière alarme ────────────────────────────────────────────────────
-let _alarmAcked = false;
-let _ackedKey   = '';
-let _currentAlarmKey = '';
-
-function showAlarmBanner(text, href) {
-  const b = document.getElementById('alarm-banner');
-  const t = document.getElementById('alarm-text');
-  const l = document.getElementById('alarm-link');
-  if (!b) return;
-  const key = text + '|' + (href || '');
-  _currentAlarmKey = key;
-  if (_alarmAcked && _ackedKey === key) return;
-  if (t) t.textContent = text;
-  if (l && href) l.href = href;
-  b.classList.add('visible');
-}
-function dismissAlarm(resetAck) {
-  const b = document.getElementById('alarm-banner');
-  if (b) b.classList.remove('visible');
-  if (resetAck) {
-    _alarmAcked = false; _ackedKey = ''; _currentAlarmKey = '';
-  } else {
-    _alarmAcked = true; _ackedKey = _currentAlarmKey;
-  }
-}
 
 // ── Toast ──────────────────────────────────────────────────────────────
 window.showToast = function(msg, type, duration) {
