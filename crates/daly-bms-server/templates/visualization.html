@@ -283,13 +283,16 @@ const atsExecRef = useRef(null);
     setNodes(prev => prev.map(n => {
       switch (n.id) {
         case 'spiral-race': {
-          const mpptYieldSum = mpptList.reduce((s, m) => s + (m.yield_today_kwh ?? 0), 0);
-          const prodKwh = ((et7?.energy_export_wh ?? 0) / 1000) + mpptYieldSum;
-          return { ...n, data: { ...n.data, prodKwh, soc: avgSoc != null ? parseFloat(avgSoc) : 0, irrWm2: irr?.irradiance_wm2 ?? 0 } };
+          const mpptYieldSum  = mpptList.reduce((s, m) => s + (m.yield_today_kwh ?? 0), 0);
+          const localProdKwh  = ((et7?.energy_export_wh ?? 0) / 1000) + mpptYieldSum;
+          const totalYieldKwh = irr?.total_yield_kwh ?? localProdKwh;
+          return { ...n, data: { ...n.data, totalYieldKwh, prodKwh: localProdKwh, soc: avgSoc != null ? parseFloat(avgSoc) : 0, irrWm2: irr?.irradiance_wm2 ?? 0 } };
         }
         case 'sankey': {
-          const loadPwr = tasmotaDevices.reduce((s, d) => s + (d.connected ? (d.power_w ?? 0) : 0), 0);
-          return { ...n, data: { ...n.data, microPwr: et7?.power_w ?? 0, mpptPwr: mpptTotalPowerW, batPwr: Math.max(0, totalPwr), loadPwr } };
+          const loadPwr        = tasmotaDevices.reduce((s, d) => s + (d.connected ? (d.power_w ?? 0) : 0), 0);
+          const batChargePwr   = Math.max(0, totalPwr);
+          const batDischargePwr = Math.max(0, -totalPwr);
+          return { ...n, data: { ...n.data, microPwr: et7?.power_w ?? 0, mpptPwr: mpptTotalPowerW, batChargePwr, batDischargePwr, loadPwr } };
         }
         case 'production':
           return { ...n, data: { ...n.data, value: prodVal, sub: prodSub, dotClass: prodDot } };

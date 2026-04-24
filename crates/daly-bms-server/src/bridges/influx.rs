@@ -86,6 +86,12 @@ pub async fn run_influx_bridge(state: AppState, cfg: InfluxConfig) {
                         batch.push(p);
                     }
                 }
+                // Production solaire journalière (total_yield_kwh + solar_total_w).
+                let yield_kwh  = *state.mppt_yield_kwh.read().await;
+                let solar_w    = *state.solar_total_w.read().await;
+                if let Ok(p) = solar_daily_to_point(yield_kwh, solar_w) {
+                    batch.push(p);
+                }
                 if !batch.is_empty() {
                     flush_batch(&client, &cfg.bucket, &mut batch).await;
                 }
@@ -244,12 +250,14 @@ fn venus_mppt_total_to_point(power_w: f32, current_a: f32) -> anyhow::Result<Dat
 fn venus_smartshunt_to_point(s: &VenusSmartShunt) -> anyhow::Result<DataPoint> {
     let ts_ns = s.timestamp.timestamp_nanos_opt().unwrap_or(0);
     let mut b = DataPoint::builder("venus_smartshunt");
-    if let Some(v) = s.voltage_v      { b = b.field("voltage_v",   v as f64); }
-    if let Some(v) = s.current_a      { b = b.field("current_a",   v as f64); }
-    if let Some(v) = s.power_w        { b = b.field("power_w",     v as f64); }
-    if let Some(v) = s.soc_percent    { b = b.field("soc_percent", v as f64); }
-    if let Some(v) = s.energy_in_kwh  { b = b.field("energy_in_kwh",  v as f64); }
-    if let Some(v) = s.energy_out_kwh { b = b.field("energy_out_kwh", v as f64); }
+    if let Some(v) = s.voltage_v           { b = b.field("voltage_v",           v as f64); }
+    if let Some(v) = s.current_a           { b = b.field("current_a",           v as f64); }
+    if let Some(v) = s.power_w             { b = b.field("power_w",             v as f64); }
+    if let Some(v) = s.soc_percent         { b = b.field("soc_percent",         v as f64); }
+    if let Some(v) = s.energy_in_kwh       { b = b.field("energy_in_kwh",       v as f64); }
+    if let Some(v) = s.energy_out_kwh      { b = b.field("energy_out_kwh",      v as f64); }
+    if let Some(v) = s.ah_charged_today    { b = b.field("ah_charged_today",    v as f64); }
+    if let Some(v) = s.ah_discharged_today { b = b.field("ah_discharged_today", v as f64); }
     Ok(b.timestamp(ts_ns).build()?)
 }
 
@@ -293,5 +301,19 @@ fn et112_snapshot_to_point(snap: &Et112Snapshot) -> anyhow::Result<DataPoint> {
         .timestamp(ts_ns)
         .build()?;
 
+    Ok(point)
+}
+
+/// Point InfluxDB production solaire journalière.
+///
+/// Measurement : `solar_daily`
+/// Écrit toutes les 30 s depuis le ticker irradiance.
+fn solar_daily_to_point(yield_kwh: f32, solar_w: f32) -> anyhow::Result<DataPoint> {
+    let ts_ns = Utc::now().timestamp_nanos_opt().unwrap_or(0);
+    let point = DataPoint::builder("solar_daily")
+        .field("total_yield_kwh", yield_kwh as f64)
+        .field("solar_total_w",   solar_w   as f64)
+        .timestamp(ts_ns)
+        .build()?;
     Ok(point)
 }

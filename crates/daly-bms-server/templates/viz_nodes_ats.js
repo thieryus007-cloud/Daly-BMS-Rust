@@ -214,10 +214,10 @@ function InverterNode({ data }) {
     return 'off';
   })();
 
-  const fmtFreq = (f) => f != null ? `${f.toFixed(2)} Hz` : null;
+  const fmtFreq = (f) => f != null ? `${f.toFixed(2)} Hz` : '— Hz';
 
   return h('div', { className: 'inv-card' },
-    acF != null && h('div', { className: 'inv-freq-badge' }, fmtFreq(acF)),
+    h('div', { className: 'inv-freq-badge' }, fmtFreq(acF)),
     mkHandle('target', Position.Top,    'tt'),
     mkHandle('source', Position.Bottom, 'sb'),
     mkHandle('target', Position.Left,   'tl'),

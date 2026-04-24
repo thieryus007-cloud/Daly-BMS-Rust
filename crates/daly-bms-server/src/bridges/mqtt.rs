@@ -672,6 +672,9 @@ async fn handle_system_topic(state: &AppState, json: &Value) {
             energy_out_kwh: energy_out.map(|e| e / 1000.0),
             state: state_str,
             time_to_go_min,
+            // Calculés dans on_venus_smartshunt par intégration du courant
+            ah_charged_today:    None,
+            ah_discharged_today: None,
             timestamp: Utc::now(),
         };
 

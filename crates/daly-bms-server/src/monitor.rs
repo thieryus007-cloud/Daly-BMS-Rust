@@ -55,13 +55,20 @@ async fn collect_snapshot(_state: &AppState) -> MonitorSnapshot {
         status: if daly_status.is_empty() { "active".to_string() } else { daly_status },
     });
 
-    // energy-manager : service indépendant — vérification réelle via systemctl.
-    let em_status = check_systemd_service("energy-manager").await;
-    let em_active = em_status == "active";
+    // energy-manager : vérification via systemctl + fallback sonde TCP :8081.
+    let em_status  = check_systemd_service("energy-manager").await;
+    let em_systemd = em_status == "active";
+    // Si systemd dit inactive, vérifier quand même via TCP (service démarré manuellement).
+    let em_tcp_ok  = if em_systemd { true } else { tcp_probe("127.0.0.1", 8081).await };
+    let em_active  = em_systemd || em_tcp_ok;
     services.push(ServiceStatus {
         name: "energy-manager".to_string(),
         active: em_active,
-        status: if em_status.is_empty() { "unknown".to_string() } else { em_status },
+        status: if em_active {
+            if em_systemd { em_status } else { "active (port 8081)".to_string() }
+        } else {
+            if em_status.is_empty() { "unknown".to_string() } else { em_status }
+        },
     });
 
     // ── Sondes TCP ───────────────────────────────────────────────────────────
