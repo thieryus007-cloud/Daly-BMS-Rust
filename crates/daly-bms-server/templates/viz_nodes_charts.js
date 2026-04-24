@@ -7,9 +7,9 @@ const SpiralRaceNode = function SpiralRaceNode({ data }) {
   const chartRef = useRef(null);
   const instRef  = useRef(null);
 
-  const prodKwh = data.prodKwh ?? 0;
-  const soc     = data.soc     ?? 0;
-  const irrWm2  = data.irrWm2  ?? 0;
+  const prodKwh = data.totalYieldKwh ?? data.prodKwh ?? 0;
+  const soc     = data.soc          ?? 0;
+  const irrWm2  = data.irrWm2       ?? 0;
 
   useEffect(function () {
     if (!chartRef.current || !window.echarts) return;
@@ -66,7 +66,7 @@ const SpiralRaceNode = function SpiralRaceNode({ data }) {
     chart.setOption({
       backgroundColor: 'transparent',
       series: [
-        mkGauge('88%',  18,   prodKwh, '#fbbf24', 'Production', 'kWh',  '78%', '90%'),
+        mkGauge('88%',  40,   prodKwh, '#fbbf24', 'Production', 'kWh',  '78%', '90%'),
         mkGauge('65%', 100,   soc,     socCol,    'SOC',        '%',    '48%', '60%'),
         mkGauge('42%', 2000,  irrWm2,  '#38bdf8', 'Irradiance', 'W/m²', '18%', '30%'),
         // Tick marks radiaux fins traversant les 3 anneaux sans atteindre le centre
@@ -90,7 +90,7 @@ const SpiralRaceNode = function SpiralRaceNode({ data }) {
         },
       ]
     }, { notMerge: false, lazyUpdate: false });
-  }, [prodKwh, soc, irrWm2]);
+  }, [prodKwh, soc, irrWm2]); // eslint-disable-line
 
   useEffect(function () {
     return function () {
@@ -117,56 +117,27 @@ const SpiralRaceNode = function SpiralRaceNode({ data }) {
 };
 
 // ── SANKEY NODE ───────────────────────────────────────────────────────────────
-// Sources gauche : Micro-onduleurs, MPPT
-// Puits droite   : Batteries (charge), Maison (Tongou), Export (si positif)
+// Mode production  : Sources = Micro-ond + MPPT  → Batteries(charge) + Maison + Export
+// Mode décharge    : Source  = Batteries(disch.) → Maison + Réseau
 const SankeyNode = function SankeyNode({ data }) {
   const chartRef   = useRef(null);
   const instRef    = useRef(null);
   const prevKeyRef = useRef('');
 
-  const microW  = Math.max(0, data.microPwr  ?? 0);
-  const mpptW   = Math.max(0, data.mpptPwr   ?? 0);
-  const batW    = Math.max(0, data.batPwr    ?? 0);
-  const loadW   = Math.max(0, data.loadPwr   ?? 0);
-  const totalIn = microW + mpptW;
+  const microW        = Math.max(0, data.microPwr        ?? 0);
+  const mpptW         = Math.max(0, data.mpptPwr         ?? 0);
+  const batChargeW    = Math.max(0, data.batChargePwr    ?? data.batPwr ?? 0);
+  const batDischW     = Math.max(0, data.batDischargePwr ?? 0);
+  const loadW         = Math.max(0, data.loadPwr         ?? 0);
+  const totalIn       = microW + mpptW;
+  const isProduction  = totalIn >= 10;
+  const isDischarge   = !isProduction && batDischW >= 10;
 
-  useEffect(function () {
-    if (!chartRef.current || !window.echarts) return;
-    if (!instRef.current) {
-      instRef.current = window.echarts.init(chartRef.current, null, { renderer: 'canvas' });
-    }
-    const chart = instRef.current;
-
-    if (totalIn < 10) {
-      chart.setOption({
-        backgroundColor: 'transparent',
-        series: [],
-        graphic: [{ type: 'text', left: 'center', top: 'middle',
-          style: { text: 'Pas de production', fill: '#64748b', fontSize: 10 } }]
-      }, { notMerge: true });
-      prevKeyRef.current = '';
-      return;
-    }
-
-    const batOut  = Math.min(batW,  totalIn);
-    const loadOut = Math.min(loadW, Math.max(0, totalIn - batOut));
-    const expOut  = Math.max(0, totalIn - batOut - loadOut);
-
-    const srcNodes  = [];
-    const sinkNodes = [];
-    if (microW > 5) srcNodes.push({ name: 'Micro-ond', w: microW, color: '#3b82f6' });
-    if (mpptW  > 5) srcNodes.push({ name: 'MPPT',      w: mpptW,  color: '#f59e0b' });
-    if (batOut > 5) sinkNodes.push({ name: 'Batteries', w: batOut,  color: '#22c55e' });
-    if (loadOut> 5) sinkNodes.push({ name: 'Maison',    w: loadOut, color: '#a855f7' });
-    if (expOut > 5) sinkNodes.push({ name: 'Export',    w: expOut,  color: '#0ea5e9' });
-    if (sinkNodes.length === 0) sinkNodes.push({ name: 'Consomm.', w: totalIn, color: '#64748b' });
-
-    // Clé structurelle : si la liste des nœuds change, notMerge=true pour ré-animer
+  const buildSankey = function(srcNodes, sinkNodes) {
     const structKey = srcNodes.map(n => n.name).join(',') + '|' + sinkNodes.map(n => n.name).join(',');
     const structChanged = structKey !== prevKeyRef.current;
     prevKeyRef.current = structKey;
-
-    const sinkTotal = sinkNodes.reduce((s, n) => s + n.w, 0);
+    const sinkTotal = sinkNodes.reduce((s, n) => s + n.w, 0) || 1;
     const eNodes = [
       ...srcNodes.map(n  => ({ name: n.name, itemStyle: { color: n.color } })),
       ...sinkNodes.map(n => ({ name: n.name, itemStyle: { color: n.color } })),
@@ -178,6 +149,50 @@ const SankeyNode = function SankeyNode({ data }) {
         if (v > 1) eLinks.push({ source: src.name, target: sink.name, value: v });
       });
     });
+    return { eNodes, eLinks, structChanged };
+  };
+
+  useEffect(function () {
+    if (!chartRef.current || !window.echarts) return;
+    if (!instRef.current) {
+      instRef.current = window.echarts.init(chartRef.current, null, { renderer: 'canvas' });
+    }
+    const chart = instRef.current;
+
+    if (!isProduction && !isDischarge) {
+      chart.setOption({
+        backgroundColor: 'transparent',
+        series: [],
+        graphic: [{ type: 'text', left: 'center', top: 'middle',
+          style: { text: 'Pas de production\nni de décharge', fill: '#64748b', fontSize: 10 } }]
+      }, { notMerge: true });
+      prevKeyRef.current = '';
+      return;
+    }
+
+    let srcNodes = [], sinkNodes = [];
+
+    if (isProduction) {
+      // Mode production : PV → batterie/maison/export
+      const batOut  = Math.min(batChargeW, totalIn);
+      const loadOut = Math.min(loadW, Math.max(0, totalIn - batOut));
+      const expOut  = Math.max(0, totalIn - batOut - loadOut);
+      if (microW > 5) srcNodes.push({ name: 'Micro-ond', w: microW, color: '#3b82f6' });
+      if (mpptW  > 5) srcNodes.push({ name: 'MPPT',      w: mpptW,  color: '#f59e0b' });
+      if (batOut > 5) sinkNodes.push({ name: 'Batteries', w: batOut,  color: '#22c55e' });
+      if (loadOut> 5) sinkNodes.push({ name: 'Maison',    w: loadOut, color: '#a855f7' });
+      if (expOut > 5) sinkNodes.push({ name: 'Export',    w: expOut,  color: '#0ea5e9' });
+      if (sinkNodes.length === 0) sinkNodes.push({ name: 'Consomm.', w: totalIn, color: '#64748b' });
+    } else {
+      // Mode décharge : Batteries → maison/réseau
+      srcNodes.push({ name: 'Batteries', w: batDischW, color: '#f97316' });
+      if (loadW > 5)          sinkNodes.push({ name: 'Maison',  w: Math.min(loadW, batDischW), color: '#a855f7' });
+      const reste = batDischW - (sinkNodes[0]?.w ?? 0);
+      if (reste > 5)          sinkNodes.push({ name: 'Réseau',  w: reste, color: '#0ea5e9' });
+      if (sinkNodes.length === 0) sinkNodes.push({ name: 'Consomm.', w: batDischW, color: '#64748b' });
+    }
+
+    const { eNodes, eLinks, structChanged } = buildSankey(srcNodes, sinkNodes);
 
     chart.setOption({
       backgroundColor: 'transparent',
@@ -203,7 +218,7 @@ const SankeyNode = function SankeyNode({ data }) {
         links: eLinks
       }]
     }, { notMerge: structChanged, lazyUpdate: false });
-  }, [microW, mpptW, batW, loadW, totalIn]);
+  }, [microW, mpptW, batChargeW, batDischW, loadW, isProduction, isDischarge]);
 
   useEffect(function () {
     return function () {
@@ -214,15 +229,18 @@ const SankeyNode = function SankeyNode({ data }) {
     };
   }, []);
 
+  const displayW = isProduction ? Math.round(totalIn) : isDischarge ? Math.round(batDischW) : 0;
+  const modeLabel = isDischarge && !isProduction ? '🔋 Décharge' : 'Flux Énergétique';
+
   return h('div', { className: 'sankey-node' },
     mkHandle('target', Position.Top,    'tt'),
     mkHandle('source', Position.Bottom, 'sb'),
     mkHandle('target', Position.Left,   'tl'),
     mkHandle('source', Position.Right,  'sr'),
     h('div', { className: 'sankey-hdr' },
-      h('span', { className: 'sankey-icon' }, '⚡'),
-      h('span', { className: 'sankey-title' }, 'Flux Énergétique'),
-      h('span', { className: 'sankey-total' }, totalIn > 0 ? Math.round(totalIn) + ' W' : '—')
+      h('span', { className: 'sankey-icon' }, isDischarge && !isProduction ? '🔋' : '⚡'),
+      h('span', { className: 'sankey-title' }, modeLabel),
+      h('span', { className: 'sankey-total' }, displayW > 0 ? displayW + ' W' : '—')
     ),
     h('div', { ref: chartRef, className: 'sankey-chart' })
   );

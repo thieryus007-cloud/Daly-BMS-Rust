@@ -21,7 +21,7 @@
 <div class="bms-card {% if !d.connected %}" style="opacity:0.7{% endif %}" id="et112-card-{{ d.address }}">
 
   {# Header #}
-  <div class="bms-hdr" style="{% if d.connected %}{% if d.service_type == "pvinverter" %}background:linear-gradient(135deg,#fef9c3 0%,#fef08a 100%){% else if d.service_type == "heatpump" %}background:linear-gradient(135deg,#f3e8ff 0%,#e9d5ff 100%){% else %}background:linear-gradient(135deg,#dbeafe 0%,#bfdbfe 100%){% endif %}{% else %}background:linear-gradient(135deg,#f1f5f9 0%,#e2e8f0 100%){% endif %}">
+  <div class="bms-hdr {% if !d.connected %}bms-hdr-offline{% else if d.service_type == "pvinverter" %}bms-hdr-pv{% else if d.service_type == "heatpump" %}bms-hdr-heat{% endif %}">
     <div class="bms-hdr-left">
       {% if d.connected %}
         <div class="bms-live"><div class="live-dot"></div>LIVE</div>

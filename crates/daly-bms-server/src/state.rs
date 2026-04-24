@@ -10,7 +10,7 @@ use crate::irradiance::IrradianceSnapshot;
 use crate::tasmota::TasmotaSnapshot;
 use daly_bms_core::bus::DalyPort;
 use daly_bms_core::types::BmsSnapshot;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Datelike, Utc};
 use serde::Serialize;
 use std::collections::{BTreeMap, VecDeque};
 use std::sync::{Arc, Mutex};
@@ -162,6 +162,10 @@ pub struct VenusSmartShunt {
     pub state: Option<String>,
     /// Temps restant en minutes (None = inconnu ou en charge).
     pub time_to_go_min: Option<f32>,
+    /// Ah chargés depuis minuit (intégration courant × temps).
+    pub ah_charged_today: Option<f32>,
+    /// Ah déchargés depuis minuit (intégration courant × temps).
+    pub ah_discharged_today: Option<f32>,
     pub timestamp: DateTime<Utc>,
 }
 
@@ -354,6 +358,13 @@ pub struct AppState {
     /// Données Venus OS — SmartShunt.
     pub venus_smartshunt: Arc<RwLock<Option<VenusSmartShunt>>>,
 
+    /// Accumulateurs Ah journaliers du SmartShunt (intégration courant, remise à zéro à minuit).
+    pub shunt_ah_charged_today:    Arc<RwLock<f32>>,
+    pub shunt_ah_discharged_today: Arc<RwLock<f32>>,
+    pub shunt_ah_last_ts:          Arc<RwLock<Option<DateTime<Utc>>>>,
+    /// Numéro de jour (days_from_ce) au dernier enregistrement — détecte le passage à minuit.
+    pub shunt_ah_last_day:         Arc<RwLock<i32>>,
+
     /// Données Venus OS — Onduleur/Charger (Victron MultiPlus).
     pub venus_inverter: Arc<RwLock<Option<VenusInverter>>>,
 
@@ -418,6 +429,10 @@ impl AppState {
             house_power_w:  Arc::new(RwLock::new(0.0)),
             venus_mppts: Arc::new(RwLock::new(BTreeMap::new())),
             venus_smartshunt: Arc::new(RwLock::new(None)),
+            shunt_ah_charged_today:    Arc::new(RwLock::new(0.0)),
+            shunt_ah_discharged_today: Arc::new(RwLock::new(0.0)),
+            shunt_ah_last_ts:          Arc::new(RwLock::new(None)),
+            shunt_ah_last_day:         Arc::new(RwLock::new(0)),
             venus_inverter: Arc::new(RwLock::new(None)),
             venus_temperatures: Arc::new(RwLock::new(BTreeMap::new())),
             venus_heatpumps: Arc::new(RwLock::new(BTreeMap::new())),
@@ -615,7 +630,43 @@ impl AppState {
     }
 
     /// Enregistre/met à jour le SmartShunt.
-    pub async fn on_venus_smartshunt(&self, shunt: VenusSmartShunt) {
+    ///
+    /// Intègre le courant pour accumuler les Ah chargés/déchargés depuis minuit.
+    /// L'accumulateur est remis à zéro à chaque changement de jour calendaire.
+    pub async fn on_venus_smartshunt(&self, mut shunt: VenusSmartShunt) {
+        let now     = shunt.timestamp;
+        let day_key = now.date_naive().num_days_from_ce();
+
+        let mut charged    = self.shunt_ah_charged_today.write().await;
+        let mut discharged = self.shunt_ah_discharged_today.write().await;
+        let mut last_ts    = self.shunt_ah_last_ts.write().await;
+        let mut last_day   = self.shunt_ah_last_day.write().await;
+
+        // Remise à zéro à minuit
+        if *last_day != day_key {
+            *charged    = 0.0;
+            *discharged = 0.0;
+            *last_day   = day_key;
+        }
+
+        // Intégration Ah = I × Δt (en heures)
+        if let (Some(prev_ts), Some(current_a)) = (*last_ts, shunt.current_a) {
+            let delta_ms = (now - prev_ts).num_milliseconds();
+            // Ne calculer que si l'intervalle est positif et raisonnable (< 10 min)
+            if delta_ms > 0 && delta_ms < 600_000 {
+                let delta_h = delta_ms as f32 / 3_600_000.0;
+                if current_a > 0.0 {
+                    *charged    += current_a * delta_h;
+                } else if current_a < 0.0 {
+                    *discharged += (-current_a) * delta_h;
+                }
+            }
+        }
+        *last_ts = Some(now);
+
+        shunt.ah_charged_today    = Some(*charged);
+        shunt.ah_discharged_today = Some(*discharged);
+
         *self.venus_smartshunt.write().await = Some(shunt);
     }
 
