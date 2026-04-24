@@ -44,6 +44,7 @@ pub struct MqttOutgoing {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 pub enum MqttQos {
     AtMostOnce,
     AtLeastOnce,
@@ -91,6 +92,7 @@ pub struct InfluxPoint {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum FieldValue {
     Float(f64),
     Int(i64),
@@ -118,11 +120,13 @@ impl InfluxPoint {
         self
     }
 
+    #[allow(dead_code)]
     pub fn field_i(mut self, k: impl Into<String>, v: i64) -> Self {
         self.fields.push((k.into(), FieldValue::Int(v)));
         self
     }
 
+    #[allow(dead_code)]
     pub fn field_s(mut self, k: impl Into<String>, v: impl Into<String>) -> Self {
         self.fields.push((k.into(), FieldValue::Str(v.into())));
         self
@@ -153,6 +157,9 @@ impl LiveEvent {
 // ---------------------------------------------------------------------------
 // Shared application state (behind Arc<RwLock<EnergyState>>)
 // ---------------------------------------------------------------------------
+// Some fields are written by logic tasks but not yet read by any consumer
+// (reserved for future API exposure). Suppress the lint globally on the struct.
+#[allow(dead_code)]
 
 #[derive(Debug, Default, Clone)]
 pub struct EnergyState {
@@ -275,18 +282,4 @@ impl WaterHeaterMode {
             WaterHeaterMode::Vacation => "VACATION",
         }
     }
-}
-
-// ---------------------------------------------------------------------------
-// DEYE state machine states
-// ---------------------------------------------------------------------------
-
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub enum DeyeState {
-    #[default]
-    On,
-    WaitingToCut { since: Option<DateTime<Utc>> },
-    Off,
-    WaitingToRestore { since: Option<DateTime<Utc>> },
-    Lockout { until: DateTime<Utc> },
 }

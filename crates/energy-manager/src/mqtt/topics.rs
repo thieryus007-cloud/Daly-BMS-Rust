@@ -95,6 +95,7 @@ pub mod publish {
         format!("{shelly_id}/rpc")
     }
 
+    #[allow(dead_code)]
     pub fn tasmota_cmd(tasmota_id: &str) -> String {
         format!("cmnd/{tasmota_id}/Power")
     }
