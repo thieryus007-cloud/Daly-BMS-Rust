@@ -1,8 +1,8 @@
 //! Agent de monitoring autonome — surveille l'ensemble du système Pi5.
 //!
 //! Vérifie toutes les 30 secondes :
-//! - Service systemd daly-bms (via systemctl)
-//! - Services réseau via sonde TCP : mosquitto, influxdb, grafana, nodered, venus MQTT
+//! - Services systemd daly-bms + energy-manager (via systemctl)
+//! - Services réseau via sonde TCP : mosquitto, influxdb, grafana, energy-manager, venus MQTT
 //! - Port série RS485 (/dev/ttyUSB0)
 //! - CPU, RAM, disque, charge système, uptime
 //!
@@ -18,11 +18,11 @@ use tracing::{info, warn};
 
 /// Services réseau à sonder : (label, host, port, conteneur_docker_pour_restart).
 const TCP_SERVICES: &[(&str, &str, u16, Option<&str>)] = &[
-    ("mosquitto",  "127.0.0.1",     1883, Some("mosquitto")),
-    ("influxdb",   "127.0.0.1",     8086, Some("influxdb")),
-    ("grafana",    "127.0.0.1",     3001, Some("grafana")),
-    ("nodered",    "127.0.0.1",     1880, Some("nodered")),
-    ("venus-mqtt", "192.168.1.120", 1883, None),
+    ("mosquitto",      "127.0.0.1",     1883, Some("mosquitto")),
+    ("influxdb",       "127.0.0.1",     8086, Some("influxdb")),
+    ("grafana",        "127.0.0.1",     3001, Some("grafana")),
+    ("energy-manager", "127.0.0.1",     8081, None),
+    ("venus-mqtt",     "192.168.1.120", 1883, None),
 ];
 
 /// Port série RS485.
@@ -46,14 +46,22 @@ async fn collect_snapshot(_state: &AppState) -> MonitorSnapshot {
     let mut network_services = Vec::new();
     let mut auto_actions = Vec::new();
 
-    // ── Service systemd daly-bms ──────────────────────────────────────────────
-    // Nous sommes le processus en cours — on force active:true pour signaler
-    // que le service tourne (le systemd peut retourner "activating" au démarrage).
+    // ── Services systemd ──────────────────────────────────────────────────────
+    // daly-bms : nous sommes le processus en cours — on force active:true.
     let daly_status = check_systemd_service("daly-bms").await;
     services.push(ServiceStatus {
         name: "daly-bms".to_string(),
         active: true,
         status: if daly_status.is_empty() { "active".to_string() } else { daly_status },
+    });
+
+    // energy-manager : service indépendant — vérification réelle via systemctl.
+    let em_status = check_systemd_service("energy-manager").await;
+    let em_active = em_status == "active";
+    services.push(ServiceStatus {
+        name: "energy-manager".to_string(),
+        active: em_active,
+        status: if em_status.is_empty() { "unknown".to_string() } else { em_status },
     });
 
     // ── Sondes TCP ───────────────────────────────────────────────────────────

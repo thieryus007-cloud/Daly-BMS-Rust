@@ -335,7 +335,7 @@ ring_buffer_size = 720
 [[tasmota.devices]]
 id              = 1                  # Identifiant interne unique (clé du ring buffer)
 tasmota_id      = "tongou_3BC764"    # Topics : tele/tongou_3BC764/STATE, stat/tongou_3BC764/POWER
-name            = "Tongou Switch"
+name            = "Tongou Switch1"
 mqtt_index      = 2                  # → forward santuario/switch/2/venus → D-Bus switch.mqtt_2
 service_type    = "switch"
 device_instance = 61                 # Instance D-Bus Venus OS (60=ATS CHINT, 61=Tongou)
