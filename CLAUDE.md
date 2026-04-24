@@ -113,7 +113,6 @@ crates/energy-manager/src/              ← gestionnaire énergie (remplace Node
   live_ws/                              ← WebSocket live events
   persist/                              ← restauration baselines au démarrage
 crates/dbus-mqtt-venus/src/             ← bridge MQTT→D-Bus NanoPi
-flux-nodered/                           ← flows Node-RED (remplacés par energy-manager)
 contrib/irradiance-rs485/               ← service Python irradiance
 contrib/energy-manager.service          ← unité systemd energy-manager
 ```

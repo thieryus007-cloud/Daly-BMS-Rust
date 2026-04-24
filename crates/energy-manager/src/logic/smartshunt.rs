@@ -5,7 +5,7 @@ use tokio::sync::RwLock;
 
 use crate::bus::AppBus;
 use crate::mqtt::topics::publish;
-use crate::types::{EnergyState, LiveEvent, MqttIncoming, MqttOutgoing};
+use crate::types::{EnergyState, InfluxPoint, LiveEvent, MqttIncoming, MqttOutgoing};
 
 pub async fn spawn(bus: AppBus, state: Arc<RwLock<EnergyState>>) {
     tokio::spawn(run(bus, state));
@@ -70,15 +70,31 @@ async fn handle(msg: &MqttIncoming, state: &Arc<RwLock<EnergyState>>) -> bool {
 
 async fn publish_state(bus: &AppBus, state: &Arc<RwLock<EnergyState>>) {
     let s = state.read().await;
+    let soc      = s.soc_pct;
+    let voltage  = s.battery_voltage_v;
+    let current  = s.battery_current_a;
+    let power    = s.battery_power_w;
+    let batt_state = s.battery_state;
+    let ttg      = s.time_to_go_sec;
     let payload = json!({
-        "Soc":      s.soc_pct,
-        "Voltage":  s.battery_voltage_v,
-        "Current":  s.battery_current_a,
-        "Power":    s.battery_power_w,
-        "State":    s.battery_state,
-        "TimeToGo": s.time_to_go_sec,
+        "Soc":      soc,
+        "Voltage":  voltage,
+        "Current":  current,
+        "Power":    power,
+        "State":    batt_state,
+        "TimeToGo": ttg,
     });
     drop(s);
     bus.publish(MqttOutgoing::retained(publish::SYSTEM_VENUS, &payload)).await;
     bus.emit_live(LiveEvent::new("battery", &payload));
+
+    let pt = InfluxPoint::new("battery_status")
+        .tag("host", "pi5")
+        .field_f("soc_pct",        soc.unwrap_or(0.0))
+        .field_f("voltage_v",      voltage.unwrap_or(0.0))
+        .field_f("current_a",      current.unwrap_or(0.0))
+        .field_f("power_w",        power.unwrap_or(0.0))
+        .field_i("state",          batt_state.unwrap_or(0))
+        .field_i("time_to_go_sec", ttg.unwrap_or(0));
+    bus.write_influx(pt).await;
 }
