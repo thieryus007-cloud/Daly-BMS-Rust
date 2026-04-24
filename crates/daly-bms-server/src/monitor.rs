@@ -10,7 +10,7 @@
 
 use crate::state::{AppState, MonitorSnapshot, ServiceStatus};
 use chrono::Utc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::net::TcpStream;
 use tokio::process::Command;
 use tokio::time::interval;
@@ -257,4 +257,91 @@ async fn read_uptime_secs() -> u64 {
         .and_then(|s| s.split_whitespace().next()?.parse::<f64>().ok())
         .map(|v| v as u64)
         .unwrap_or(0)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Watchdog — redémarre les services critiques en cas de crash
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Services à surveiller : (label, host, port, commande_systemd).
+/// Si la commande est None le service n'est pas redémarré automatiquement.
+const WATCHDOG_SERVICES: &[(&str, &str, u16, Option<&str>)] = &[
+    ("energy-manager", "127.0.0.1", 8081, Some("energy-manager")),
+];
+
+/// Intervalle de vérification du watchdog.
+const WATCHDOG_INTERVAL: Duration = Duration::from_secs(15);
+/// Délai de confirmation avant redémarrage (évite les faux-positifs transitoires).
+const WATCHDOG_CONFIRM_DELAY: Duration = Duration::from_secs(5);
+/// Cooldown minimum entre deux redémarrages du même service.
+const WATCHDOG_COOLDOWN: Duration = Duration::from_secs(120);
+
+/// Démarre le watchdog en arrière-plan.
+/// Vérifie tous les `WATCHDOG_INTERVAL` que chaque service répond.
+/// Si un service est injoignable après confirmation, il est redémarré via systemctl.
+pub async fn run_watchdog_agent(_state: AppState) {
+    info!("Watchdog démarré (intervalle: {}s, cooldown: {}s)",
+        WATCHDOG_INTERVAL.as_secs(), WATCHDOG_COOLDOWN.as_secs());
+
+    let mut ticker = interval(WATCHDOG_INTERVAL);
+    // Dernière tentative de redémarrage par service (même index que WATCHDOG_SERVICES).
+    let mut last_restart: Vec<Option<Instant>> = vec![None; WATCHDOG_SERVICES.len()];
+
+    loop {
+        ticker.tick().await;
+
+        for (idx, &(name, host, port, systemd_unit)) in WATCHDOG_SERVICES.iter().enumerate() {
+            if !tcp_probe(host, port).await {
+                // Sonde de confirmation après délai court.
+                tokio::time::sleep(WATCHDOG_CONFIRM_DELAY).await;
+                if tcp_probe(host, port).await {
+                    continue; // faux positif — service de nouveau joignable
+                }
+
+                let cooldown_ok = last_restart[idx]
+                    .map(|t| t.elapsed() >= WATCHDOG_COOLDOWN)
+                    .unwrap_or(true);
+
+                if !cooldown_ok {
+                    warn!("Watchdog: {} injoignable mais cooldown actif ({:.0}s restantes)",
+                        name,
+                        WATCHDOG_COOLDOWN.as_secs_f32()
+                            - last_restart[idx].unwrap().elapsed().as_secs_f32());
+                    continue;
+                }
+
+                warn!("Watchdog: {} injoignable — tentative de redémarrage", name);
+
+                if let Some(unit) = systemd_unit {
+                    if restart_systemd_service(unit).await {
+                        info!("Watchdog: {} redémarré avec succès via systemctl", name);
+                        last_restart[idx] = Some(Instant::now());
+                    } else {
+                        warn!("Watchdog: échec du redémarrage systemctl de {}", name);
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Redémarre un service systemd via `systemctl restart <name>`.
+async fn restart_systemd_service(name: &str) -> bool {
+    match Command::new("systemctl")
+        .args(["restart", name])
+        .output()
+        .await
+    {
+        Ok(out) => {
+            if !out.status.success() {
+                let stderr = String::from_utf8_lossy(&out.stderr);
+                warn!("systemctl restart {} → stderr: {}", name, stderr.trim());
+            }
+            out.status.success()
+        }
+        Err(e) => {
+            warn!("systemctl restart {} → erreur: {}", name, e);
+            false
+        }
+    }
 }

@@ -532,6 +532,7 @@ async fn main() -> anyhow::Result<()> {
 
     // ── Agent de monitoring Pi5 ────────────────────────────────────────────────
     tokio::spawn(monitor::run_monitor_agent(state.clone()));
+    tokio::spawn(monitor::run_watchdog_agent(state.clone()));
 
     // ── Serveur HTTP Axum ──────────────────────────────────────────────────────
     let router = api::build_router(state);
