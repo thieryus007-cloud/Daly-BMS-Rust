@@ -17,6 +17,10 @@
 | Compiler Pi5 | `make build-arm` |
 | Déployer binaire Pi5 | `sudo systemctl stop daly-bms && sudo cp target/aarch64-unknown-linux-gnu/release/daly-bms-server /usr/local/bin/ && sudo systemctl start daly-bms` |
 | Docker start/stop/logs | `make up` / `make down` / `make logs` |
+| Logs energy-manager | `journalctl -u energy-manager -f` |
+| Compiler energy-manager | `make build-energy-arm` |
+| Déployer energy-manager | `sudo systemctl stop energy-manager && sudo cp target/aarch64-unknown-linux-gnu/release/energy-manager /usr/local/bin/ && sudo systemctl start energy-manager` |
+| Appliquer Config energy-manager | `sudo cp Config.toml /etc/daly-bms/config.toml && sudo systemctl restart energy-manager` |
 
 ### NanoPi (`root@192.168.1.120`)
 
@@ -36,10 +40,12 @@ make build-venus-v7 && make install-venus-v7
 ```
 1. Claude Code → git add + commit + push
 2. Pi5 → make sync
-3a. Config seule  : sudo cp Config.toml /etc/daly-bms/config.toml && sudo systemctl restart daly-bms
-3b. Code Rust/HTML: make build-arm → stop → cp binaire → start
-3c. Venus code    : make build-venus-v7 && make install-venus-v7
-3d. Config NanoPi : scp nanoPi/config-nanopi.toml root@192.168.1.120:/data/daly-bms/config.toml && ssh root@192.168.1.120 "svc -t /service/dbus-mqtt-venus"
+3a. Config seule        : sudo cp Config.toml /etc/daly-bms/config.toml && sudo systemctl restart daly-bms
+3b. Code Rust/HTML      : make build-arm → stop → cp binaire → start
+3c. Venus code          : make build-venus-v7 && make install-venus-v7
+3d. Config NanoPi       : scp nanoPi/config-nanopi.toml root@192.168.1.120:/data/daly-bms/config.toml && ssh root@192.168.1.120 "svc -t /service/dbus-mqtt-venus"
+3e. energy-manager code : make build-energy-arm → sudo systemctl stop energy-manager → sudo cp target/aarch64-unknown-linux-gnu/release/energy-manager /usr/local/bin/ → sudo systemctl start energy-manager
+3f. Config seule (energy): sudo cp Config.toml /etc/daly-bms/config.toml && sudo systemctl restart energy-manager
 ```
 
 ---
@@ -48,10 +54,15 @@ make build-venus-v7 && make install-venus-v7
 
 ```
 Pi5 (192.168.1.141, pi5compute)
-  daly-bms-server (systemd)
+  daly-bms-server (systemd, :8080)
     ├── RS485 /dev/ttyUSB0 → 2 BMS + 3 ET112 + 1 PRALRAN
     ├── REST API + WebSocket :8080
     ├── MQTT publish → 192.168.1.120:1883
+    └── InfluxDB → localhost:8086
+  energy-manager (systemd, :8081)
+    ├── MQTT subscribe/publish → 192.168.1.120:1883
+    ├── Logique solaire, DEYE, chauffe-eau, charge, météo
+    ├── WebSocket live events :8081/live
     └── InfluxDB → localhost:8086
   Docker: mosquitto:1883, influxdb:8086, grafana:3001, nodered:1880
 
@@ -87,12 +98,24 @@ SSH Pi5 config (`~/.ssh/config`): clé `~/.ssh/id_nanopi` → `Host nanopi` + `H
 ## 4. STRUCTURE PROJET (fichiers clés)
 
 ```
-Config.toml                              ← config Pi5 production
+Config.toml                              ← config Pi5 production (daly-bms + energy-manager)
 nanoPi/config-nanopi.toml               ← config NanoPi production
-crates/daly-bms-server/src/             ← serveur principal
+crates/daly-bms-server/src/             ← serveur principal RS485/API
+crates/energy-manager/src/              ← gestionnaire énergie (remplace Node-RED)
+  config.rs                             ← chargement [energy_manager] depuis Config.toml
+  types.rs                              ← types partagés (EnergyState, MqttIncoming, ...)
+  bus.rs                                ← AppBus (broadcast MQTT + mpsc InfluxDB/publish)
+  main.rs                               ← démarrage séquentiel de tous les modules
+  logic/                                ← modules logiques métier
+  mqtt/                                 ← client MQTT rumqttc + topics
+  influx/                               ← client InfluxDB writer
+  http_clients/                         ← Open-Meteo + LG ThinQ
+  live_ws/                              ← WebSocket live events
+  persist/                              ← restauration baselines au démarrage
 crates/dbus-mqtt-venus/src/             ← bridge MQTT→D-Bus NanoPi
-flux-nodered/                           ← flows Node-RED
+flux-nodered/                           ← flows Node-RED (remplacés par energy-manager)
 contrib/irradiance-rs485/               ← service Python irradiance
+contrib/energy-manager.service          ← unité systemd energy-manager
 ```
 
 **IMPORTANT** : Le service lit `/etc/daly-bms/config.toml`, PAS `~/Daly-BMS-Rust/Config.toml`.
@@ -179,6 +202,11 @@ Dashboard SSR : `/dashboard/et112/{addr}`
 | Widget météo "Température: -" | Limitation Venus OS — inévitable, non fixable |
 | `mbpoll` sans réponse | daly-bms monopolise le port — `sudo systemctl stop daly-bms` d'abord |
 | Dashboard affiche cumul brut | Vérifier `pvinv_baseline` dans Node-RED globals |
+| energy-manager ne démarre pas | `journalctl -u energy-manager -n 50` — souvent TOML manquant ou `.env` absent |
+| `missing field energy_manager` | `sudo cp Config.toml /etc/daly-bms/config.toml` — section `[energy_manager]` absente |
+| energy-manager ne reçoit pas MQTT | Vérifier `portal_id` dans Config.toml et que Mosquitto est accessible sur `mqtt.host` |
+| LG ThinQ ne répond pas | Vérifier `LG_BEARER_TOKEN` et `LG_API_KEY` dans `/etc/daly-bms/.env` |
+| InfluxDB non écrit | Vérifier `INFLUX_TOKEN` dans `.env` et que `influx.enabled = true` dans Config.toml |
 
 ---
 
@@ -211,3 +239,4 @@ Dashboard SSR : `/dashboard/et112/{addr}`
 | Validation déploiement / checklist | `IMPLEMENTATION_VERIFICATION.md` |
 | Debug MQTT | `MQTT_DEBUGGING_GUIDE.md` |
 | Debug onduleur / SmartShunt | `DEBUG_ONDULEUR_SMARTSHUNT.md` |
+| Guide energy-manager — modifier/ajouter/retirer une fonctionnalité, InfluxDB | `docs/energy-manager-guide.md` |
