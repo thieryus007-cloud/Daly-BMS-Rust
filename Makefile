@@ -213,22 +213,6 @@ deploy: build-arm
 	@echo "✓ Déployé sur $(PI_HOST)"
 
 # =============================================================================
-# Node-RED — Déploiement des flows depuis git
-# =============================================================================
-
-NODERED_URL ?= http://localhost:1880
-
-.PHONY: deploy-nodered export-nodered
-
-deploy-nodered:
-	@echo "Déploiement des flows Node-RED depuis flux-nodered/ (git → Node-RED) ..."
-	NODERED_URL=$(NODERED_URL) python3 contrib/deploy-nodered-flows.py
-
-export-nodered:
-	@echo "Export des flows Node-RED vers flux-nodered/ (Node-RED → git) ..."
-	NODERED_URL=$(NODERED_URL) python3 contrib/export-nodered-flows.py
-
-# =============================================================================
 # Dashboard (React)
 # =============================================================================
 

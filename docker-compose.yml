@@ -167,37 +167,6 @@ services:
     networks:
       - dalybms-net
 
-  # ── Node-RED (automatisation / logique métier) ───────────────────────────────
-  nodered:
-    image: nodered/node-red:4.0.2
-    container_name: dalybms-nodered
-    restart: unless-stopped
-    ports:
-      - "1880:1880"
-    environment:
-      TZ: Europe/Paris
-    volumes:
-      - nodered-data:/data
-    depends_on:
-      mosquitto:
-        condition: service_healthy
-    # Alias pour résoudre dalybms-mosquitto vers le NanoPi broker (192.168.1.120)
-    extra_hosts:
-      - "dalybms-mosquitto:192.168.1.120"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:1880"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    networks:
-      - dalybms-net
-
   # ── Venus OS keepalive ──────────────────────────────────────────────────────
   # Venus OS exige un publish sur R/<portalId>/keepalive toutes les 60s
   # Sans ce keepalive, Venus OS ne publie aucune donnée sur N/#
@@ -243,7 +212,5 @@ volumes:
     name: dalybms-influxdb-config
   grafana-data:
     name: dalybms-grafana-data
-  nodered-data:
-    name: dalybms-nodered-data
   dalybms-alerts:
     name: dalybms-alerts

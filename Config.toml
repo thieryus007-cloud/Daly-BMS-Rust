@@ -224,7 +224,7 @@ ring_buffer_size = 720
 
 [[et112.devices]]               # SN: 119253X — branché ✅
 address          = "0x07"
-name             = "Micro Onduleurs"
+name             = "ET112-Micro-Onduleurs"
 mqtt_index       = 7           # → santuario/pvinverter/7/venus
 service_type     = "pvinverter"
 device_instance  = 32
@@ -232,7 +232,7 @@ position         = 1
 
 [[et112.devices]]               # SN: 119215X — branché ✅
 address          = "0x08"
-name             = "PAC Chauffe-eau"
+name             = "ET112-Maison"
 mqtt_index       = 8           # → santuario/heatpump/8/venus
 service_type     = "heatpump"
 device_instance  = 30
@@ -240,7 +240,7 @@ position         = 1
 
 [[et112.devices]]               # SN: 061077X — branché ✅
 address          = "0x09"
-name             = "PAC Climatisation"
+name             = "ET112-Réseau"
 mqtt_index       = 9           # → santuario/heatpump/9/venus
 service_type     = "heatpump"
 device_instance  = 31
@@ -360,9 +360,17 @@ device_instance = 63                 # Instance D-Bus Venus OS (60=ATS CHINT, 61
 id              = 4                  # Identifiant interne unique (clé du ring buffer)
 tasmota_id      = "tongou_0A4040"    # Topics : tele/tongou_0A4040/STATE, stat/tongou_0A4040/POWER
 name            = "Tongou Switch4"
-mqtt_index      = 5                 # → forward santuario/switch/2/venus → D-Bus switch.mqtt_5
+mqtt_index      = 5                 # → forward santuario/switch/5/venus → D-Bus switch.mqtt_5
 service_type    = "switch"
-device_instance = 64                 # Instance D-Bus Venus OS (60=ATS CHINT, 61=Tongou)
+device_instance = 64                 # Instance D-Bus Venus OS
+
+[[tasmota.devices]]
+id              = 5                  # Identifiant interne unique (clé du ring buffer)
+tasmota_id      = "tongou_3ACC34"    # 192.168.1.80  tongou-3ACC34
+name            = "Tongou Switch5"
+mqtt_index      = 6                  # → forward santuario/switch/6/venus → D-Bus switch.mqtt_6
+service_type    = "switch"
+device_instance = 65                 # Instance D-Bus Venus OS
 
 [[tasmota.devices]]
 id              = 5                  # Identifiant interne unique (clé du ring buffer)

@@ -73,40 +73,9 @@ services:
       timeout: 10s
       retries: 5
 
-  nodered:
-    image: nodered/node-red:4.0.2
-    container_name: dalybms-nodered
-    restart: unless-stopped
-    ports:
-      - "1880:1880"
-    environment:
-      - TZ=Europe/Paris
-      - HOSTNAME=pi5
-      # InfluxDB — persistance production solaire (écriture + restore au démarrage +5s)
-      - INFLUX_TOKEN=${INFLUX_TOKEN}
-      - INFLUX_ORG=${INFLUX_ORG:-santuario}
-      - INFLUX_BUCKET=${INFLUX_BUCKET:-daly_bms}
-      # VRM API — restauration authoritative au démarrage +10s (today.totals.kwh)
-      # Créer le token sur vrm.victronenergy.com → Profile → Personal Access Tokens
-      - VRM_TOKEN=${VRM_TOKEN:-}
-      - VRM_INSTALLATION_ID=${VRM_INSTALLATION_ID:-865936}
-    volumes:
-      - nodered-data:/data
-    depends_on:
-      mosquitto:
-        condition: service_started
-      influxdb:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:1880"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
 volumes:
   mosquitto-data:
   mosquitto-log:
   influxdb-data:
   influxdb-config:
   grafana-data:
-  nodered-data:
