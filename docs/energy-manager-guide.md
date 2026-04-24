@@ -163,6 +163,26 @@ Nom du measurement configurable : `solar.power_measurement` (défaut : `"solar_p
 
 Nom du measurement configurable : `solar.persist_measurement` (défaut : `"solar_persist"`).
 
+### Measurement `switch_ats`
+
+> Source : `logic/switch_ats.rs` — fréquence : **toutes les 60 secondes** (keepalive)
+
+| Type | Nom | Valeur |
+|------|-----|--------|
+| Tag | `host` | `"pi5"` |
+| Field (i64) | `position` | Position ATS : 0=Réseau, 1=Génératrice |
+| Field (i64) | `state` | État ATS : 0=inactif, 1=actif, 2=alerte |
+
+### Measurement `deye_relay`
+
+> Source : `logic/deye_command.rs` — fréquence : **à chaque changement d'état** (coupure ou réactivation)
+
+| Type | Nom | Valeur |
+|------|-----|--------|
+| Tag | `host` | `"pi5"` |
+| Tag | `shelly_id` | ID du Shelly (ex: `"shellypro2pm-ec62608840a4"`) |
+| Field (i64) | `on` | État relais DEYE : 1=ON, 0=OFF (coupé) |
+
 ---
 
 ## 5. WebSocket live events

@@ -64,7 +64,7 @@ Pi5 (192.168.1.141, pi5compute)
     ├── Logique solaire, DEYE, chauffe-eau, charge, météo
     ├── WebSocket live events :8081/live
     └── InfluxDB → localhost:8086
-  Docker: mosquitto:1883, influxdb:8086, grafana:3001, nodered:1880
+  Docker: mosquitto:1883, influxdb:8086, grafana:3001
 
 NanoPi (192.168.1.120, root)
   dbus-mqtt-venus (runit /service/dbus-mqtt-venus)
@@ -135,20 +135,25 @@ Bus `/dev/ttyUSB0` :
 | 0x01 | BMS-360Ah | `battery.mqtt_1` | `bms/1/venus` | 151 |
 | 0x02 | BMS-320Ah | `battery.mqtt_2` | `bms/2/venus` | 152 |
 | 0x05 | PRALRAN irradiance | `meteo` | `irradiance/raw` | 40 |
-| 0x07 | ET112 Micro-Onduleurs (SN 119253X) | `pvinverter.mqtt_7` | `pvinverter/7/venus` | 32 |
-| 0x08 | ET112 PAC Chauffe-eau (SN 119215X) | `heatpump.mqtt_8` | `heatpump/8/venus` | 30 |
-| 0x09 | ET112 PAC Climatisation (SN 061077X) | `heatpump.mqtt_9` | `heatpump/9/venus` | 31 |
+| 0x07 | ET112-Micro-Onduleurs (SN 119253X) | `pvinverter.mqtt_7` | `pvinverter/7/venus` | 32 |
+| 0x08 | ET112-Maison (SN 119215X) | `heatpump.mqtt_8` | `heatpump/8/venus` | 30 |
+| 0x09 | ET112-Réseau (SN 061077X) | `heatpump.mqtt_9` | `heatpump/9/venus` | 31 |
 
 Services D-Bus actifs nominaux :
 
 ```
 com.victronenergy.battery.mqtt_1          BMS-360Ah (inst. 151)
 com.victronenergy.battery.mqtt_2          BMS-320Ah (inst. 152)
-com.victronenergy.pvinverter.mqtt_7       ET112 Micro-Onduleurs (inst. 32)
-com.victronenergy.heatpump.mqtt_8         ET112 PAC Chauffe-eau (inst. 30)
-com.victronenergy.heatpump.mqtt_9         ET112 PAC Climatisation (inst. 31)
+com.victronenergy.pvinverter.mqtt_7       ET112-Micro-Onduleurs (inst. 32)
+com.victronenergy.heatpump.mqtt_8         ET112-Maison / Consommation (inst. 30)
+com.victronenergy.heatpump.mqtt_9         ET112-Réseau / Grid (inst. 31)
 com.victronenergy.temperature.mqtt_1      Capteur ext. (type 4, inst. 20)
 com.victronenergy.switch.mqtt_1           ATS CHINT (inst. 60)
+com.victronenergy.switch.mqtt_2           Tongou Switch1 (inst. 61)
+com.victronenergy.switch.mqtt_3           Tongou Switch2 (inst. 62)
+com.victronenergy.switch.mqtt_4           Tongou Switch3 (inst. 63)
+com.victronenergy.switch.mqtt_5           Tongou Switch4 (inst. 64)
+com.victronenergy.switch.mqtt_6           Tongou Switch5 / tongou_3ACC34 (inst. 65)
 com.victronenergy.meteo                   Irradiance PRALRAN + TodaysYield (inst. 40)
 com.victronenergy.pvinverter.cgwacs_ttyUSB0_mb2   Onduleur PV Victron direct
 ```
@@ -201,7 +206,7 @@ Dashboard SSR : `/dashboard/et112/{addr}`
 | ET112 "en attente de données" | Mauvaise adresse Modbus → `sudo systemctl stop daly-bms && mbpoll -m rtu -a 1:15 -b 9600 -t 3:float -r 1 -c 1 /dev/ttyUSB0` |
 | Widget météo "Température: -" | Limitation Venus OS — inévitable, non fixable |
 | `mbpoll` sans réponse | daly-bms monopolise le port — `sudo systemctl stop daly-bms` d'abord |
-| Dashboard affiche cumul brut | Vérifier `pvinv_baseline` dans Node-RED globals |
+| Dashboard affiche cumul brut | Vérifier `pvinv_baseline` retained MQTT (`santuario/persist/pvinv_baseline`) |
 | energy-manager ne démarre pas | `journalctl -u energy-manager -n 50` — souvent TOML manquant ou `.env` absent |
 | `missing field energy_manager` | `sudo cp Config.toml /etc/daly-bms/config.toml` — section `[energy_manager]` absente |
 | energy-manager ne reçoit pas MQTT | Vérifier `portal_id` dans Config.toml et que Mosquitto est accessible sur `mqtt.host` |

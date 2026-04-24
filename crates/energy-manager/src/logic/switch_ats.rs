@@ -6,7 +6,7 @@ use tokio::time::{interval, Duration};
 
 use crate::bus::AppBus;
 use crate::mqtt::topics::publish;
-use crate::types::{EnergyState, MqttOutgoing};
+use crate::types::{EnergyState, InfluxPoint, MqttOutgoing};
 
 const KEEPALIVE_SECS: u64 = 60;
 
@@ -38,10 +38,18 @@ pub async fn set_position(
 
 async fn publish_state(bus: &AppBus, state: &Arc<RwLock<EnergyState>>) {
     let s = state.read().await;
+    let position = s.ats_position;
+    let ats_state = s.ats_state;
     let payload = json!({
-        "Position": s.ats_position,
-        "State":    s.ats_state,
+        "Position": position,
+        "State":    ats_state,
     });
     drop(s);
     bus.publish(MqttOutgoing::retained(publish::SWITCH_VENUS, &payload)).await;
+
+    let pt = InfluxPoint::new("switch_ats")
+        .tag("host", "pi5")
+        .field_i("position", position)
+        .field_i("state", ats_state);
+    bus.write_influx(pt).await;
 }

@@ -169,6 +169,14 @@ command_topic   = "cmnd/tongou_0A4040/Power"
 custom_name     = "Tongou 4"
 group           = "Tongou"
 
+[[switches]]
+mqtt_index      = 6
+name            = "tongou_3ACC34"              # 192.168.1.80
+device_instance = 65
+command_topic   = "cmnd/tongou_3ACC34/Power"
+custom_name     = "Tongou 5"
+group           = "Tongou"
+
 # -----------------------------------------------------------------------------
 # Compteurs réseau / consommation AC
 # Topics : santuario/grid/{mqtt_index}/venus
