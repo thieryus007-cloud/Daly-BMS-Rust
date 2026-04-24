@@ -12,6 +12,7 @@
 
 CARGO      := cargo
 BINARY     := daly-bms-server
+ENERGY_BIN := energy-manager
 CLI        := daly-bms-cli
 TARGET_ARM    := aarch64-unknown-linux-gnu
 TARGET_ARMV7  := armv7-unknown-linux-gnueabihf
@@ -57,7 +58,7 @@ ps:
 # Compilation
 # =============================================================================
 
-.PHONY: build build-arm build-arm-v7 build-cli build-venus build-venus-arm build-venus-armv7 build-venus-v7 install-venus install-venus-v7
+.PHONY: build build-arm build-arm-v7 build-cli build-venus build-venus-arm build-venus-armv7 build-venus-v7 install-venus install-venus-v7 build-energy build-energy-arm install-energy run-energy
 
 VENUS_BIN  := dbus-mqtt-venus
 
@@ -105,6 +106,23 @@ install-venus: build-venus-arm
 # Déploiement sur Venus OS armv7l (NanoPi 32-bit)
 install-venus-v7: build-venus-armv7
 	ARCH=armv7 ./nanoPi/install-venus.sh $(GX_IP)
+
+build-energy:
+	$(CARGO) build --release --bin $(ENERGY_BIN)
+	@echo "✓ Binaire : $(RELEASE_DIR)/$(ENERGY_BIN)"
+
+build-energy-arm:
+	CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
+	  $(CARGO) build --release --target $(TARGET_ARM) --bin $(ENERGY_BIN)
+	@echo "✓ Binaire ARM energy-manager : $(ARM_RELEASE_DIR)/$(ENERGY_BIN)"
+
+install-energy: build-energy-arm
+	scp $(ARM_RELEASE_DIR)/$(ENERGY_BIN) $(PI_HOST):/tmp/$(ENERGY_BIN)
+	ssh $(PI_HOST) "sudo install -m 755 /tmp/$(ENERGY_BIN) /usr/local/bin/$(ENERGY_BIN) && sudo systemctl restart energy-manager && sudo systemctl status energy-manager --no-pager -l"
+	@echo "✓ energy-manager déployé sur $(PI_HOST)"
+
+run-energy:
+	RUST_LOG=info $(CARGO) run --release --bin $(ENERGY_BIN)
 
 build-all:
 	$(CARGO) build --release

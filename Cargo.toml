@@ -10,6 +10,7 @@ members = [
     "crates/daly-bms-cli",
     "crates/daly-bms-probe",
     "crates/dbus-mqtt-venus",
+    "crates/energy-manager",
 ]
 
 [workspace.package]
