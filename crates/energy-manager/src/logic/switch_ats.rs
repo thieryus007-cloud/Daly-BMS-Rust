@@ -22,6 +22,7 @@ async fn run(bus: AppBus, state: Arc<RwLock<EnergyState>>) {
     }
 }
 
+#[allow(dead_code)]
 pub async fn set_position(
     bus: &AppBus,
     state: &Arc<RwLock<EnergyState>>,

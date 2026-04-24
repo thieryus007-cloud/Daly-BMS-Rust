@@ -42,6 +42,7 @@ impl AppBus {
         self.mqtt_in.subscribe()
     }
 
+    #[allow(dead_code)]
     pub fn subscribe_live(&self) -> broadcast::Receiver<LiveEvent> {
         self.live.subscribe()
     }

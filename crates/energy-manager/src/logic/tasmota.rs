@@ -78,6 +78,7 @@ async fn run(
 }
 
 /// Send ON/OFF/TOGGLE command to the Tasmota relay.
+#[allow(dead_code)]
 pub async fn send_command(
     bus: &AppBus,
     tasmota_id: &str,

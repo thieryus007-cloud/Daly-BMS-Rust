@@ -1,0 +1,407 @@
+# Guide Développeur — energy-manager
+
+Référence complète pour modifier, ajouter ou supprimer une fonctionnalité du crate `energy-manager`.
+
+---
+
+## 1. Vue d'ensemble
+
+`energy-manager` est un binaire Rust autonome qui remplace les flows Node-RED. Il tourne en service systemd sur le Pi5 (`energy-manager.service`), écoute le broker MQTT Mosquitto, applique la logique métier, et publie sur MQTT, InfluxDB et WebSocket.
+
+### Flux de données
+
+```
+MQTT (Mosquitto :1883)
+        │ Publish (N/... Victron, stat/... Tasmota, etc.)
+        ▼
+  mqtt/client.rs  ──broadcast──▶  AppBus.mqtt_in
+                                      │
+                        ┌─────────────┼────────────── ... ──┐
+                        ▼             ▼                      ▼
+                  logic/solar   logic/deye      logic/water_heater ...
+                  _power.rs     _command.rs         (11 modules)
+                        │             │                      │
+             ┌──────────┴─────────────┴──────────────────────┘
+             │         │                     │
+             ▼         ▼                     ▼
+     AppBus.influx  AppBus.mqtt_out     AppBus.live
+             │         │                     │
+      influx/      mqtt/client.rs       live_ws/server.rs
+      client.rs    (publisher)          (WebSocket :8081/live)
+             │         │
+      InfluxDB      MQTT publish
+      :8086         (W/... Victron, santuario/...)
+```
+
+### AppBus — le bus central
+
+`bus.rs` expose 4 canaux :
+
+| Canal | Type | Usage |
+|-------|------|-------|
+| `mqtt_in` | `broadcast::Sender<MqttIncoming>` | Tous les messages MQTT entrants → tous les modules |
+| `mqtt_out` | `mpsc::Sender<MqttOutgoing>` | Publish MQTT depuis n'importe quel module |
+| `influx` | `mpsc::Sender<InfluxPoint>` | Écriture InfluxDB |
+| `live` | `broadcast::Sender<LiveEvent>` | Événements WebSocket live |
+
+Cloner `AppBus` est gratuit (tous les champs sont `Arc`-backed).
+
+### État partagé
+
+`Arc<RwLock<EnergyState>>` dans `types.rs` — struct avec tous les champs mesurés (solaire, batterie, onduleur, météo, chauffe-eau, DEYE, etc.). Les modules écrivent via `.write().await`, lisent via `.read().await`.
+
+---
+
+## 2. Modules logiques — inventaire
+
+| Fichier | Rôle | Entrées MQTT | Sorties |
+|---------|------|--------------|---------|
+| `solar_power.rs` | Puissance solaire temps réel | MPPT power/yield, PVInverter power/energy | InfluxDB `solar_power` (1/s), POST daly-bms, LiveEvent `solar` |
+| `meteo.rs` | Publication météo Venus + reset minuit | état partagé | MQTT `santuario/meteo/venus`, `santuario/heat/1/venus`, InfluxDB `solar_persist` (1/jour) |
+| `inverter.rs` | Données onduleur VEBus | N/.../vebus/... | EnergyState, LiveEvent `inverter` |
+| `smartshunt.rs` | Données batterie SmartShunt | N/.../system/0/Dc/Battery/... | EnergyState, LiveEvent `battery` |
+| `irradiance.rs` | Capteur irradiance PRALRAN | `santuario/irradiance/raw` | EnergyState, LiveEvent `irradiance` |
+| `tasmota.rs` | Relais chauffe-eau Tasmota | `stat/{id}/POWER`, `tele/{id}/SENSOR` | EnergyState, LiveEvent `tasmota_wh*` |
+| `deye_command.rs` | Coupure DEYE anti-surcharge fréquence | `N/.../vebus/.../Ac/Out/L1/F` | MQTT Shelly RPC, EnergyState |
+| `water_heater.rs` | Contrôle mode chauffe-eau LG | état partagé (SOC, solaire, grid) | MQTT `santuario/heatpump/1/venus`, API LG ThinQ |
+| `charge_current.rs` | Courant de charge VEBus | `IgnoreAcIn1`, PV power, consumption | MQTT `W/.../MaxChargeCurrent`, `W/.../PowerAssistEnabled` |
+| `switch_ats.rs` | ATS CHINT keepalive | aucune (timer 60s) | MQTT `santuario/switch/1/venus` |
+| `platform.rs` | Statut plateforme (backup) | aucune (timer configurable) | MQTT `santuario/platform/venus` |
+
+---
+
+## 3. Configuration — `Config.toml`
+
+Toute la configuration du gestionnaire se trouve dans la section `[energy_manager]` du fichier `Config.toml`.  
+Après modification : `sudo cp Config.toml /etc/daly-bms/config.toml && sudo systemctl restart energy-manager`
+
+### Sections et paramètres clés
+
+```toml
+[energy_manager.victron]
+portal_id         = "c0619ab9929a"   # ID GX portal Victron
+vebus_instance    = 275              # Instance VEBus
+mppt1_instance    = 273             # MPPT 1
+mppt2_instance    = 289             # MPPT 2
+pvinverter_instance = 32
+shelly_deye_id    = "shellypro2pm-ec62608840a4"
+tasmota_waterheater_id = "tongou_3BC764"
+
+[energy_manager.deye]
+freq_high_hz      = 52.0   # Seuil coupure DEYE
+freq_low_hz       = 50.3   # Seuil réactivation
+cut_delay_secs    = 15     # Délai avant coupure
+reenable_delay_secs = 45   # Délai avant réactivation
+lockout_secs      = 120    # Anti-oscillation
+
+[energy_manager.water_heater]
+solar_min_w         = 2000.0   # Production min pour HEAT_PUMP
+debounce_secs       = 300      # Délai de stabilisation (5 min)
+mode_change_min_secs = 900     # Intervalle min entre changements (15 min)
+heat_pump_target_c  = 60.0
+vacation_target_c   = 45.0
+
+[energy_manager.charge_current]
+offgrid_max_a        = 70.0
+grid_pv_excess_a     = 4.0
+grid_no_excess_a     = 0.0
+pv_excess_threshold_w = 50.0
+
+[energy_manager.influxdb]
+enabled          = true
+url              = "http://localhost:8086"
+org              = "santuario"
+bucket           = "daly_bms"
+# token lu depuis /etc/daly-bms/.env → INFLUX_TOKEN
+
+[energy_manager.lg_thinq]
+enabled          = false   # true si LG ThinQ utilisé
+# device_id / bearer_token / api_key → /etc/daly-bms/.env
+```
+
+### Secrets (`.env`)
+
+Les valeurs sensibles sont lues depuis `/etc/daly-bms/.env` :
+
+```env
+INFLUX_TOKEN=<token InfluxDB>
+LG_DEVICE_ID=<ID appareil LG>
+LG_BEARER_TOKEN=<Bearer token LG>
+LG_API_KEY=<API key LG>
+```
+
+---
+
+## 4. InfluxDB — inventaire complet des écritures
+
+### Measurement `solar_power`
+
+> Source : `logic/solar_power.rs` — fréquence : **1 point par seconde**
+
+| Type | Nom | Valeur |
+|------|-----|--------|
+| Tag | `day` | Date locale `YYYY-MM-DD` |
+| Tag | `host` | Valeur de `solar.host_tag` (défaut : `"pi5"`) |
+| Field (f64) | `solar_total_w` | Puissance solaire totale (MPPT + PVInverter) |
+| Field (f64) | `mppt_power_w` | Puissance MPPT seuls (273 + 289) |
+| Field (f64) | `pvinv_power_w` | Puissance micro-onduleurs ET112 |
+| Field (f64) | `house_power_w` | Consommation maison (Ac/ConsumptionOnOutput) |
+
+Nom du measurement configurable : `solar.power_measurement` (défaut : `"solar_power"`).
+
+### Measurement `solar_persist`
+
+> Source : `logic/meteo.rs` — fréquence : **1 point par jour, à minuit**
+
+| Type | Nom | Valeur |
+|------|-----|--------|
+| Tag | `day` | Date du jour qui se termine `YYYY-MM-DD` |
+| Tag | `host` | Valeur de `solar.host_tag` (défaut : `"pi5"`) |
+| Field (f64) | `total_yield_today_kwh` | Production totale du jour (kWh) |
+| Field (f64) | `mppt_yield_today_kwh` | Production MPPT seuls (kWh) |
+| Field (f64) | `pvinv_yield_today_kwh` | Production micro-onduleurs (kWh) |
+
+Nom du measurement configurable : `solar.persist_measurement` (défaut : `"solar_persist"`).
+
+---
+
+## 5. WebSocket live events
+
+Endpoint : `ws://<pi5>:8081/live`  
+Chaque événement est un JSON `{ "stream": "<nom>", "ts": "<ISO8601>", "data": {...} }`.
+
+| Stream | Émis par | Contenu |
+|--------|----------|---------|
+| `solar` | `solar_power.rs` (1/s) | `solar_total_w`, `mppt_power_w`, `house_power_w` |
+| `inverter` | `inverter.rs` | tension/courant/puissance DC+AC, état VEBus |
+| `battery` | `smartshunt.rs` | SOC, courant, tension, état, time_to_go |
+| `irradiance` | `irradiance.rs` | `wm2` |
+| `weather` | `open_meteo.rs` | `temperature_c`, `humidity_pct`, `pressure_hpa`, `wind_speed_ms` |
+| `tasmota_wh` | `tasmota.rs` | `on` (bool) |
+| `tasmota_wh_energy` | `tasmota.rs` | `power_w`, `voltage_v`, `current_a`, `today_kwh`, `total_kwh` |
+
+---
+
+## 6. Ajouter un nouveau module logique
+
+### Étapes
+
+**1. Créer le fichier** `crates/energy-manager/src/logic/mon_module.rs`
+
+```rust
+use std::sync::Arc;
+use tokio::sync::RwLock;
+
+use crate::bus::AppBus;
+use crate::types::EnergyState;
+
+pub async fn spawn(bus: AppBus, state: Arc<RwLock<EnergyState>>) {
+    tokio::spawn(run(bus, state));
+}
+
+async fn run(bus: AppBus, state: Arc<RwLock<EnergyState>>) {
+    let mut rx = bus.subscribe_mqtt();
+    loop {
+        let msg = match rx.recv().await {
+            Ok(m) => m,
+            Err(_) => continue,
+        };
+        if msg.topic != "mon/topic" {
+            continue;
+        }
+        // Traitement...
+        let mut s = state.write().await;
+        // s.mon_champ = ...;
+    }
+}
+```
+
+**2. Déclarer dans `logic/mod.rs`**
+
+```rust
+pub mod mon_module;
+```
+
+**3. Brancher dans `main.rs`**
+
+```rust
+logic::mon_module::spawn(bus.clone(), state.clone()).await;
+```
+
+**4. Si le module a besoin de configuration**, ajouter une section dans `config.rs` :
+
+```rust
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct MonModuleConfig {
+    #[serde(default = "default_ma_valeur")]
+    pub ma_valeur: f64,
+}
+fn default_ma_valeur() -> f64 { 42.0 }
+```
+
+Ajouter `pub mon_module: MonModuleConfig` dans `EnergyManagerConfig` et `#[serde(default)]`.  
+Ajouter `[energy_manager.mon_module]` dans `Config.toml`.  
+Passer `cfg.mon_module.clone()` au `spawn()`.
+
+**5. Si le module écrit des champs sur `EnergyState`**, ajouter les champs dans `types.rs` :
+
+```rust
+pub struct EnergyState {
+    // ...
+    pub mon_champ: Option<f64>,
+}
+```
+
+**6. Si le module abonne un nouveau topic MQTT**, l'ajouter dans `mqtt/topics.rs` :
+
+```rust
+pub fn all_subscriptions(...) -> Vec<String> {
+    vec![
+        // ...
+        "mon/nouveau/topic".to_string(),
+    ]
+}
+```
+
+**7. Commit, push, déployer** :
+
+```bash
+make build-energy-arm
+sudo systemctl stop energy-manager
+sudo cp target/aarch64-unknown-linux-gnu/release/energy-manager /usr/local/bin/
+sudo systemctl start energy-manager
+journalctl -u energy-manager -f
+```
+
+---
+
+## 7. Modifier un module existant
+
+### Changer un seuil ou délai (sans recompiler)
+
+Si le paramètre est déjà exposé dans `Config.toml` (voir section 3) :
+
+```bash
+# 1. Éditer Config.toml
+# 2. Copier sur Pi5
+sudo cp Config.toml /etc/daly-bms/config.toml
+sudo systemctl restart energy-manager
+```
+
+### Changer la logique métier (recompilation requise)
+
+Exemples de modifications courantes :
+
+| Besoin | Fichier | Ce qu'il faut changer |
+|--------|---------|-----------------------|
+| Seuil DEYE fréquence | `config.rs` (DeyeConfig) + `Config.toml` | Paramètre `freq_high_hz` |
+| Délai debounce chauffe-eau | `config.rs` (WaterHeaterConfig) + `Config.toml` | `debounce_secs` |
+| Ajouter un MPPT | `config.rs` (VictronConfig), `mqtt/topics.rs`, `solar_power.rs`, `types.rs` | Nouvelle instance + topic |
+| Nouveau topic Victron à surveiller | `mqtt/topics.rs` (`all_subscriptions`) + module concerné | Abonnement + handler |
+| Changer fréquence d'écriture InfluxDB | `logic/solar_power.rs` ligne `interval(Duration::from_secs(1))` | Valeur en secondes |
+| Ajouter un champ InfluxDB | Module concerné, appel `.field_f(...)` sur `InfluxPoint` | Nouveau field |
+
+---
+
+## 8. Supprimer un module
+
+1. Supprimer le fichier `logic/mon_module.rs`
+2. Retirer `pub mod mon_module;` dans `logic/mod.rs`
+3. Retirer la ligne `logic::mon_module::spawn(...)` dans `main.rs`
+4. Retirer la section de config dans `config.rs` et `Config.toml` (si applicable)
+5. Retirer les champs orphelins dans `EnergyState` (types.rs) si plus utilisés
+6. Retirer les topics MQTT orphelins dans `mqtt/topics.rs`
+7. Recompiler et déployer
+
+---
+
+## 9. Ajouter un nouveau publish MQTT
+
+**1. Déclarer le topic** dans `mqtt/topics.rs` :
+
+```rust
+pub mod publish {
+    // ...
+    pub const MON_TOPIC: &str = "santuario/mon/venus";
+    // ou fonction dynamique :
+    pub fn mon_topic_dynamique(id: u32) -> String {
+        format!("santuario/mon/{id}/venus")
+    }
+}
+```
+
+**2. Publier depuis un module** :
+
+```rust
+use crate::mqtt::topics::publish;
+use crate::types::MqttOutgoing;
+
+// Retained (Venus OS keepalive) :
+bus.publish(MqttOutgoing::retained(publish::MON_TOPIC, &payload)).await;
+
+// Non-retained (événement) :
+bus.publish(MqttOutgoing::transient(publish::MON_TOPIC, &payload)).await;
+
+// Texte brut :
+bus.publish(MqttOutgoing::raw(publish::MON_TOPIC, "valeur", false)).await;
+```
+
+---
+
+## 10. Ajouter une écriture InfluxDB
+
+```rust
+use crate::types::InfluxPoint;
+
+let pt = InfluxPoint::new("ma_measurement")
+    .tag("host", "pi5")
+    .tag("device", "mon_appareil")
+    .field_f("ma_valeur_w", 123.4)
+    .field_i("mon_entier", 42);
+
+bus.write_influx(pt).await;
+```
+
+Les points sont batchwisés par `influx/client.rs` (flush sur `batch_size` points ou `flush_interval_sec` secondes — configurable dans `[energy_manager.influxdb]`).
+
+---
+
+## 11. Débogage
+
+```bash
+# Logs en continu
+journalctl -u energy-manager -f
+
+# Augmenter le niveau de log (sans recompiler)
+sudo systemctl edit energy-manager
+# Ajouter :
+# [Service]
+# Environment=RUST_LOG=debug
+
+# Voir les messages MQTT en temps réel
+mosquitto_sub -h 192.168.1.141 -t "santuario/#" -v
+mosquitto_sub -h 192.168.1.141 -t "N/c0619ab9929a/#" -v
+
+# WebSocket live events
+websocat ws://192.168.1.141:8081/live
+
+# Vérifier écriture InfluxDB (depuis Pi5)
+influx query -o santuario 'from(bucket:"daly_bms") |> range(start:-5m) |> filter(fn:(r)=>r._measurement=="solar_power")'
+```
+
+---
+
+## 12. Installation initiale du service (première fois)
+
+```bash
+# Depuis le repo sur Pi5 :
+make build-energy-arm
+sudo cp target/aarch64-unknown-linux-gnu/release/energy-manager /usr/local/bin/
+sudo cp contrib/energy-manager.service /etc/systemd/system/
+sudo cp Config.toml /etc/daly-bms/config.toml
+# Créer /etc/daly-bms/.env avec INFLUX_TOKEN etc.
+sudo systemctl daemon-reload
+sudo systemctl enable energy-manager
+sudo systemctl start energy-manager
+journalctl -u energy-manager -f
+```
