@@ -124,27 +124,57 @@ async fn writer_task(
     loop {
         ticker.tick().await;
 
-        let (solar_total, mppt_power, house_power, host) = {
+        let (
+            solar_total, house_power,
+            m273_w, m273_v, m273_i, m273_yield, m273_state,
+            m289_w, m289_v, m289_i, m289_yield, m289_state,
+            pvinv_w, pvinv_yield,
+            total_yield, host,
+        ) = {
             let s = state.read().await;
             (
                 s.solar_total_w,
-                s.mppt_273.power_w.unwrap_or(0.0) + s.mppt_289.power_w.unwrap_or(0.0),
                 s.house_power_w.unwrap_or(0.0),
+                s.mppt_273.power_w.unwrap_or(0.0),
+                s.mppt_273.pv_voltage_v.unwrap_or(0.0),
+                s.mppt_273.dc_current_a.unwrap_or(0.0),
+                s.mppt_273.yield_today_kwh.unwrap_or(0.0),
+                s.mppt_273.state.unwrap_or(0),
+                s.mppt_289.power_w.unwrap_or(0.0),
+                s.mppt_289.pv_voltage_v.unwrap_or(0.0),
+                s.mppt_289.dc_current_a.unwrap_or(0.0),
+                s.mppt_289.yield_today_kwh.unwrap_or(0.0),
+                s.mppt_289.state.unwrap_or(0),
+                s.pvinverter_power_w.unwrap_or(0.0),
+                s.pvinv_yield_today_kwh,
+                s.total_yield_today_kwh,
                 cfg.host_tag.clone(),
             )
         };
 
-        // Write to InfluxDB
+        let mppt_power = m273_w + m289_w;
+        let day = chrono::Local::now().format("%Y-%m-%d").to_string();
+
+        // Write detailed InfluxDB point
         let pt = InfluxPoint::new(&cfg.power_measurement)
-            .tag("day",  chrono::Local::now().format("%Y-%m-%d").to_string())
+            .tag("day",  &day)
             .tag("host", &host)
-            .field_f("solar_total_w", solar_total)
-            .field_f("mppt_power_w",  mppt_power)
-            .field_f("pvinv_power_w", {
-                let s = state.read().await;
-                s.pvinverter_power_w.unwrap_or(0.0)
-            })
-            .field_f("house_power_w", house_power);
+            .field_f("solar_total_w",    solar_total)
+            .field_f("mppt_power_w",     mppt_power)
+            .field_f("mppt_273_w",       m273_w)
+            .field_f("mppt_273_voltage_v", m273_v)
+            .field_f("mppt_273_current_a", m273_i)
+            .field_f("mppt_273_yield_kwh", m273_yield)
+            .field_i("mppt_273_state",   m273_state)
+            .field_f("mppt_289_w",       m289_w)
+            .field_f("mppt_289_voltage_v", m289_v)
+            .field_f("mppt_289_current_a", m289_i)
+            .field_f("mppt_289_yield_kwh", m289_yield)
+            .field_i("mppt_289_state",   m289_state)
+            .field_f("pvinv_power_w",    pvinv_w)
+            .field_f("pvinv_yield_kwh",  pvinv_yield)
+            .field_f("total_yield_kwh",  total_yield)
+            .field_f("house_power_w",    house_power);
         bus.write_influx(pt).await;
 
         // POST to daly-bms-server
@@ -165,7 +195,10 @@ async fn writer_task(
 
         bus.emit_live(LiveEvent::new("solar", json!({
             "solar_total_w": solar_total,
+            "mppt_273_w":    m273_w,
+            "mppt_289_w":    m289_w,
             "mppt_power_w":  mppt_power,
+            "pvinv_w":       pvinv_w,
             "house_power_w": house_power,
         })));
     }

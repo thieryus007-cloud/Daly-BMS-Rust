@@ -1,8 +1,10 @@
 # Guide Complet — Dashboard Temps Réel & Extension des Métriques
+> ⚠ **OBSOLÈTE** — Ce document décrit l'ancienne architecture Node-RED.  
+> Référence actuelle : **`docs/energy-manager-guide.md`**
+
 **Version:** 2.0  
 **Date:** 2026-04-05  
-**Branche:** `claude/realtime-metrics-dashboard-lUKF3`  
-**Status:** ✅ Production Ready
+**Status:** OBSOLÈTE — remplacé par energy-manager
 
 ---
 

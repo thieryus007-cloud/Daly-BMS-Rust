@@ -100,7 +100,7 @@ make build-venus-v7 && make install-venus-v7
 
 ---
 
-## D. AJOUTER UN APPAREIL (NODE-RED → VENUS OS)
+## D. AJOUTER UN APPAREIL (energy-manager → VENUS OS)
 
 ### Étape 1 — Config NanoPi (`/data/daly-bms/config.toml`)
 
@@ -136,9 +136,9 @@ service_type    = "grid"   # "grid" ou "acload"
 
 Puis : `svc -t /service/dbus-mqtt-venus`
 
-### Étape 2 — Node-RED (Pi5 :1880)
+### Étape 2 — energy-manager (Pi5)
 
-Nœud **mqtt out** → broker `192.168.1.120:1883`, retain: true.
+Publier via MQTT retained sur broker `192.168.1.120:1883`. Utiliser `bus.publish(MqttOutgoing::retained(...))` dans le module logique correspondant (voir `docs/energy-manager-guide.md` section 9).
 
 Payload JSON capteur température :
 ```json
@@ -187,9 +187,9 @@ sudo systemctl start daly-bms
 
 ## F. PERSISTANCE PRODUCTION SOLAIRE (pvinv_baseline)
 
-**Problème** : après reboot Pi5, `pvinv_baseline` (Node-RED globals) est perdue → TodaysYield repart à 0.
+**Problème** : après reboot Pi5, `pvinv_baseline` est perdue → TodaysYield repart à 0.
 
-**Solution** : MQTT retained sur `santuario/persist/pvinv_baseline` (Mosquitto persistence=true + volume Docker).
+**Solution** : MQTT retained sur `santuario/persist/pvinv_baseline` (Mosquitto persistence=true + volume Docker). energy-manager restaure automatiquement au démarrage via le topic retained.
 
 **Vérification** :
 ```bash
@@ -201,15 +201,11 @@ mosquitto_sub -h localhost -p 1883 -t 'santuario/persist/pvinv_baseline' -C 1
 # 1. Sur NanoPi — lire cumul actuel PVInverter
 dbus -y com.victronenergy.pvinverter.cgwacs_ttyUSB0_mb2 /Ac/Energy/Forward GetValue
 # 2. Calculer : pvinv_today = total_victron_gui - mppt_today
-# 3. Dans Node-RED — injecter dans Function node :
+# 3. Injecter manuellement le baseline via mosquitto_pub :
 ```
-```javascript
-const currentCumul = 587.2;   // étape 1
-const totalVictron  = 3.9;    // valeur "Solaire" dans Victron GUI
-const mpptToday     = global.get('mppt_yield_today') || 2.18;
-const pvinvToday    = totalVictron - mpptToday;
-global.set('pvinv_baseline', currentCumul - pvinvToday);
-global.set('pvinv_yield_today', pvinvToday);
+```bash
+# baseline = cumul_total - production_jour_courant_pvinv
+mosquitto_pub -h 192.168.1.120 -t 'santuario/persist/pvinv_baseline' -m '587.2' -r
 global.set('total_yield_today', mpptToday + pvinvToday);
 return null;
 ```
@@ -264,7 +260,7 @@ git push -u origin <branche>
 cd ~/Daly-BMS-Rust
 git pull origin <branche>
 bash contrib/irradiance-rs485/install.sh
-# Puis importer flux-nodered/irradiance-rs485.json dans Node-RED
+# L'irradiance est lue directement par daly-bms-server via RS485 (0x05)
 ```
 
 Identifier le port : `ls -la /dev/serial/by-id/`

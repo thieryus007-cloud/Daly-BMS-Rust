@@ -6,7 +6,7 @@ use std::sync::Arc;
 use crate::bus::AppBus;
 use crate::config::VictronConfig;
 use crate::mqtt::topics::publish;
-use crate::types::{EnergyState, LiveEvent, MqttIncoming, MqttOutgoing};
+use crate::types::{EnergyState, InfluxPoint, LiveEvent, MqttIncoming, MqttOutgoing};
 
 pub async fn spawn(
     cfg: Arc<VictronConfig>,
@@ -90,28 +90,48 @@ async fn handle(
 async fn publish_state(bus: &AppBus, state: &Arc<RwLock<EnergyState>>) {
     let s = state.read().await;
 
-    let ac_power = match (s.ac_out_voltage_v, s.ac_out_current_a) {
+    let dc_voltage  = s.dc_voltage_v;
+    let dc_current  = s.dc_current_a;
+    let dc_power    = s.dc_power_w;
+    let ac_voltage  = s.ac_out_voltage_v;
+    let ac_current  = s.ac_out_current_a;
+    let ac_freq     = s.ac_frequency_hz;
+    let ac_ignore   = s.ac_ignore;
+    let vebus_state = s.vebus_state;
+    let ac_power = match (ac_voltage, ac_current) {
         (Some(v), Some(i)) => Some(v * i),
         _ => None,
     };
 
     let payload = json!({
-        "Voltage":     s.dc_voltage_v,
-        "Current":     s.dc_current_a,
-        "Power":       s.dc_power_w,
-        "AcVoltage":   s.ac_out_voltage_v,
-        "AcCurrent":   s.ac_out_current_a,
+        "Voltage":     dc_voltage,
+        "Current":     dc_current,
+        "Power":       dc_power,
+        "AcVoltage":   ac_voltage,
+        "AcCurrent":   ac_current,
         "AcPower":     ac_power,
-        "AcFrequency": s.ac_frequency_hz,
+        "AcFrequency": ac_freq,
         "State":       "on",
         "Mode":        "inverter",
-        "IgnoreAcIn":  s.ac_ignore,
-        "VebusState":  s.vebus_state,
+        "IgnoreAcIn":  ac_ignore,
+        "VebusState":  vebus_state,
     });
 
     drop(s);
 
-    let msg = MqttOutgoing::retained(publish::INVERTER_VENUS, &payload);
-    bus.publish(msg).await;
+    bus.publish(MqttOutgoing::retained(publish::INVERTER_VENUS, &payload)).await;
     bus.emit_live(LiveEvent::new("inverter", &payload));
+
+    let pt = InfluxPoint::new("inverter_status")
+        .tag("host", "pi5")
+        .field_f("dc_voltage_v",    dc_voltage.unwrap_or(0.0))
+        .field_f("dc_current_a",    dc_current.unwrap_or(0.0))
+        .field_f("dc_power_w",      dc_power.unwrap_or(0.0))
+        .field_f("ac_out_voltage_v", ac_voltage.unwrap_or(0.0))
+        .field_f("ac_out_current_a", ac_current.unwrap_or(0.0))
+        .field_f("ac_out_power_w",   ac_power.unwrap_or(0.0))
+        .field_f("ac_frequency_hz",  ac_freq.unwrap_or(0.0))
+        .field_i("vebus_state",      vebus_state.unwrap_or(0))
+        .field_i("ac_ignore",        ac_ignore.unwrap_or(0));
+    bus.write_influx(pt).await;
 }

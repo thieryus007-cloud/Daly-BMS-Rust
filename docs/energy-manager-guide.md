@@ -143,8 +143,20 @@ LG_API_KEY=<API key LG>
 | Tag | `day` | Date locale `YYYY-MM-DD` |
 | Tag | `host` | Valeur de `solar.host_tag` (défaut : `"pi5"`) |
 | Field (f64) | `solar_total_w` | Puissance solaire totale (MPPT + PVInverter) |
-| Field (f64) | `mppt_power_w` | Puissance MPPT seuls (273 + 289) |
-| Field (f64) | `pvinv_power_w` | Puissance micro-onduleurs ET112 |
+| Field (f64) | `mppt_power_w` | Puissance MPPT totale (273 + 289) |
+| Field (f64) | `mppt_273_w` | Puissance MPPT 273 seul (W) |
+| Field (f64) | `mppt_273_voltage_v` | Tension PV MPPT 273 (V) |
+| Field (f64) | `mppt_273_current_a` | Courant DC MPPT 273 (A) |
+| Field (f64) | `mppt_273_yield_kwh` | Production MPPT 273 du jour (kWh) |
+| Field (i64) | `mppt_273_state` | État MPPT 273 (0=OFF, 3=Bulk, 4=Abs, 5=Float) |
+| Field (f64) | `mppt_289_w` | Puissance MPPT 289 seul (W) |
+| Field (f64) | `mppt_289_voltage_v` | Tension PV MPPT 289 (V) |
+| Field (f64) | `mppt_289_current_a` | Courant DC MPPT 289 (A) |
+| Field (f64) | `mppt_289_yield_kwh` | Production MPPT 289 du jour (kWh) |
+| Field (i64) | `mppt_289_state` | État MPPT 289 |
+| Field (f64) | `pvinv_power_w` | Puissance micro-onduleurs ET112 (W) |
+| Field (f64) | `pvinv_yield_kwh` | Production micro-onduleurs du jour (kWh) |
+| Field (f64) | `total_yield_kwh` | Production totale du jour (kWh) |
 | Field (f64) | `house_power_w` | Consommation maison (Ac/ConsumptionOnOutput) |
 
 Nom du measurement configurable : `solar.power_measurement` (défaut : `"solar_power"`).
@@ -162,6 +174,37 @@ Nom du measurement configurable : `solar.power_measurement` (défaut : `"solar_p
 | Field (f64) | `pvinv_yield_today_kwh` | Production micro-onduleurs (kWh) |
 
 Nom du measurement configurable : `solar.persist_measurement` (défaut : `"solar_persist"`).
+
+### Measurement `battery_status`
+
+> Source : `logic/smartshunt.rs` — fréquence : **à chaque mise à jour MQTT** (chaque seconde env.)
+
+| Type | Nom | Valeur |
+|------|-----|--------|
+| Tag | `host` | `"pi5"` |
+| Field (f64) | `soc_pct` | État de charge batterie (%) |
+| Field (f64) | `voltage_v` | Tension batterie (V) |
+| Field (f64) | `current_a` | Courant batterie (A, + = charge, - = décharge) |
+| Field (f64) | `power_w` | Puissance batterie (W) |
+| Field (i64) | `state` | État : 0=idle, 1=charging, 2=discharging |
+| Field (i64) | `time_to_go_sec` | Temps restant (s, -1 si inconnu) |
+
+### Measurement `inverter_status`
+
+> Source : `logic/inverter.rs` — fréquence : **à chaque mise à jour MQTT** (chaque seconde env.)
+
+| Type | Nom | Valeur |
+|------|-----|--------|
+| Tag | `host` | `"pi5"` |
+| Field (f64) | `dc_voltage_v` | Tension DC bus (V) |
+| Field (f64) | `dc_current_a` | Courant DC (A) |
+| Field (f64) | `dc_power_w` | Puissance DC (W) |
+| Field (f64) | `ac_out_voltage_v` | Tension AC sortie (V) |
+| Field (f64) | `ac_out_current_a` | Courant AC sortie (A) |
+| Field (f64) | `ac_out_power_w` | Puissance AC sortie (W) |
+| Field (f64) | `ac_frequency_hz` | Fréquence AC sortie (Hz) |
+| Field (i64) | `vebus_state` | État VEBus (2=inverter, 3=on, 9=passthrough…) |
+| Field (i64) | `ac_ignore` | 0=grid connecté, 1=mode îlot |
 
 ### Measurement `switch_ats`
 
