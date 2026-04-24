@@ -492,3 +492,99 @@ device_instance = 152
 # - Les variables d'environnement ont priorité sur le fichier TOML
 #   (ex: DALY_API_KEY=xxx cargo run)
 # - Logs : journalctl -u daly-bms -f  ou  RUST_LOG=debug daly-bms-server
+
+
+# =============================================================================
+# energy-manager — Gestionnaire d'énergie (remplace Node-RED)
+# =============================================================================
+# Binaire séparé : energy-manager
+# Port WebSocket live : 8081 (/live)
+# Service systemd    : energy-manager
+# Secrets dans .env  : LG_DEVICE_ID, LG_BEARER_TOKEN, LG_API_KEY, INFLUX_TOKEN
+
+[energy_manager]
+
+# --- MQTT ---
+[energy_manager.mqtt]
+host              = "192.168.1.141"   # broker Mosquitto local Pi5
+port              = 1883
+keep_alive_secs   = 60
+reconnect_delay_secs = 5
+# username = ""
+# password = ""
+
+# --- InfluxDB ---
+[energy_manager.influxdb]
+enabled            = true
+url                = "http://localhost:8086"
+token              = ""               # override par env INFLUX_TOKEN
+org                = "santuario"
+bucket             = "daly_bms"
+batch_size         = 50
+flush_interval_sec = 5.0
+
+# --- WebSocket live ---
+[energy_manager.api]
+bind = "0.0.0.0:8081"
+
+# --- Victron / Venus OS ---
+[energy_manager.victron]
+portal_id            = "c0619ab9929a"   # ID portail Victron GX
+vebus_instance       = 275              # instance VEBus (Quattro/Multiplus)
+mppt1_instance       = 273             # SmartSolar MPPT 1
+mppt2_instance       = 289             # SmartSolar MPPT 2
+pvinverter_instance  = 32              # ET112 Micro-Onduleurs
+shelly_deye_id       = "shellypro2pm-ec62608840a4"
+shelly_deye_channel  = 0
+tasmota_waterheater_id = "tongou_3BC764"
+
+# --- Open-Meteo (météo locale) ---
+[energy_manager.open_meteo]
+enabled            = true
+latitude           = 43.9025          # Badalucco (San Bernardo)
+longitude          = 7.8364
+poll_interval_secs = 300              # 5 minutes
+
+# --- LG ThinQ (chauffe-eau) ---
+# Activer uniquement si credentials disponibles dans .env
+[energy_manager.lg_thinq]
+enabled            = false            # passer à true après config .env
+base_url           = "https://api-eic.lgthinq.com"
+poll_interval_secs = 600              # 10 minutes
+# device_id, bearer_token, api_key → dans .env (jamais dans ce fichier)
+
+# --- Gestion courant de charge ---
+[energy_manager.charge_current]
+offgrid_max_a         = 70.0          # A max hors réseau
+grid_pv_excess_a      = 4.0           # A si surplus PV + réseau
+grid_no_excess_a      = 0.0           # A si pas de surplus + réseau
+pv_excess_threshold_w = 50.0          # W minimum pour déclencher l'excédent
+
+# --- Commande relais DEYE (via Shelly) ---
+[energy_manager.deye]
+freq_high_hz          = 52.0          # Hz — seuil de coupure
+freq_low_hz           = 50.3          # Hz — seuil de réactivation
+cut_delay_secs        = 15            # s — délai avant coupure
+reenable_delay_secs   = 45            # s — délai avant réactivation
+lockout_secs          = 120           # s — anti-oscillation après coupure
+
+# --- Chauffe-eau LG ThinQ ---
+[energy_manager.water_heater]
+solar_min_w           = 2000.0        # W — production min pour HEAT_PUMP
+debounce_secs         = 300           # s — 5 min avant changement de mode
+mode_change_min_secs  = 900           # s — 15 min entre deux changements
+heat_pump_target_c    = 60.0          # °C cible en HEAT_PUMP
+vacation_target_c     = 45.0          # °C cible en VACATION
+temp_set_delay_secs   = 15            # s — délai avant réglage temp
+keepalive_secs        = 25            # s — keepalive Venus OS watchdog
+
+# --- Production solaire ---
+[energy_manager.solar]
+bms_server_url       = "http://192.168.1.141:8080"
+persist_measurement  = "solar_persist"
+power_measurement    = "solar_power"
+host_tag             = "pi5"
+
+# --- Statut plateforme ---
+[energy_manager.platform]
+publish_interval_secs = 60
