@@ -1,5 +1,5 @@
 // ── TONGOU GROUP NODE ─────────────────────────────────────────────────────────
-const TASMOTA_IDS = [1, 2, 3, 4];
+const TASMOTA_IDS = [1, 2, 3, 4, 5];
 
 const TongouGroupNode = memo(function TongouGroupNode({ data }) {
   const switches = (data.switches && data.switches.length > 0)
