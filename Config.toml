@@ -364,6 +364,14 @@ mqtt_index      = 5                 # → forward santuario/switch/2/venus → D
 service_type    = "switch"
 device_instance = 64                 # Instance D-Bus Venus OS (60=ATS CHINT, 61=Tongou)
 
+[[tasmota.devices]]
+id              = 5                  # Identifiant interne unique (clé du ring buffer)
+tasmota_id      = "tongou_3ACC34"    # 192.168.1.80  tongou-3ACC34
+name            = "Tongou Switch5"
+mqtt_index      = 6                 # → forward santuario/switch/2/venus → D-Bus switch.mqtt_5
+service_type    = "switch"
+device_instance = 65                 # Instance D-Bus Venus OS (60=ATS CHINT, 61=Tongou)
+
 # Décommenter et adapter pour chaque prise Tasmota supplémentaire :
 # [[tasmota.devices]]
 # id           = 2           # Identifiant interne unique (clé du ring buffer)
