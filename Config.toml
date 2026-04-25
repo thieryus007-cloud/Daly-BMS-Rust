@@ -557,12 +557,15 @@ longitude          = 7.8364
 poll_interval_secs = 300              # 5 minutes
 
 # --- LG ThinQ (chauffe-eau) ---
-# Activer uniquement si credentials disponibles dans .env
 [energy_manager.lg_thinq]
-enabled            = true             # credentials dans /etc/daly-bms/.env
+enabled            = true
 base_url           = "https://api-eic.lgthinq.com"
+device_id          = "918c240ab4c6e3eee70a4e9ac015c18ddd8b4f933c3d9ff813446d8f8dddf720"
+bearer_token       = "thinqpat_975d93159fdcf31033e33a3b9c49009ae1ffbf345dfa6dcb4e2f"
+api_key            = "v6GFvkweNo7DK7yD3ylIZ9w52aKBU0eJ7wLXkSR3"
+country            = "FR"
+client_id          = "Santuario-123456"
 poll_interval_secs = 600              # 10 minutes
-# device_id, bearer_token, api_key → dans .env (jamais dans ce fichier)
 
 # --- Gestion courant de charge ---
 [energy_manager.charge_current]
