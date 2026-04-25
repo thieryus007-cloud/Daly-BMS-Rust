@@ -28,7 +28,7 @@ ARMV7_RELEASE_DIR := target/$(TARGET_ARMV7)/release
 
 up:
 	docker compose -f docker-compose.infra.yml up -d
-	@echo "✓ Infra démarrée — MQTT:1883 InfluxDB:8086 Grafana:3001 Node-RED:1880"
+	@echo "✓ Infra démarrée — MQTT:1883 InfluxDB:8086"
 
 down:
 	docker compose -f docker-compose.infra.yml down
@@ -41,10 +41,9 @@ logs:
 
 reset:
 	docker compose -f docker-compose.infra.yml down -v
-	@echo "⚠ Volumes supprimés — données InfluxDB/Grafana/Node-RED effacées"
+	@echo "⚠ Volumes supprimés — données InfluxDB effacées"
 
-# Reset uniquement InfluxDB (conserve Grafana config + Node-RED)
-# Utile pour repartir avec une base vierge sans perdre les dashboards Grafana
+# Reset uniquement InfluxDB
 reset-influx:
 	docker compose -f docker-compose.infra.yml stop influxdb
 	docker volume rm $$(docker volume ls -q | grep influxdb) 2>/dev/null || true
@@ -250,7 +249,7 @@ help:
 	@echo "DalyBMS Rust Edition — Commandes disponibles :"
 	@echo ""
 	@echo "  Infrastructure Docker :"
-	@echo "    make up            Démarrer Mosquitto + InfluxDB + Grafana + Node-RED"
+	@echo "    make up            Démarrer Mosquitto + InfluxDB"
 	@echo "    make down          Arrêter l'infra"
 	@echo "    make logs          Voir les logs Docker"
 	@echo "    make ps            État des containers"

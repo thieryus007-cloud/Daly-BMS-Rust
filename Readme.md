@@ -4,7 +4,7 @@
 Remplacement total de la stack Python/FastAPI par **Rust** (workspace multi-crates : `daly-bms-core` + `daly-bms-server` + `daly-bms-cli` + `daly-bms-probe` + `dbus-mqtt-venus`).
 
 > Dashboard intégré **SSR Rust** (Askama + ECharts) — aucun npm, aucun React.
-> Infrastructure Docker **inchangée** (Mosquitto, InfluxDB, Grafana, Node-RED).
+> Infrastructure Docker **inchangée** (Mosquitto, InfluxDB, Grafana, energy-manager).
 > Déploiement ultra-léger : **un seul binaire statique** (~12–18 Mo).
 > Compatible **Windows** (testé) et **Linux/aarch64** (Raspberry Pi).
 
@@ -33,8 +33,8 @@ Remplacement total de la stack Python/FastAPI par **Rust** (workspace multi-crat
 │                                │                                    │
 │    ┌──────────────┬────────────┴──────────┬────────────────────┐   │
 │    ▼              ▼                       ▼                    ▼   │
-│ InfluxDB       AlertEngine           Node-RED              Dashboard│
-│ :8086          (SQLite)              :1880 (Pi5)            SSR     │
+│ InfluxDB       AlertEngine           energy-manager              Dashboard│
+│ :8086          (SQLite)              :8081 (Pi5)            SSR     │
 │    │                                                               │
 │ Grafana :3001                                                       │
 └────────────────────────────────┬────────────────────────────────────┘
@@ -82,15 +82,15 @@ Remplacement total de la stack Python/FastAPI par **Rust** (workspace multi-crat
 | Service | Hôte | Port | Rôle |
 |---------|------|------|------|
 | **daly-bms-server** | Pi5 | 8080 | Serveur principal Rust : polling RS485, REST API, WebSocket, Dashboard SSR |
-| **Mosquitto** | Pi5 | 1883 (MQTT), 9001 (WS) | Broker MQTT — relaye toutes les données capteurs vers Venus OS et Node-RED |
+| **Mosquitto** | Pi5 | 1883 (MQTT), 9001 (WS) | Broker MQTT — relaye toutes les données capteurs vers Venus OS et energy-manager |
 | **InfluxDB** | Pi5 | 8086 | Base de données séries temporelles — stockage 30 jours de métriques |
 | **Grafana** | Pi5 | 3001 | Visualisation — dashboards temps réel + historique (provisionné automatiquement) |
-| **Node-RED** | Pi5 | 1880 | Automatisation — flows MQTT, alertes, webhooks (migré NanoPi → Pi5) |
+| **energy-manager** | Pi5 | 8081 | Automatisation — flows MQTT, alertes, webhooks (migré NanoPi → Pi5) |
 | **dbus-mqtt-venus** | NanoPi | — | Bridge MQTT → D-Bus Venus OS (Rust pur, zbus) — unique binaire sur NanoPi, enregistre tous les capteurs sur Venus |
 
 > **Note architecture** : Le Pi5 est le **master** de tous les capteurs RS485 et API cloud.
 > Le NanoPi reste dédié à Venus OS et héberge uniquement `dbus-mqtt-venus` (Rust statique musl, ~5 Mo).
-> Node-RED a été migré du NanoPi vers le Pi5 pour consolider l'infrastructure.
+> energy-manager a été migré du NanoPi vers le Pi5 pour consolider l'infrastructure.
 
 ---
 
@@ -200,7 +200,7 @@ Daly-BMS-Rust/
 ├── Makefile                   ← Commandes build/test/deploy/docker
 ├── Dockerfile                 ← Image Docker multi-stage (builder + runtime)
 ├── docker-compose.yml         ← Stack complète (serveur + infra)
-├── docker-compose.infra.yml   ← Infra seule (Mosquitto, InfluxDB, Grafana, Node-RED)
+├── docker-compose.infra.yml   ← Infra seule (Mosquitto, InfluxDB, Grafana, energy-manager)
 ├── .env.docker                ← Template variables d'environnement (à copier en .env)
 ├── .env                       ← Variables secrètes Docker (gitignored)
 ├── .gitignore
@@ -289,7 +289,7 @@ Daly-BMS-Rust/
 | Mosquitto                  | ~12 MB      | ~20 MB          |
 | InfluxDB 2.x (Go)          | ~200 MB     | ~350 MB         |
 | Grafana                    | ~120 MB     | ~200 MB         |
-| Node-RED (Node.js)         | ~150 MB     | ~250 MB         |
+| energy-manager (Node.js)         | ~150 MB     | ~250 MB         |
 | OS Raspberry Pi OS Lite    | ~150 MB     | ~200 MB         |
 | Docker Engine + overhead   | ~100 MB     | ~150 MB         |
 | Marge tampon / cache       | ~200 MB     | ~400 MB         |
@@ -353,7 +353,7 @@ make run-simulate
 
 ```bash
 cp .env.docker .env            # adapter les tokens et mots de passe
-make up                        # Mosquitto:1883 InfluxDB:8086 Grafana:3001 Node-RED:1880
+make up                        # Mosquitto:1883 InfluxDB:8086 Grafana:3001 energy-manager:8081
 make ps                        # vérifier l'état des containers
 ```
 
@@ -523,7 +523,7 @@ Tous les containers utilisent le driver `json-file` avec rotation automatique :
 | Mosquitto | 10 Mo | 3 fichiers |
 | InfluxDB | 10 Mo | 3 fichiers |
 | Grafana | 10 Mo | 3 fichiers |
-| Node-RED | 10 Mo | 3 fichiers |
+| energy-manager | 10 Mo | 3 fichiers |
 
 ```bash
 # Voir les logs en temps réel
@@ -736,7 +736,7 @@ docker compose -f docker-compose.infra.yml restart dalybms-influxdb
 |---------|-----|------------------------|
 | InfluxDB | `http://RPi5:8086` | admin / voir `.env` |
 | Grafana | `http://RPi5:3001` | admin / voir `.env` |
-| Node-RED | `http://RPi5:1880` | aucun (à sécuriser si exposé) |
+| energy-manager | `http://RPi5:8081` | aucun (à sécuriser si exposé) |
 
 > **Après un `make reset`** : utiliser l'URL de base sans chemin (ex. `http://192.168.1.141:8086`).
 > L'ancien org ID dans l'URL bookmarkée devient invalide — se reconnecter depuis la page d'accueil.
@@ -774,7 +774,7 @@ Il affiche pour chaque BMS :
 
 ### Phase 1 — Infrastructure & Intégration ✅
 
-- [x] Infrastructure Docker (Mosquitto, InfluxDB, Grafana, Node-RED)
+- [x] Infrastructure Docker (Mosquitto, InfluxDB, Grafana, energy-manager)
 - [x] Docker complet (Dockerfile + docker-compose.yml stack complète)
 - [x] Simulateur BMS avec physique LiFePO4 (validé Windows + Linux)
 - [x] Auto-détection port série et adresses BMS
@@ -806,9 +806,9 @@ Il affiche pour chaque BMS :
 ### Phase 4 — Migration & Consolidation 🚧
 
 - [x] Renommer le crate `daly-bms-venus` → `dbus-mqtt-venus` dans le workspace Rust ✅
-- [ ] Migration flows Node-RED du NanoPi vers le Pi5 (docker-compose.infra.yml) ✅
+- [ ] Migration flows energy-manager du NanoPi vers le Pi5 (docker-compose.infra.yml) ✅
 - [ ] Nettoyage NanoPi : services Python retirés, seul `dbus-mqtt-venus` reste
-- [ ] Validation stabilité 24h post-migration Node-RED
+- [ ] Validation stabilité 24h post-migration energy-manager
 
 ### Phase 5 — Capteur Irradiance & Météo RS485 🔜
 

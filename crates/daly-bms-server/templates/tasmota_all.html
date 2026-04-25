@@ -15,6 +15,37 @@
   </div>
 </div>
 
+{# ── Chauffe-eau LG ThinQ ──────────────────────────────────────────────────── #}
+<div class="bms-card" id="lg-wh-card" style="margin-bottom:1.25rem;">
+  <div class="bms-hdr bms-hdr-on" id="lg-wh-hdr">
+    <div class="bms-hdr-left">
+      <div class="bms-live"><div class="live-dot" id="lg-wh-dot"></div><span id="lg-wh-mode">—</span></div>
+      <span class="bms-hdr-name">🌡️ Chauffe-eau LG ThinQ</span>
+    </div>
+    <div class="bms-hdr-right">
+      <span class="bms-ts" id="lg-wh-ts">—</span>
+    </div>
+  </div>
+
+  <div class="kpi4" style="grid-template-columns:repeat(2,1fr);">
+    <div class="kpi4-cell t-orange">
+      <div class="kpi4-lbl">Température eau</div>
+      <div class="kpi4-val chg" id="lg-wh-temp">—</div>
+    </div>
+    <div class="kpi4-cell t-blue">
+      <div class="kpi4-lbl">Température cible</div>
+      <div class="kpi4-val" id="lg-wh-target">—</div>
+    </div>
+  </div>
+
+  <div style="padding:0.6rem 0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;border-top:1px solid var(--border);">
+    <button onclick="lgSetMode('HEAT_PUMP')" id="btn-hp"       class="btn btn-primary"  style="font-size:0.72rem;padding:0.3rem 0.9rem;">♨️ HEAT_PUMP</button>
+    <button onclick="lgSetMode('TURBO')"     id="btn-turbo"    class="btn btn-outline"   style="font-size:0.72rem;padding:0.3rem 0.9rem;">⚡ TURBO</button>
+    <button onclick="lgSetMode('VACATION')"  id="btn-vacation" class="btn btn-danger"    style="font-size:0.72rem;padding:0.3rem 0.9rem;">❄️ VACATION</button>
+    <span id="lg-wh-err" style="font-size:0.72rem;color:var(--red);align-self:center;"></span>
+  </div>
+</div>
+
 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:1.25rem;">
 
 {% for d in devices %}
@@ -208,5 +239,61 @@ async function updateAll() {
 
 updateAll();
 setInterval(updateAll, 5000);
+
+// ── LG ThinQ water heater ────────────────────────────────────────────────────
+const LG_API = 'http://192.168.1.141:8081';
+
+async function lgFetchStatus() {
+  try {
+    const resp = await fetch(`${LG_API}/api/water-heater`);
+    if (!resp.ok) { lgSetError('Erreur HTTP ' + resp.status); return; }
+    const d = await resp.json();
+    lgSetError('');
+    document.getElementById('lg-wh-mode').textContent   = d.mode || '—';
+    document.getElementById('lg-wh-temp').textContent   = d.current_temp_c != null ? d.current_temp_c.toFixed(1) + ' °C' : '—';
+    document.getElementById('lg-wh-target').textContent = d.target_temp_c  != null ? d.target_temp_c.toFixed(1)  + ' °C' : '—';
+    document.getElementById('lg-wh-ts').textContent     = new Date().toLocaleTimeString('fr-FR');
+
+    // Highlight active mode button
+    ['HEAT_PUMP','TURBO','VACATION'].forEach(m => {
+      const btn = document.getElementById('btn-' + m.toLowerCase().replace('_',''));
+      if (!btn) return;
+      btn.className = (d.mode === m) ? 'btn btn-primary' : 'btn btn-outline';
+    });
+    // header color
+    const hdr = document.getElementById('lg-wh-hdr');
+    if (hdr) {
+      hdr.style.background = d.mode === 'HEAT_PUMP' ? 'linear-gradient(135deg,#fef3c7 0%,#fde68a 100%)'
+                           : d.mode === 'TURBO'     ? 'linear-gradient(135deg,#fee2e2 0%,#fca5a5 100%)'
+                           : 'linear-gradient(135deg,#e0f2fe 0%,#bae6fd 100%)';
+    }
+    if (!d.lg_enabled) lgSetError('LG ThinQ désactivé (voir Config.toml)');
+  } catch(e) {
+    lgSetError('energy-manager inaccessible (:8081)');
+  }
+}
+
+async function lgSetMode(mode) {
+  lgSetError('');
+  try {
+    const resp = await fetch(`${LG_API}/api/water-heater/mode`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode })
+    });
+    if (!resp.ok) lgSetError(await resp.text());
+    else await lgFetchStatus();
+  } catch(e) {
+    lgSetError('Erreur: ' + e.message);
+  }
+}
+
+function lgSetError(msg) {
+  const el = document.getElementById('lg-wh-err');
+  if (el) el.textContent = msg;
+}
+
+lgFetchStatus();
+setInterval(lgFetchStatus, 30000);
 </script>
 {% endblock %}

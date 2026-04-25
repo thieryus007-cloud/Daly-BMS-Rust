@@ -545,6 +545,9 @@ pvinverter_instance  = 32              # ET112 Micro-Onduleurs
 shelly_deye_id       = "shellypro2pm-ec62608840a4"
 shelly_deye_channel  = 0
 tasmota_waterheater_id = "tongou_3BC764"
+# SmartShunt device instance sur Venus OS — vérifier avec :
+#   ssh root@192.168.1.120 "dbus -y | grep battery"
+smartshunt_instance  = 290             # à ajuster selon dbus-spy
 
 # --- Open-Meteo (météo locale) ---
 [energy_manager.open_meteo]
@@ -556,7 +559,7 @@ poll_interval_secs = 300              # 5 minutes
 # --- LG ThinQ (chauffe-eau) ---
 # Activer uniquement si credentials disponibles dans .env
 [energy_manager.lg_thinq]
-enabled            = false            # passer à true après config .env
+enabled            = true             # credentials dans /etc/daly-bms/.env
 base_url           = "https://api-eic.lgthinq.com"
 poll_interval_secs = 600              # 10 minutes
 # device_id, bearer_token, api_key → dans .env (jamais dans ce fichier)
@@ -585,6 +588,7 @@ heat_pump_target_c    = 60.0          # °C cible en HEAT_PUMP
 vacation_target_c     = 45.0          # °C cible en VACATION
 temp_set_delay_secs   = 15            # s — délai avant réglage temp
 keepalive_secs        = 25            # s — keepalive Venus OS watchdog
+irradiance_min_wm2    = 300.0         # W/m² — irradiance min pour activer HEAT_PUMP
 
 # --- Production solaire ---
 [energy_manager.solar]

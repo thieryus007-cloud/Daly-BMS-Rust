@@ -58,7 +58,7 @@ def read_fuses():
 while True:
     read_fuses()
     time.sleep(5)
-Lance-le avec python3 lynx_fuses.py. Tu peux l’intégrer dans Home Assistant via MQTT, Node-RED, etc.
+Lance-le avec python3 lynx_fuses.py. Tu peux l’intégrer dans Home Assistant via MQTT, energy-manager, etc.
 # 2. Intégration complète dans Venus OS (meilleure option)
 Utilise le repo twam/dbus-lynx-distributor : il émule un Lynx BMS partiel sur le D-Bus → les fusibles apparaissent dans le Remote Console, VRM, avec alarmes.
 Hardware recommandé

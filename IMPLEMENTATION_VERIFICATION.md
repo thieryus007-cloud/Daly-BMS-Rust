@@ -1,5 +1,5 @@
 # Real-Time Metrics Dashboard — Implementation Verification
-> ⚠ **OBSOLÈTE** — Ce document décrit l'ancienne architecture Node-RED.  
+> ⚠ **OBSOLÈTE** — Ce document décrit l'ancienne architecture energy-manager.  
 > Référence actuelle : **`docs/energy-manager-guide.md`**
 
 **Date:** 2026-04-05  
@@ -42,7 +42,7 @@
 - [x] ReactFlow edge animations for energy flow direction
 - [x] Real-time WebSocket (40ms refresh) + 2-second polling fallback
 
-### Node-RED Flows
+### energy-manager Flows
 - [x] **inverter.json** (NEW) — Victron MultiPlus D-Bus → MQTT `santuario/inverter/venus`
   - Subscribes to N/c0619ab9929a/system/0/Dc/{Voltage,Current,Power}
   - Subscribes to N/c0619ab9929a/system/0/Ac/Out/L1/{V,P}
@@ -84,7 +84,7 @@
   - feat(visualization): Update onduleur node with real inverter data
   - fix(et112): Add connected field to API responses
   - fix(mqtt): Use actual MpptPower instead of irradiance calculation
-  - feat(nodered): Add MultiPlus inverter MQTT flow
+  - feat(energy-manager): Add MultiPlus inverter MQTT flow
 
 ---
 
@@ -228,7 +228,7 @@ Response:
 
 ## 3. MQTT TOPICS — PRODUCTION CONFIGURATION
 
-### Topics Published by Node-RED on Pi5 → NanoPi Mosquitto
+### Topics Published by energy-manager on Pi5 → NanoPi Mosquitto
 
 | Topic | Source | Payload Format |
 |-------|--------|---|
@@ -299,17 +299,17 @@ crates/daly-bms-server/templates/visualization.html
   • Added proper edge animations for power flow
   • Map inverter.ac_output_power_w to onduleur value field
 
-flux-nodered/meteo.json
+flux-energy-manager/meteo.json
   • Updated to use MpptPower from Solar_power.json MQTT message
   • Fixed baseline handling for TodaysYield calculation
   • Added 25-second keepalive publish
 
-flux-nodered/Solar_power.json
+flux-energy-manager/Solar_power.json
   • Added MQTT output to santuario/meteo/venus topic
   • Aggregates MPPT 273 + 289 power values
   • Publishes real power data (no longer calculated)
 
-flux-nodered/smartshunt.json
+flux-energy-manager/smartshunt.json
   • Created with D-Bus SmartShunt subscriptions
   • Aggregates voltage, current, power, SOC
   • Publishes to santuario/system/venus topic
@@ -317,8 +317,8 @@ flux-nodered/smartshunt.json
 
 ### New Files
 ```
-flux-nodered/inverter.json
-  • New Node-RED flow for Victron MultiPlus (system/0)
+flux-energy-manager/inverter.json
+  • New energy-manager flow for Victron MultiPlus (system/0)
   • Subscribes to D-Bus: Dc/Voltage, Dc/Current, Dc/Power, Ac/Out/L1/V, Ac/Out/L1/P
   • Aggregates and publishes complete payload to santuario/inverter/venus
   • Includes State (on/off) and Mode (inverter/charger) fields
@@ -363,13 +363,13 @@ sudo systemctl start daly-bms
 journalctl -u daly-bms -f  # Should show startup logs with no errors
 ```
 
-### Step 5: Import Node-RED Flows (on Pi5 web interface)
-**Access:** http://192.168.1.141:1880
+### Step 5: Import energy-manager Flows (on Pi5 web interface)
+**Access:** http://192.168.1.141:8081
 
-For each file, use Node-RED menu → Import → Paste content from:
-1. `flux-nodered/inverter.json` — MultiPlus inverter integration
-2. `flux-nodered/smartshunt.json` — SmartShunt integration (if not already deployed)
-3. `flux-nodered/Solar_power.json` — Updated MPPT aggregation (if changes pulled)
+For each file, use energy-manager menu → Import → Paste content from:
+1. `flux-energy-manager/inverter.json` — MultiPlus inverter integration
+2. `flux-energy-manager/smartshunt.json` — SmartShunt integration (if not already deployed)
+3. `flux-energy-manager/Solar_power.json` — Updated MPPT aggregation (if changes pulled)
 
 After importing: Deploy the flows (top-right "Deploy" button)
 
@@ -455,8 +455,8 @@ mosquitto_sub -h 192.168.1.120 -p 1883 -t 'santuario/meteo/venus' -C 1 | jq '.'
 journalctl -u daly-bms --since "5 minutes ago" | grep -E 'ERROR|WARN|error|warn'
 # Expected: No errors related to Venus device parsing or MQTT topics
 
-# Check Node-RED logs
-docker logs nodered 2>&1 | grep -E 'ERROR|error' | head -20
+# Check energy-manager logs
+docker logs energy-manager 2>&1 | grep -E 'ERROR|error' | head -20
 # Expected: No flow execution errors
 ```
 
@@ -472,7 +472,7 @@ For complete dashboard functionality, the following devices must be present on N
 | SmartShunt (Victron battery monitor) | `com.victronenergy.system` | Smartshunt node with SOC/current |
 | MPPT 273 (SolarCharger) | `com.victronenergy.solarcharger.ttyUSB*` | MPPT1 node |
 | MPPT 289 (SolarCharger) | `com.victronenergy.solarcharger.ttyUSB*` | MPPT2 node |
-| Temperature Sensor | Node-RED provisioning | Tempext node |
+| Temperature Sensor | energy-manager provisioning | Tempext node |
 | ET112 Energy Counters | RS485 Modbus RTU | ET112 cards |
 
 **Status:** As of 2026-04-05, code is ready for all devices. Hardware availability on NanoPi determines which devices appear in the visualization.
@@ -503,7 +503,7 @@ Warnings in previous iterations (NOW FIXED):
 Branch: claude/realtime-metrics-dashboard-lUKF3
 Status: Up-to-date with origin
 Commits ahead of main: 12+
-Last commit: feat(nodered): Add MultiPlus inverter MQTT flow
+Last commit: feat(energy-manager): Add MultiPlus inverter MQTT flow
 Last push: 2026-04-05 (THIS SESSION)
 Ready for: Merge to main after Pi5 validation
 ```
@@ -513,7 +513,7 @@ Ready for: Merge to main after Pi5 validation
 ## 11. NEXT STEPS
 
 1. **Deploy to Pi5** using steps in Section 6
-2. **Import Node-RED flows** (Section 6, Step 5)
+2. **Import energy-manager flows** (Section 6, Step 5)
 3. **Run validation tests** (Section 7)
 4. **Verify dashboard** at http://192.168.1.141:8080/visualization
 5. **Confirm all devices showing real data** (not "En attente de données")

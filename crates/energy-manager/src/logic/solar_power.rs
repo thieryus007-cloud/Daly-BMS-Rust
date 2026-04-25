@@ -56,59 +56,77 @@ async fn mqtt_task(
             Err(_) => continue,
         };
         let t = &msg.topic;
-        let mut s = state.write().await;
 
-        if *t == t_m1_power {
-            s.mppt_273.power_w = msg.victron_value::<f64>();
-            s.mppt_power_273_w = s.mppt_273.power_w;
-        } else if *t == t_m2_power {
-            s.mppt_289.power_w = msg.victron_value::<f64>();
-            s.mppt_power_289_w = s.mppt_289.power_w;
-        } else if *t == t_pv_power {
-            s.pvinverter_power_w = msg.victron_value::<f64>();
-        } else if *t == t_pv_energy {
-            // Store raw energy for baseline calculation (in meteo module)
-            if let Some(kwh) = msg.victron_value::<f64>() {
-                if s.pvinv_baseline_kwh.is_none() {
-                    // First message of the day — set baseline
-                    s.pvinv_baseline_kwh = Some(kwh);
+        // Track whether a new baseline was just established (must be published
+        // *after* releasing the write lock to avoid deadlocking the bus).
+        let mut publish_baseline: Option<f64> = None;
+
+        {
+            let mut s = state.write().await;
+
+            if *t == t_m1_power {
+                s.mppt_273.power_w = msg.victron_value::<f64>();
+                s.mppt_power_273_w = s.mppt_273.power_w;
+            } else if *t == t_m2_power {
+                s.mppt_289.power_w = msg.victron_value::<f64>();
+                s.mppt_power_289_w = s.mppt_289.power_w;
+            } else if *t == t_pv_power {
+                s.pvinverter_power_w = msg.victron_value::<f64>();
+            } else if *t == t_pv_energy {
+                if let Some(kwh) = msg.victron_value::<f64>() {
+                    if s.pvinv_baseline_kwh.is_none() {
+                        s.pvinv_baseline_kwh = Some(kwh);
+                        publish_baseline = Some(kwh);
+                    }
+                    let baseline = s.pvinv_baseline_kwh.unwrap_or(kwh);
+                    s.pvinv_yield_today_kwh = (kwh - baseline).max(0.0);
                 }
-                let baseline = s.pvinv_baseline_kwh.unwrap_or(kwh);
-                s.pvinv_yield_today_kwh = (kwh - baseline).max(0.0);
+            } else if *t == t_m1_yield {
+                s.mppt_273.yield_today_kwh = msg.victron_value::<f64>();
+            } else if *t == t_m2_yield {
+                s.mppt_289.yield_today_kwh = msg.victron_value::<f64>();
+            } else if *t == t_m1_state {
+                s.mppt_273.state = msg.victron_value::<i64>();
+            } else if *t == t_m2_state {
+                s.mppt_289.state = msg.victron_value::<i64>();
+            } else if *t == t_m1_pv_v {
+                s.mppt_273.pv_voltage_v = msg.victron_value::<f64>();
+            } else if *t == t_m2_pv_v {
+                s.mppt_289.pv_voltage_v = msg.victron_value::<f64>();
+            } else if *t == t_m1_dc_i {
+                s.mppt_273.dc_current_a = msg.victron_value::<f64>();
+            } else if *t == t_m2_dc_i {
+                s.mppt_289.dc_current_a = msg.victron_value::<f64>();
+            } else if *t == t_consump {
+                s.house_power_w = msg.victron_value::<f64>();
+            } else {
+                // not our topic
+                continue;
             }
-        } else if *t == t_m1_yield {
-            s.mppt_273.yield_today_kwh = msg.victron_value::<f64>();
-        } else if *t == t_m2_yield {
-            s.mppt_289.yield_today_kwh = msg.victron_value::<f64>();
-        } else if *t == t_m1_state {
-            s.mppt_273.state = msg.victron_value::<i64>();
-        } else if *t == t_m2_state {
-            s.mppt_289.state = msg.victron_value::<i64>();
-        } else if *t == t_m1_pv_v {
-            s.mppt_273.pv_voltage_v = msg.victron_value::<f64>();
-        } else if *t == t_m2_pv_v {
-            s.mppt_289.pv_voltage_v = msg.victron_value::<f64>();
-        } else if *t == t_m1_dc_i {
-            s.mppt_273.dc_current_a = msg.victron_value::<f64>();
-        } else if *t == t_m2_dc_i {
-            s.mppt_289.dc_current_a = msg.victron_value::<f64>();
-        } else if *t == t_consump {
-            s.house_power_w = msg.victron_value::<f64>();
-        } else {
-            continue;
+
+            // Recalculate totals
+            let mppt_total = s.mppt_273.power_w.unwrap_or(0.0)
+                + s.mppt_289.power_w.unwrap_or(0.0);
+            let pvinv_total = s.pvinverter_power_w.unwrap_or(0.0);
+            s.solar_total_w = mppt_total + pvinv_total;
+
+            s.mppt_yield_today_kwh = s.mppt_273.yield_today_kwh.unwrap_or(0.0)
+                + s.mppt_289.yield_today_kwh.unwrap_or(0.0);
+            s.total_yield_today_kwh = s.mppt_yield_today_kwh + s.pvinv_yield_today_kwh;
+        } // write lock released here
+
+        // Outside the lock: publish baseline as retained so restarts within the
+        // same day pick up the correct start-of-day ET112 counter value.
+        if let Some(kwh) = publish_baseline {
+            use crate::mqtt::topics::publish;
+            use crate::types::MqttOutgoing;
+            bus.publish(MqttOutgoing::raw(
+                publish::PVINV_BASELINE,
+                format!("{kwh:.3}"),
+                true,
+            )).await;
+            debug!("pvinv_baseline published as retained: {kwh:.3} kWh");
         }
-
-        // Recalculate totals
-        let mppt_total = s.mppt_273.power_w.unwrap_or(0.0)
-            + s.mppt_289.power_w.unwrap_or(0.0);
-        let pvinv_total = s.pvinverter_power_w.unwrap_or(0.0);
-        s.solar_total_w = mppt_total + pvinv_total;
-
-        // Update MPPT daily totals
-        s.mppt_yield_today_kwh = s.mppt_273.yield_today_kwh.unwrap_or(0.0)
-            + s.mppt_289.yield_today_kwh.unwrap_or(0.0);
-
-        s.total_yield_today_kwh = s.mppt_yield_today_kwh + s.pvinv_yield_today_kwh;
     }
 }
 

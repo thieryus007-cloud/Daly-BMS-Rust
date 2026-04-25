@@ -239,11 +239,19 @@ pub struct EnergyState {
     pub last_charge_current_a: Option<f64>,
     pub last_power_assist: Option<i64>,
 
-    // --- SmartShunt Ah accumulators (reset at midnight) ---
+    // --- SmartShunt Ah accumulators (backup: current integration, reset at midnight) ---
     pub ah_charged_today: f64,
     pub ah_discharged_today: f64,
     pub ah_last_ts: Option<DateTime<Utc>>,
     pub ah_last_day: i32,
+
+    // --- SmartShunt kWh from native History/ChargedEnergy & DischargedEnergy ---
+    pub shunt_charged_today_kwh:         f64,
+    pub shunt_discharged_today_kwh:      f64,
+    pub shunt_charged_baseline_kwh:      Option<f64>,
+    pub shunt_discharged_baseline_kwh:   Option<f64>,
+    pub shunt_charged_day:               i32,
+    pub shunt_discharged_day:            i32,
 }
 
 #[derive(Debug, Default, Clone, Serialize)]

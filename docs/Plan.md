@@ -28,7 +28,7 @@
 
 Réécrire **entièrement** le projet Python Daly-BMS en Rust, en conservant :
 - **100% des fonctionnalités** du projet Python (protocole, API, bridges, alertes)
-- **La même infrastructure Docker** (Mosquitto, InfluxDB, Grafana, Node-RED)
+- **La même infrastructure Docker** (Mosquitto, InfluxDB, Grafana, energy-manager)
 - **Le même dashboard React** (WebSocket compatible)
 - **La même intégration Venus OS** (dbus-mqtt-battery via MQTT)
 
@@ -282,7 +282,7 @@ pub struct BmsSnapshot {
 **Durée** : 30 min
 
 ```bash
-make up     # Mosquitto:1883 InfluxDB:8086 Grafana:3001 Node-RED:1880
+make up     # Mosquitto:1883 InfluxDB:8086 Grafana:3001 energy-manager:8081
 make ps     # vérifier
 ```
 
@@ -323,7 +323,7 @@ make ps     # vérifier
 
 | Process | RAM | CPU |
 |---|---|---|
-| node-red | ~229 MB | ~4% |
+| energy-manager | ~229 MB | ~4% |
 | gui (VNC) | ~164 MB | ~6% |
 | dbus-modbus-client | ~91 MB | 0% |
 | dbus-canbattery.can0 | stoppé | — |
@@ -441,7 +441,7 @@ Services démarrés avec `docker compose -f docker-compose.infra.yml up -d` :
 | Mosquitto MQTT | 1883 | mqtt://localhost:1883 |
 | InfluxDB 2.7 | 8086 | http://localhost:8086 |
 | Grafana 11.6 | 3001 | http://localhost:3001 |
-| Node-RED | 1880 | http://localhost:1880 |
+| energy-manager | 8081 | http://localhost:8081 |
 
 Serveur Rust (natif, hors Docker) :
 
@@ -469,7 +469,7 @@ Le token est **conservé** car `DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUX_TOKEN}
 ```bash
 cd ~/Daly-BMS-Rust
 
-# Option 1 — Reset InfluxDB uniquement (Grafana et Node-RED conservés)
+# Option 1 — Reset InfluxDB uniquement (Grafana et energy-manager conservés)
 make reset-influx
 
 # Option 2 — Reset complet (tout efface, tout recrée proprement)
@@ -495,7 +495,7 @@ Grafana affichera uniquement 0x01 et 0x02 dès les premières données reçues (
 | `make up` | Démarre toute l'infra Docker |
 | `make down` | Arrête les containers (volumes conservés) |
 | `make reset-influx` | Supprime uniquement le volume InfluxDB, redémarre |
-| `make reset` | Supprime TOUS les volumes (InfluxDB + Grafana + Node-RED) |
+| `make reset` | Supprime TOUS les volumes (InfluxDB + Grafana + energy-manager) |
 | `make logs` | Suit les logs de tous les containers |
 | `make ps` | État des containers |
 

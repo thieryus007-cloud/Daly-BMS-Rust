@@ -1,135 +1,246 @@
-/// Aggregates SmartShunt (battery system) topics → santuario/system/venus (retained).
-/// Computes daily Ah charged/discharged by integrating current over time.
+/// SmartShunt (Victron battery monitor) — reads native Venus OS D-Bus/MQTT topics.
+///
+/// Primary data source: N/{portalId}/battery/{shunt_instance}/...
+///   - Dc/0/Voltage, Dc/0/Current, Dc/0/Power
+///   - Soc, TimeToGo, State
+///   - History/ChargedEnergy   (kWh cumulative)
+///   - History/DischargedEnergy (kWh cumulative)
+///
+/// Daily charged/discharged kWh are derived from the cumulative counters using
+/// a per-day baseline (same approach as pvinverter ET112).
+///
+/// Falls back to system/0/Dc/Battery/* aggregates for SOC/current/state when
+/// the direct SmartShunt instance paths are not available.
 use chrono::{Datelike, Utc};
 use serde_json::json;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tracing::debug;
 
 use crate::bus::AppBus;
+use crate::config::VictronConfig;
 use crate::mqtt::topics::publish;
 use crate::types::{EnergyState, InfluxPoint, LiveEvent, MqttIncoming, MqttOutgoing};
 
-pub async fn spawn(bus: AppBus, state: Arc<RwLock<EnergyState>>) {
-    tokio::spawn(run(bus, state));
+pub async fn spawn(vic: Arc<VictronConfig>, bus: AppBus, state: Arc<RwLock<EnergyState>>) {
+    tokio::spawn(run(vic, bus, state));
 }
 
-async fn run(bus: AppBus, state: Arc<RwLock<EnergyState>>) {
+async fn run(vic: Arc<VictronConfig>, bus: AppBus, state: Arc<RwLock<EnergyState>>) {
+    let pid   = &vic.portal_id;
+    let shunt = vic.smartshunt_instance;
+
+    let t_voltage    = format!("N/{pid}/battery/{shunt}/Dc/0/Voltage");
+    let t_current    = format!("N/{pid}/battery/{shunt}/Dc/0/Current");
+    let t_power      = format!("N/{pid}/battery/{shunt}/Dc/0/Power");
+    let t_soc        = format!("N/{pid}/battery/{shunt}/Soc");
+    let t_ttg        = format!("N/{pid}/battery/{shunt}/TimeToGo");
+    let t_state      = format!("N/{pid}/battery/{shunt}/State");
+    let t_charged    = format!("N/{pid}/battery/{shunt}/History/ChargedEnergy");
+    let t_discharged = format!("N/{pid}/battery/{shunt}/History/DischargedEnergy");
+
     let mut rx = bus.subscribe_mqtt();
     loop {
         let msg = match rx.recv().await {
             Ok(m) => m,
             Err(_) => continue,
         };
-        if handle(&msg, &state).await {
-            publish_state(&bus, &state).await;
+
+        if let Some(dirty) = handle(&msg, &state, &t_voltage, &t_current, &t_power,
+                                    &t_soc, &t_ttg, &t_state, &t_charged, &t_discharged).await {
+            if dirty {
+                publish_state(&bus, &state).await;
+            }
         }
     }
 }
 
-async fn handle(msg: &MqttIncoming, state: &Arc<RwLock<EnergyState>>) -> bool {
+/// Returns Some(true) if state was updated (caller should publish),
+/// Some(false) if topic matched but no value changed,
+/// None if topic was not ours.
+#[allow(clippy::too_many_arguments)]
+async fn handle(
+    msg: &MqttIncoming,
+    state: &Arc<RwLock<EnergyState>>,
+    t_voltage: &str,
+    t_current: &str,
+    t_power:   &str,
+    t_soc:     &str,
+    t_ttg:     &str,
+    t_state:   &str,
+    t_charged: &str,
+    t_discharged: &str,
+) -> Option<bool> {
     let t = &msg.topic;
-    if !t.contains("/system/0/Dc/Battery/") && !t.contains("/vebus/") {
-        return false;
+
+    // --- System aggregate fallbacks (always subscribed) ---
+    let is_sys_soc     = t.ends_with("Battery/Soc")     && t.contains("/system/0/");
+    let is_sys_current = t.ends_with("Battery/Current")  && t.contains("/system/0/");
+    let is_sys_state   = t.ends_with("Battery/State")    && t.contains("/system/0/");
+    let is_sys_ttg     = t.ends_with("Battery/TimeToGo") && t.contains("/system/0/");
+    let is_vebus_v     = t.ends_with("/Dc/0/Voltage")    && t.contains("/vebus/");
+    let is_vebus_pw    = t.ends_with("/Dc/0/Power")      && t.contains("/vebus/");
+
+    // --- Direct SmartShunt topics ---
+    let is_shunt = t == t_voltage || t == t_current || t == t_power
+        || t == t_soc || t == t_ttg || t == t_state
+        || t == t_charged || t == t_discharged;
+
+    if !is_shunt && !is_sys_soc && !is_sys_current && !is_sys_state
+        && !is_sys_ttg && !is_vebus_v && !is_vebus_pw {
+        return None;
     }
 
-    let mut updated = false;
-    {
-        let mut s = state.write().await;
-        if t.ends_with("Battery/Soc") {
-            if let Some(v) = msg.victron_value::<f64>() {
-                s.soc_pct = Some(v);
-                updated = true;
-            }
-        } else if t.ends_with("Battery/Current") {
-            if let Some(v) = msg.victron_value::<f64>() {
-                // --- Ah integration ---
-                let now = Utc::now();
-                let day_key = now.date_naive().num_days_from_ce();
+    let mut s = state.write().await;
+    let now = Utc::now();
 
-                // Midnight reset
-                if s.ah_last_day != day_key {
-                    s.ah_charged_today   = 0.0;
-                    s.ah_discharged_today = 0.0;
-                    s.ah_last_day        = day_key;
-                }
+    if t == t_voltage {
+        if let Some(v) = msg.victron_value::<f64>() {
+            s.battery_voltage_v = Some(v);
+        }
+    } else if t == t_current {
+        if let Some(v) = msg.victron_value::<f64>() {
+            s.battery_current_a = Some(v);
+            integrate_ah(&mut s, v, now);
+        }
+    } else if t == t_power {
+        if let Some(v) = msg.victron_value::<f64>() {
+            s.battery_power_w = Some(v);
+        }
+    } else if t == t_soc {
+        if let Some(v) = msg.victron_value::<f64>() {
+            s.soc_pct = Some(v);
+        }
+    } else if t == t_ttg {
+        if let Some(v) = msg.victron_value::<i64>() {
+            s.time_to_go_sec = Some(v);
+        }
+    } else if t == t_state {
+        if let Some(v) = msg.victron_value::<i64>() {
+            s.battery_state = Some(v);
+        }
+    } else if t == t_charged {
+        if let Some(kwh) = msg.victron_value::<f64>() {
+            let day_key = now.date_naive().num_days_from_ce();
+            if s.shunt_charged_day != day_key || s.shunt_charged_baseline_kwh.is_none() {
+                // New day or first message: set baseline, reset accumulators
+                s.shunt_charged_baseline_kwh    = Some(kwh);
+                s.shunt_discharged_baseline_kwh = None; // will be set on next Discharged msg
+                s.shunt_charged_day             = day_key;
+            }
+            let baseline = s.shunt_charged_baseline_kwh.unwrap_or(kwh);
+            s.shunt_charged_today_kwh = (kwh - baseline).max(0.0);
+            debug!("SmartShunt ChargedEnergy: raw={kwh:.3} baseline={baseline:.3} today={:.3}", s.shunt_charged_today_kwh);
+        }
+    } else if t == t_discharged {
+        if let Some(kwh) = msg.victron_value::<f64>() {
+            let day_key = now.date_naive().num_days_from_ce();
+            if s.shunt_discharged_day != day_key || s.shunt_discharged_baseline_kwh.is_none() {
+                s.shunt_discharged_baseline_kwh = Some(kwh);
+                s.shunt_discharged_day          = day_key;
+            }
+            let baseline = s.shunt_discharged_baseline_kwh.unwrap_or(kwh);
+            s.shunt_discharged_today_kwh = (kwh - baseline).max(0.0);
+            debug!("SmartShunt DischargedEnergy: raw={kwh:.3} baseline={baseline:.3} today={:.3}", s.shunt_discharged_today_kwh);
+        }
+    }
+    // System aggregates — fallback when direct shunt not available
+    else if is_sys_soc {
+        if let Some(v) = msg.victron_value::<f64>() {
+            s.soc_pct = Some(v);
+        }
+    } else if is_sys_current {
+        if let Some(v) = msg.victron_value::<f64>() {
+            integrate_ah(&mut s, v, now);
+            s.battery_current_a = Some(v);
+        }
+    } else if is_sys_state {
+        if let Some(v) = msg.victron_value::<i64>() {
+            s.battery_state = Some(v);
+        }
+    } else if is_sys_ttg {
+        if let Some(v) = msg.victron_value::<i64>() {
+            s.time_to_go_sec = Some(v);
+        }
+    } else if is_vebus_v {
+        if let Some(v) = msg.victron_value::<f64>() {
+            s.battery_voltage_v = Some(v);
+        }
+    } else if is_vebus_pw {
+        if let Some(v) = msg.victron_value::<f64>() {
+            s.battery_power_w = Some(v);
+        }
+    }
 
-                if let Some(prev_ts) = s.ah_last_ts {
-                    let delta_ms = (now - prev_ts).num_milliseconds();
-                    // Only integrate if interval is positive and < 10 minutes
-                    if delta_ms > 0 && delta_ms < 600_000 {
-                        let delta_h = delta_ms as f64 / 3_600_000.0;
-                        if v > 0.0 {
-                            s.ah_charged_today   += v * delta_h;
-                        } else if v < 0.0 {
-                            s.ah_discharged_today += (-v) * delta_h;
-                        }
-                    }
-                }
-                s.ah_last_ts = Some(now);
+    Some(true)
+}
 
-                s.battery_current_a = Some(v);
-                updated = true;
-            }
-        } else if t.ends_with("Battery/State") {
-            if let Some(v) = msg.victron_value::<i64>() {
-                s.battery_state = Some(v);
-                updated = true;
-            }
-        } else if t.ends_with("Battery/TimeToGo") {
-            if let Some(v) = msg.victron_value::<i64>() {
-                s.time_to_go_sec = Some(v);
-                updated = true;
-            }
-        } else if t.ends_with("/Dc/0/Voltage") && t.contains("/vebus/") {
-            if let Some(v) = msg.victron_value::<f64>() {
-                s.battery_voltage_v = Some(v);
-                updated = true;
-            }
-        } else if t.ends_with("/Dc/0/Power") && t.contains("/vebus/") {
-            if let Some(v) = msg.victron_value::<f64>() {
-                s.battery_power_w = Some(v);
-                updated = true;
+/// Current integration into Ah (backup metric alongside kWh from shunt history).
+fn integrate_ah(s: &mut EnergyState, current_a: f64, now: chrono::DateTime<Utc>) {
+    let day_key = now.date_naive().num_days_from_ce();
+    if s.ah_last_day != day_key {
+        s.ah_charged_today    = 0.0;
+        s.ah_discharged_today = 0.0;
+        s.ah_last_day         = day_key;
+    }
+    if let Some(prev_ts) = s.ah_last_ts {
+        let delta_ms = (now - prev_ts).num_milliseconds();
+        if delta_ms > 0 && delta_ms < 600_000 {
+            let delta_h = delta_ms as f64 / 3_600_000.0;
+            if current_a > 0.0 {
+                s.ah_charged_today    += current_a * delta_h;
+            } else if current_a < 0.0 {
+                s.ah_discharged_today += (-current_a) * delta_h;
             }
         }
     }
-    updated
+    s.ah_last_ts = Some(now);
 }
 
 async fn publish_state(bus: &AppBus, state: &Arc<RwLock<EnergyState>>) {
     let s = state.read().await;
-    let soc        = s.soc_pct;
-    let voltage    = s.battery_voltage_v;
-    let current    = s.battery_current_a;
-    let power      = s.battery_power_w;
-    let batt_state = s.battery_state;
-    let ttg        = s.time_to_go_sec;
-    let ah_charged    = s.ah_charged_today;
-    let ah_discharged = s.ah_discharged_today;
+    let soc            = s.soc_pct;
+    let voltage        = s.battery_voltage_v;
+    let current        = s.battery_current_a;
+    let power          = s.battery_power_w;
+    let batt_state     = s.battery_state;
+    let ttg            = s.time_to_go_sec;
+    let charged_kwh    = s.shunt_charged_today_kwh;
+    let discharged_kwh = s.shunt_discharged_today_kwh;
+    let ah_charged     = s.ah_charged_today;
+    let ah_discharged  = s.ah_discharged_today;
 
     let payload = json!({
-        "Soc":               soc,
-        "Voltage":           voltage,
-        "Current":           current,
-        "Power":             power,
-        "State":             batt_state,
-        "TimeToGo":          ttg,
-        "AhChargedToday":    ah_charged,
-        "AhDischargedToday": ah_discharged,
+        "Soc":                    soc,
+        "Voltage":                voltage,
+        "Current":                current,
+        "Power":                  power,
+        "State":                  batt_state,
+        "TimeToGo":               ttg,
+        "ChargedTodayKwh":        charged_kwh,
+        "DischargedTodayKwh":     discharged_kwh,
+        "AhChargedToday":         ah_charged,
+        "AhDischargedToday":      ah_discharged,
     });
     drop(s);
 
     bus.publish(MqttOutgoing::retained(publish::SYSTEM_VENUS, &payload)).await;
     bus.emit_live(LiveEvent::new("battery", &payload));
 
-    let pt = InfluxPoint::new("battery_status")
+    // Write full SmartShunt data to InfluxDB
+    let s = state.read().await;
+    let pt = InfluxPoint::new("smartshunt")
         .tag("host", "pi5")
-        .field_f("soc_pct",            soc.unwrap_or(0.0))
-        .field_f("voltage_v",          voltage.unwrap_or(0.0))
-        .field_f("current_a",          current.unwrap_or(0.0))
-        .field_f("power_w",            power.unwrap_or(0.0))
-        .field_i("state",              batt_state.unwrap_or(0))
-        .field_i("time_to_go_sec",     ttg.unwrap_or(0))
-        .field_f("ah_charged_today",   ah_charged)
-        .field_f("ah_discharged_today", ah_discharged);
+        .field_f("soc_pct",               s.soc_pct.unwrap_or(0.0))
+        .field_f("voltage_v",             s.battery_voltage_v.unwrap_or(0.0))
+        .field_f("current_a",             s.battery_current_a.unwrap_or(0.0))
+        .field_f("power_w",               s.battery_power_w.unwrap_or(0.0))
+        .field_i("state",                 s.battery_state.unwrap_or(0))
+        .field_i("time_to_go_sec",        s.time_to_go_sec.unwrap_or(0))
+        .field_f("charged_today_kwh",     s.shunt_charged_today_kwh)
+        .field_f("discharged_today_kwh",  s.shunt_discharged_today_kwh)
+        .field_f("ah_charged_today",      s.ah_charged_today)
+        .field_f("ah_discharged_today",   s.ah_discharged_today);
+    drop(s);
     bus.write_influx(pt).await;
 }

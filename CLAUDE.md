@@ -64,7 +64,7 @@ Pi5 (192.168.1.141, pi5compute)
     ├── Logique solaire, DEYE, chauffe-eau, charge, météo
     ├── WebSocket live events :8081/live
     └── InfluxDB → localhost:8086
-  Docker: mosquitto:1883, influxdb:8086, grafana:3001
+  Docker: mosquitto:1883, influxdb:8086
 
 NanoPi (192.168.1.120, root)
   dbus-mqtt-venus (runit /service/dbus-mqtt-venus)
@@ -235,9 +235,6 @@ Dashboard SSR : `/dashboard/et112/{addr}`
 
 | Besoin | Fichier |
 |--------|---------|
-| Configuration Grafana — Dashboard complet avec InfluxDB | `GRAFANA_SETUP.md` |
-| Structure et import dashboard Grafana | `grafana/README.md` |
-| Import automatique dashboard — Script | `scripts/import-grafana-dashboard.sh` |
 | Ajouter un appareil / nouvelle métrique | `DASHBOARD_EXTENSION_GUIDE.md` |
 | Procédures détaillées (NanoPi, maintenance, récupération firmware, production solaire) | `PROCEDURES.md` |
 | Validation déploiement / checklist | `IMPLEMENTATION_VERIFICATION.md` |
