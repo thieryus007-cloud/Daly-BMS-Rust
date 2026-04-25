@@ -87,7 +87,7 @@ async fn main() -> anyhow::Result<()> {
     logic::charge_current::spawn(vic.clone(), cfg.charge_current.clone(), bus.clone(), state.clone()).await;
     logic::solar_power::spawn(vic.clone(), cfg.solar.clone(), bus.clone(), state.clone()).await;
     logic::deye_command::spawn(vic.clone(), cfg.deye.clone(), bus.clone(), state.clone()).await;
-    logic::water_heater::spawn(cfg.water_heater.clone(), lg_arc, bus.clone(), state.clone()).await;
+    logic::water_heater::spawn(cfg.water_heater.clone(), lg_arc.clone(), bus.clone(), state.clone()).await;
     logic::meteo::spawn(cfg.solar.clone(), bus.clone(), state.clone()).await;
     logic::victron_keepalive::spawn(cfg.victron.portal_id.clone(), bus.clone()).await;
 
