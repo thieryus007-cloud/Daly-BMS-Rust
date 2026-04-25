@@ -1,6 +1,7 @@
 /// Restores solar baselines and production counters at startup.
 /// Primary source: MQTT retained topics (pvinv_baseline, yield_yesterday).
 /// InfluxDB writes (during runtime and midnight reset) ensure persistence across restarts.
+use chrono::Datelike;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::info;
@@ -23,17 +24,35 @@ pub async fn restore(
     // See on_retained_baseline() and on_retained_yield_yesterday() below.
 }
 
-/// Called when MQTT retained baseline arrives (santuario/persist/pvinv_baseline)
+/// Called when MQTT retained baseline arrives (santuario/persist/pvinv_baseline).
+/// Format: "{ordinal_day}:{kwh:.3}"  (e.g. "738976:17.123")
+/// The day is checked against today to reject stale baselines from previous days.
 pub async fn on_retained_baseline(payload: &str, state: &Arc<RwLock<EnergyState>>) {
     if payload.is_empty() {
-        return; // cleared at midnight
+        return;
     }
-    if let Ok(v) = payload.trim().parse::<f64>() {
-        let mut s = state.write().await;
-        if s.pvinv_baseline_kwh.is_none() {
-            s.pvinv_baseline_kwh = Some(v);
-            info!("Baseline restored from MQTT retained: pvinv_baseline = {v:.3} kWh");
-        }
+    let today = chrono::Utc::now().date_naive().num_days_from_ce();
+
+    let (day, kwh) = if let Some((d_str, kwh_str)) = payload.trim().split_once(':') {
+        let Ok(d)   = d_str.parse::<i32>()  else { return };
+        let Ok(v)   = kwh_str.parse::<f64>() else { return };
+        (d, v)
+    } else {
+        // Legacy format (plain kWh, no day) — ignore to avoid stale value
+        info!("pvinv_baseline retained: legacy format without day, ignoring to prevent stale baseline");
+        return;
+    };
+
+    if day != today {
+        info!("pvinv_baseline retained: from day {day}, today is {today} — ignoring stale baseline");
+        return;
+    }
+
+    let mut s = state.write().await;
+    if s.pvinv_baseline_kwh.is_none() {
+        s.pvinv_baseline_kwh = Some(kwh);
+        s.pvinv_baseline_day = today;
+        info!("Baseline restored from MQTT retained: pvinv_baseline = {kwh:.3} kWh (day={day})");
     }
 }
 

@@ -15,11 +15,16 @@
   </div>
 </div>
 
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:1.25rem;">
+
 {# ── Chauffe-eau LG ThinQ ──────────────────────────────────────────────────── #}
-<div class="bms-card" id="lg-wh-card" style="margin-bottom:1.25rem;">
-  <div class="bms-hdr bms-hdr-on" id="lg-wh-hdr">
+<div class="bms-card" id="lg-wh-card">
+  <div class="bms-hdr bms-hdr-off" id="lg-wh-hdr">
     <div class="bms-hdr-left">
-      <div class="bms-live"><div class="live-dot" id="lg-wh-dot"></div><span id="lg-wh-mode">—</span></div>
+      <div class="bms-live">
+        <div class="live-dot" id="lg-wh-dot" style="background:var(--muted2);box-shadow:none;"></div>
+        <span id="lg-wh-mode">—</span>
+      </div>
       <span class="bms-hdr-name">🌡️ Chauffe-eau LG ThinQ</span>
     </div>
     <div class="bms-hdr-right">
@@ -38,15 +43,15 @@
     </div>
   </div>
 
-  <div style="padding:0.6rem 0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;border-top:1px solid var(--border);">
-    <button onclick="lgSetMode('HEAT_PUMP')" id="btn-hp"       class="btn btn-primary"  style="font-size:0.72rem;padding:0.3rem 0.9rem;">♨️ HEAT_PUMP</button>
-    <button onclick="lgSetMode('TURBO')"     id="btn-turbo"    class="btn btn-outline"   style="font-size:0.72rem;padding:0.3rem 0.9rem;">⚡ TURBO</button>
-    <button onclick="lgSetMode('VACATION')"  id="btn-vacation" class="btn btn-danger"    style="font-size:0.72rem;padding:0.3rem 0.9rem;">❄️ VACATION</button>
+  <div style="padding:0.5rem 0.75rem;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);gap:0.5rem;flex-wrap:wrap;">
+    <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
+      <button onclick="lgSetMode('HEAT_PUMP')" id="btn-heatpump" class="btn btn-outline" style="font-size:0.72rem;padding:0.3rem 0.9rem;">♨️ HEAT_PUMP</button>
+      <button onclick="lgSetMode('TURBO')"     id="btn-turbo"    class="btn btn-outline" style="font-size:0.72rem;padding:0.3rem 0.9rem;">⚡ TURBO</button>
+      <button onclick="lgSetMode('VACATION')"  id="btn-vacation" class="btn btn-outline" style="font-size:0.72rem;padding:0.3rem 0.9rem;">❄️ VACATION</button>
+    </div>
     <span id="lg-wh-err" style="font-size:0.72rem;color:var(--red);align-self:center;"></span>
   </div>
 </div>
-
-<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:1.25rem;">
 
 {% for d in devices %}
 <div class="bms-card {% if !d.connected %}" style="opacity:0.7{% endif %}" id="tasmota-card-{{ d.id }}">
@@ -241,7 +246,20 @@ updateAll();
 setInterval(updateAll, 5000);
 
 // ── LG ThinQ water heater ────────────────────────────────────────────────────
-const LG_API = 'http://192.168.1.141:8081';
+// Use same hostname as dashboard so it works regardless of how the page is accessed.
+const LG_API = window.location.protocol + '//' + window.location.hostname + ':8081';
+
+const LG_MODE_COLORS = {
+  HEAT_PUMP: 'linear-gradient(135deg,#fef3c7 0%,#fde68a 100%)',
+  TURBO:     'linear-gradient(135deg,#fee2e2 0%,#fca5a5 100%)',
+  VACATION:  'linear-gradient(135deg,#e0f2fe 0%,#bae6fd 100%)',
+};
+
+const LG_MODE_DOT = {
+  HEAT_PUMP: '',   // default green pulse
+  TURBO:     'background:var(--orange);box-shadow:0 0 6px var(--orange)',
+  VACATION:  'background:var(--blue);box-shadow:0 0 6px var(--blue)',
+};
 
 async function lgFetchStatus() {
   try {
@@ -249,25 +267,30 @@ async function lgFetchStatus() {
     if (!resp.ok) { lgSetError('Erreur HTTP ' + resp.status); return; }
     const d = await resp.json();
     lgSetError('');
-    document.getElementById('lg-wh-mode').textContent   = d.mode || '—';
+
+    const mode = d.mode || 'VACATION';
+    document.getElementById('lg-wh-mode').textContent   = mode;
     document.getElementById('lg-wh-temp').textContent   = d.current_temp_c != null ? d.current_temp_c.toFixed(1) + ' °C' : '—';
     document.getElementById('lg-wh-target').textContent = d.target_temp_c  != null ? d.target_temp_c.toFixed(1)  + ' °C' : '—';
     document.getElementById('lg-wh-ts').textContent     = new Date().toLocaleTimeString('fr-FR');
 
-    // Highlight active mode button
-    ['HEAT_PUMP','TURBO','VACATION'].forEach(m => {
-      const btn = document.getElementById('btn-' + m.toLowerCase().replace('_',''));
+    // Highlight active mode button — same pattern as toggle buttons
+    const btnMap = { HEAT_PUMP: 'btn-heatpump', TURBO: 'btn-turbo', VACATION: 'btn-vacation' };
+    Object.entries(btnMap).forEach(([m, btnId]) => {
+      const btn = document.getElementById(btnId);
       if (!btn) return;
-      btn.className = (d.mode === m) ? 'btn btn-primary' : 'btn btn-outline';
+      btn.className = (mode === m) ? 'btn btn-primary' : 'btn btn-outline';
+      btn.style.fontSize = '0.72rem';
+      btn.style.padding  = '0.3rem 0.9rem';
     });
-    // header color
+
+    // Header color + dot — same mechanism as updateCardHeader()
     const hdr = document.getElementById('lg-wh-hdr');
-    if (hdr) {
-      hdr.style.background = d.mode === 'HEAT_PUMP' ? 'linear-gradient(135deg,#fef3c7 0%,#fde68a 100%)'
-                           : d.mode === 'TURBO'     ? 'linear-gradient(135deg,#fee2e2 0%,#fca5a5 100%)'
-                           : 'linear-gradient(135deg,#e0f2fe 0%,#bae6fd 100%)';
-    }
-    if (!d.lg_enabled) lgSetError('LG ThinQ désactivé (voir Config.toml)');
+    if (hdr) hdr.style.background = LG_MODE_COLORS[mode] || LG_MODE_COLORS.VACATION;
+    const dot = document.getElementById('lg-wh-dot');
+    if (dot) dot.style.cssText = LG_MODE_DOT[mode] ?? '';
+
+    if (!d.lg_enabled) lgSetError('LG ThinQ désactivé (LG_DEVICE_ID / LG_BEARER_TOKEN manquants)');
   } catch(e) {
     lgSetError('energy-manager inaccessible (:8081)');
   }
