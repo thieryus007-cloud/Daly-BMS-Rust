@@ -23,7 +23,12 @@ step "Compilation energy-manager (aarch64)…"
 make build-energy-arm || error "make build-energy-arm a échoué"
 info "energy-manager compilé"
 
-# ── 3. Déploiement daly-bms-server ───────────────────────────────────────────
+# ── 3. Mise à jour de la configuration ──────────────────────────────────────
+step "Déploiement Config.toml → /etc/daly-bms/config.toml…"
+sudo cp Config.toml /etc/daly-bms/config.toml
+info "Config.toml déployée"
+
+# ── 4. Déploiement daly-bms-server ───────────────────────────────────────────
 step "Déploiement daly-bms-server…"
 sudo systemctl stop daly-bms
 sudo cp target/aarch64-unknown-linux-gnu/release/daly-bms-server /usr/local/bin/
@@ -36,7 +41,7 @@ else
     error "daly-bms n'a pas démarré — vérifier : journalctl -u daly-bms -n 50"
 fi
 
-# ── 4. Déploiement energy-manager ────────────────────────────────────────────
+# ── 5. Déploiement energy-manager ────────────────────────────────────────────
 step "Déploiement energy-manager…"
 sudo systemctl stop energy-manager
 sudo cp target/aarch64-unknown-linux-gnu/release/energy-manager /usr/local/bin/
@@ -48,7 +53,7 @@ else
     error "energy-manager n'a pas démarré — vérifier : journalctl -u energy-manager -n 50"
 fi
 
-# ── 5. Résumé ─────────────────────────────────────────────────────────────────
+# ── 6. Résumé ─────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}═══════════════════════════════════════${NC}"
 echo -e "${GREEN}  Déploiement terminé avec succès ✓${NC}"

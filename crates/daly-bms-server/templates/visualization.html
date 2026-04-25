@@ -96,10 +96,10 @@ const HIST_ET112_9 = { measurement: 'et112_status',     field: 'current_a',     
 const HIST_BMS_1   = { measurement: 'bms_status',       field: 'current',             address: '0x01', label: 'BMS-360Ah — I (6h)' };
 const HIST_BMS_2   = { measurement: 'bms_status',       field: 'current',             address: '0x02', label: 'BMS-320Ah — I (6h)' };
 const HIST_BMS_3   = { measurement: 'bms_status',       field: 'current',             address: '0x03', label: 'BMS-3 — I (6h)' };
-const HIST_MPPT    = { measurement: 'venus_mppt_total', field: 'current_a',           label: 'MPPT total — I DC (6h)' };
-const HIST_INV_DC  = { measurement: 'venus_inverter',   field: 'current_a',           label: 'Onduleur — I DC (6h)' };
-const HIST_INV_AC  = { measurement: 'venus_inverter',   field: 'ac_output_current_a', label: 'Onduleur — I AC sortie (6h)' };
-const HIST_SHUNT   = { measurement: 'venus_smartshunt', field: 'current_a',           label: 'SmartShunt — I batterie (6h)' };
+const HIST_MPPT    = { measurement: 'solar_power',     field: 'mppt_power_w',     label: 'MPPT total — Puissance DC (6h)' };
+const HIST_INV_DC  = { measurement: 'inverter_status', field: 'dc_current_a',     label: 'Onduleur — I DC (6h)' };
+const HIST_INV_AC  = { measurement: 'inverter_status', field: 'ac_out_current_a', label: 'Onduleur — I AC sortie (6h)' };
+const HIST_SHUNT   = { measurement: 'battery_status',  field: 'current_a',        label: 'SmartShunt — I batterie (6h)' };
 
 const EDGES0 = [
   mkEdge('e-ats-maison', 'ats-main', 'et112-maison',   COLOR.ac,  { sourceHandle: 'main-right', targetHandle: 'tl', type: 'customBezier', history: HIST_ET112_8 }),
@@ -122,6 +122,8 @@ function ESSFlow() {
   const [nodes, setNodes, onNodesChange] = useNodesState(NODES0);
   const [edges, setEdges, onEdgesChange] = useEdgesState(EDGES0);
   const [lastUpdate, setLastUpdate] = useState('—');
+  const [dataAge, setDataAge]       = useState(0);
+  const lastUpdateTsRef = useRef(null);
   const [atsProcessing, setAtsProcessing] = useState(false);
   const [atsRev, setAtsRev] = useState(0);
 const atsExecRef = useRef(null);
@@ -352,6 +354,8 @@ const atsExecRef = useRef(null);
     }));
 
     setLastUpdate(new Date().toLocaleTimeString('fr-FR'));
+    lastUpdateTsRef.current = Date.now();
+    setDataAge(0);
   }, [atsProcessing, atsRev, handleAtsReseauForce, handleAtsOnduleurForce, handleAtsToggleRemote, handleAtsForceOff]);
 
   useEffect(function() {
@@ -409,7 +413,25 @@ const atsExecRef = useRef(null);
     }
     fetchAll();
     const timer = setInterval(fetchAll, 2000);
-    return function() { clearInterval(timer); };
+
+    // Re-fetch immediately when tab becomes visible (browser throttles setInterval in background)
+    function onVisibility() {
+      if (!document.hidden) fetchAll();
+    }
+    document.addEventListener('visibilitychange', onVisibility);
+
+    // Age counter — ticks every second to show data staleness
+    const ageTick = setInterval(function() {
+      if (lastUpdateTsRef.current) {
+        setDataAge(Math.floor((Date.now() - lastUpdateTsRef.current) / 1000));
+      }
+    }, 1000);
+
+    return function() {
+      clearInterval(timer);
+      clearInterval(ageTick);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [applyData]);
 
   const legend = [
@@ -434,7 +456,15 @@ const atsExecRef = useRef(null);
       )
     ),
     h(Panel, { position: 'bottom-right' },
-      h('div', { className: 'viz-panel' }, `Màj : ${lastUpdate}`)
+      h('div', { className: 'viz-panel', style: { display: 'flex', alignItems: 'center', gap: '6px' } },
+        h('span', { style: {
+          width: '8px', height: '8px', borderRadius: '50%', display: 'inline-block', flexShrink: 0,
+          background: dataAge < 5 ? '#22c55e' : dataAge < 15 ? '#f59e0b' : '#ef4444'
+        }}),
+        dataAge < 5
+          ? `Màj : ${lastUpdate}`
+          : `Màj : ${lastUpdate} (${dataAge}s)`
+      )
     ),
   );
 }
