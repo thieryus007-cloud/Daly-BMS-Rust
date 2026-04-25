@@ -631,28 +631,40 @@ impl AppState {
 
     /// Enregistre/met à jour le SmartShunt.
     ///
-    /// Intègre le courant pour accumuler les Ah chargés/déchargés depuis minuit.
-    /// L'accumulateur est remis à zéro à chaque changement de jour calendaire.
+    /// Si energy-manager fournit les Ah (AhChargedToday/AhDischargedToday) dans le payload,
+    /// on les utilise directement. Sinon on intègre le courant localement (fallback).
     pub async fn on_venus_smartshunt(&self, mut shunt: VenusSmartShunt) {
         let now     = shunt.timestamp;
         let day_key = now.date_naive().num_days_from_ce();
 
+        // energy-manager calcule déjà les Ah → utiliser ces valeurs directement.
+        if shunt.ah_charged_today.is_some() || shunt.ah_discharged_today.is_some() {
+            let mut charged    = self.shunt_ah_charged_today.write().await;
+            let mut discharged = self.shunt_ah_discharged_today.write().await;
+            let mut last_ts    = self.shunt_ah_last_ts.write().await;
+            let mut last_day   = self.shunt_ah_last_day.write().await;
+            *last_day = day_key;
+            *last_ts  = Some(now);
+            if let Some(v) = shunt.ah_charged_today    { *charged    = v; }
+            if let Some(v) = shunt.ah_discharged_today { *discharged = v; }
+            *self.venus_smartshunt.write().await = Some(shunt);
+            return;
+        }
+
+        // Fallback : intégration locale Ah = I × Δt (en heures).
         let mut charged    = self.shunt_ah_charged_today.write().await;
         let mut discharged = self.shunt_ah_discharged_today.write().await;
         let mut last_ts    = self.shunt_ah_last_ts.write().await;
         let mut last_day   = self.shunt_ah_last_day.write().await;
 
-        // Remise à zéro à minuit
         if *last_day != day_key {
             *charged    = 0.0;
             *discharged = 0.0;
             *last_day   = day_key;
         }
 
-        // Intégration Ah = I × Δt (en heures)
         if let (Some(prev_ts), Some(current_a)) = (*last_ts, shunt.current_a) {
             let delta_ms = (now - prev_ts).num_milliseconds();
-            // Ne calculer que si l'intervalle est positif et raisonnable (< 10 min)
             if delta_ms > 0 && delta_ms < 600_000 {
                 let delta_h = delta_ms as f32 / 3_600_000.0;
                 if current_a > 0.0 {

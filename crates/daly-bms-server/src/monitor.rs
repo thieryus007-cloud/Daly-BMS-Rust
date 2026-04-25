@@ -325,10 +325,10 @@ pub async fn run_watchdog_agent(_state: AppState) {
     }
 }
 
-/// Redémarre un service systemd via `systemctl restart <name>`.
+/// Redémarre un service systemd via `sudo systemctl restart <name>`.
 async fn restart_systemd_service(name: &str) -> bool {
-    match Command::new("systemctl")
-        .args(["restart", name])
+    match Command::new("sudo")
+        .args(["systemctl", "restart", name])
         .output()
         .await
     {

@@ -553,7 +553,28 @@ async fn handle_meteo_topic(state: &AppState, json: &Value) {
         for item in arr {
             let instance = item.get("Instance").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
             let name     = format!("MPPT-{}", instance);
-            let state_str = item.get("State").and_then(|v| v.as_str()).map(|s| s.to_string());
+            // State comes as integer from energy-manager; fall back to string for legacy sources.
+            let state_str = item.get("State").and_then(|v| {
+                if let Some(i) = v.as_i64() {
+                    Some(match i {
+                        0  => "Off".to_string(),
+                        1  => "Low power".to_string(),
+                        2  => "Fault".to_string(),
+                        3  => "Bulk".to_string(),
+                        4  => "Absorption".to_string(),
+                        5  => "Float".to_string(),
+                        6  => "Storage".to_string(),
+                        7  => "Equalize".to_string(),
+                        8  => "Passthru".to_string(),
+                        9  => "Inverting".to_string(),
+                        10 => "Power assist".to_string(),
+                        11 => "Power supply".to_string(),
+                        _  => format!("State {}", i),
+                    })
+                } else {
+                    v.as_str().map(|s| s.to_string())
+                }
+            });
             let pv_v     = item.get("PvVoltage").and_then(|v| v.as_f64()).map(|v| v as f32);
             let dc_i     = item.get("DcCurrent").and_then(|v| v.as_f64()).map(|v| v as f32);
             let power    = item.get("Power").and_then(|v| v.as_f64()).map(|v| v as f32);
@@ -571,7 +592,12 @@ async fn handle_meteo_topic(state: &AppState, json: &Value) {
                 timestamp: Utc::now(),
             });
         }
+        // Sync mppt_yield_kwh with the sum from all chargers.
+        let total_yield: f32 = new_mppts.iter().filter_map(|m| m.yield_today_kwh).sum();
         state.on_venus_mppts_replace(new_mppts).await;
+        if total_yield > 0.0 {
+            *state.mppt_yield_kwh.write().await = total_yield;
+        }
         return; // format v2 traité, pas de fallback nécessaire
     }
 
@@ -663,6 +689,10 @@ async fn handle_system_topic(state: &AppState, json: &Value) {
             .map(|secs| secs as f32 / 60.0)
             .filter(|&m| m < 14400.0); // > 10 jours → ignorer (= en charge)
 
+        // Ah values computed by energy-manager; fall back to local integration when absent.
+        let ah_charged    = json.get("AhChargedToday").and_then(|v| v.as_f64()).map(|v| v as f32);
+        let ah_discharged = json.get("AhDischargedToday").and_then(|v| v.as_f64()).map(|v| v as f32);
+
         let shunt = VenusSmartShunt {
             soc_percent: Some(soc),
             voltage_v: voltage,
@@ -672,9 +702,8 @@ async fn handle_system_topic(state: &AppState, json: &Value) {
             energy_out_kwh: energy_out.map(|e| e / 1000.0),
             state: state_str,
             time_to_go_min,
-            // Calculés dans on_venus_smartshunt par intégration du courant
-            ah_charged_today:    None,
-            ah_discharged_today: None,
+            ah_charged_today:    ah_charged,
+            ah_discharged_today: ah_discharged,
             timestamp: Utc::now(),
         };
 

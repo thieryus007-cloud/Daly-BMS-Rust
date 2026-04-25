@@ -73,6 +73,11 @@ async fn handle(
             state.write().await.ac_out_current_a = Some(v);
             return true;
         }
+    } else if t.contains("/vebus/") && t.ends_with("/Ac/Out/L1/F") {
+        if let Some(v) = msg.victron_value::<f64>() {
+            state.write().await.ac_frequency_hz = Some(v);
+            return true;
+        }
     } else if t.contains("/vebus/") && t.ends_with("/State") {
         if let Some(v) = msg.victron_value::<i64>() {
             state.write().await.vebus_state = Some(v);
