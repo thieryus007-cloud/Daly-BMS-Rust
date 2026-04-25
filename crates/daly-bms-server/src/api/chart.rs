@@ -194,6 +194,11 @@ pub async fn get_edge_history(
     let (measurement, address_required) = match q.measurement.as_str() {
         "bms_status"        => ("bms_status",        true),
         "et112_status"      => ("et112_status",      true),
+        // energy-manager real measurement names
+        "battery_status"    => ("battery_status",    false),
+        "inverter_status"   => ("inverter_status",   false),
+        "solar_power"       => ("solar_power",       false),
+        // legacy aliases (kept for backward compat — never written, return empty series)
         "venus_mppt_total"  => ("venus_mppt_total",  false),
         "venus_smartshunt"  => ("venus_smartshunt",  false),
         "venus_inverter"    => ("venus_inverter",    false),
@@ -202,6 +207,14 @@ pub async fn get_edge_history(
     let field = match q.field.as_str() {
         "current"              => "current",
         "current_a"            => "current_a",
+        // inverter_status field names (energy-manager)
+        "dc_current_a"         => "dc_current_a",
+        "ac_out_current_a"     => "ac_out_current_a",
+        "dc_power_w"           => "dc_power_w",
+        "ac_out_power_w"       => "ac_out_power_w",
+        // solar_power field names (energy-manager)
+        "mppt_power_w"         => "mppt_power_w",
+        // legacy / generic
         "ac_output_current_a"  => "ac_output_current_a",
         "power_w"              => "power_w",
         _ => return Json(json!({ "ok": false, "series": [], "reason": "bad_field" })),
@@ -254,8 +267,8 @@ pub async fn get_edge_history(
     };
 
     let unit = match field {
-        "current" | "current_a" | "ac_output_current_a" => "A",
-        "power_w" => "W",
+        "current" | "current_a" | "dc_current_a" | "ac_out_current_a" | "ac_output_current_a" => "A",
+        "power_w" | "mppt_power_w" | "dc_power_w" | "ac_out_power_w" => "W",
         _ => "",
     };
 

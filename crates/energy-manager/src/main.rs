@@ -88,6 +88,7 @@ async fn main() -> anyhow::Result<()> {
     logic::deye_command::spawn(vic.clone(), cfg.deye.clone(), bus.clone(), state.clone()).await;
     logic::water_heater::spawn(cfg.water_heater.clone(), lg_arc, bus.clone(), state.clone()).await;
     logic::meteo::spawn(cfg.solar.clone(), bus.clone(), state.clone()).await;
+    logic::victron_keepalive::spawn(cfg.victron.portal_id.clone(), bus.clone()).await;
 
     // --- Live WebSocket server ---
     let bind    = cfg.api.bind.clone();

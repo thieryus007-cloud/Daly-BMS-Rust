@@ -179,9 +179,10 @@ async fn writer_task(
 
         // POST to daly-bms-server
         let body = json!({
-            "solar_total_w": solar_total,
-            "mppt_power_w":  mppt_power,
-            "house_power_w": house_power,
+            "solar_total_w":   solar_total,
+            "mppt_power_w":    mppt_power,
+            "total_yield_kwh": total_yield,
+            "house_power_w":   house_power,
         });
         if let Err(e) = http_client
             .post(&api_url)
