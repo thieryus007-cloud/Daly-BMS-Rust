@@ -219,20 +219,28 @@ pub struct LgThinqConfig {
     /// Base URL for the API (e.g. "https://api-eic.lgthinq.com")
     #[serde(default = "default_lg_base_url")]
     pub base_url: String,
-    /// Device ID (read from env LG_DEVICE_ID)
+    /// Device ID (read from env LG_DEVICE_ID or Config.toml)
     #[serde(default)]
     pub device_id: String,
-    /// Bearer token (read from env LG_BEARER_TOKEN)
+    /// Bearer token (read from env LG_BEARER_TOKEN or Config.toml)
     #[serde(default)]
     pub bearer_token: String,
-    /// API key (read from env LG_API_KEY)
+    /// API key (read from env LG_API_KEY or Config.toml)
     #[serde(default)]
     pub api_key: String,
+    /// x-country header (e.g. "FR")
+    #[serde(default = "default_lg_country")]
+    pub country: String,
+    /// x-client-id header
+    #[serde(default = "default_lg_client_id")]
+    pub client_id: String,
     #[serde(default = "default_lg_poll_secs")]
     pub poll_interval_secs: u64,
 }
 
-fn default_lg_base_url() -> String { "https://api-eic.lgthinq.com".into() }
+fn default_lg_base_url()  -> String { "https://api-eic.lgthinq.com".into() }
+fn default_lg_country()   -> String { "FR".into() }
+fn default_lg_client_id() -> String { "energy-manager".into() }
 fn default_lg_poll_secs() -> u64 { 600 }
 
 impl Default for LgThinqConfig {
@@ -243,6 +251,8 @@ impl Default for LgThinqConfig {
             device_id: String::new(),
             bearer_token: String::new(),
             api_key: String::new(),
+            country: default_lg_country(),
+            client_id: default_lg_client_id(),
             poll_interval_secs: default_lg_poll_secs(),
         }
     }

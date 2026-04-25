@@ -9,7 +9,7 @@ use crate::config::LgThinqConfig;
 use crate::types::{LiveEvent, WaterHeaterMode};
 
 // ---------------------------------------------------------------------------
-// API types
+// API response types — ThinQ EIC API v2
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Deserialize)]
@@ -19,28 +19,7 @@ struct LgStateResponse {
 
 #[derive(Debug, Deserialize)]
 struct LgStateResult {
-    data: Option<LgDeviceData>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct LgDeviceData {
-    operation: Option<LgOperation>,
-    temperature: Option<LgTemperature>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct LgOperation {
-    #[serde(rename = "waterHeaterOperationMode")]
-    mode: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct LgTemperature {
-    current_temp: Option<f64>,
-    target_temp: Option<f64>,
+    data: Option<serde_json::Value>,
 }
 
 // ---------------------------------------------------------------------------
@@ -81,19 +60,32 @@ impl LgThinqClient {
 
     fn auth_headers(&self) -> reqwest::header::HeaderMap {
         use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
-        let mut headers = HeaderMap::new();
-        headers.insert(
+        let mut h = HeaderMap::new();
+        h.insert(
             AUTHORIZATION,
             HeaderValue::from_str(&format!("Bearer {}", self.cfg.bearer_token)).unwrap(),
         );
         if !self.cfg.api_key.is_empty() {
-            headers.insert(
-                "x-api-key",
-                HeaderValue::from_str(&self.cfg.api_key).unwrap(),
-            );
+            h.insert("x-api-key",
+                HeaderValue::from_str(&self.cfg.api_key).unwrap());
         }
-        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-        headers
+        if !self.cfg.country.is_empty() {
+            h.insert("x-country",
+                HeaderValue::from_str(&self.cfg.country).unwrap());
+        }
+        if !self.cfg.client_id.is_empty() {
+            h.insert("x-client-id",
+                HeaderValue::from_str(&self.cfg.client_id).unwrap());
+        }
+        // x-message-id: unique per request (simple counter via timestamp)
+        let msg_id = format!("{:x}", std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis());
+        h.insert("x-message-id",
+            HeaderValue::from_str(&msg_id).unwrap());
+        h.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        h
     }
 
     pub async fn get_state(&self) -> Result<LgSnapshot> {
@@ -107,36 +99,57 @@ impl LgThinqClient {
             .error_for_status()
             .context("LG ThinQ GET state HTTP error")?;
 
-        let body: LgStateResponse = resp.json().await.context("LG ThinQ parse")?;
-        let data = body.result
-            .and_then(|r| r.data)
-            .unwrap_or(LgDeviceData { operation: None, temperature: None });
+        let body: LgStateResponse = resp.json().await.context("LG ThinQ parse state")?;
+        let data = body.result.and_then(|r| r.data).unwrap_or(serde_json::Value::Null);
 
-        let mode_str = data.operation.and_then(|o| o.mode).unwrap_or_default();
-        let mode = WaterHeaterMode::from_lg_str(&mode_str);
-        let current_temp_c = data.temperature.as_ref().and_then(|t| t.current_temp);
-        let target_temp_c  = data.temperature.as_ref().and_then(|t| t.target_temp);
+        // ThinQ EIC API: data.waterHeaterJobMode.currentJobMode
+        let mode_str = data
+            .get("waterHeaterJobMode")
+            .and_then(|v| v.get("currentJobMode"))
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
 
-        Ok(LgSnapshot { mode, current_temp_c, target_temp_c })
+        // temperature: data.temperature.currentTemperature / targetTemperature
+        let current_temp_c = data
+            .get("temperature")
+            .and_then(|v| v.get("currentTemperature"))
+            .and_then(|v| v.as_f64());
+        let target_temp_c = data
+            .get("temperature")
+            .and_then(|v| v.get("targetTemperature"))
+            .and_then(|v| v.as_f64());
+
+        debug!("LG ThinQ state: mode={mode_str} temp={current_temp_c:?} target={target_temp_c:?}");
+        Ok(LgSnapshot {
+            mode: WaterHeaterMode::from_lg_str(&mode_str),
+            current_temp_c,
+            target_temp_c,
+        })
     }
 
     pub async fn set_mode(&self, mode: WaterHeaterMode) -> Result<()> {
+        // ThinQ EIC API control payload format (from Node-RED reference implementation)
         let payload = json!({
-            "operation": {
-                "waterHeaterOperationMode": mode.to_lg_str()
+            "waterHeaterJobMode": {
+                "currentJobMode": mode.to_lg_str()
             }
         });
-        self.http
+        let resp = self.http
             .post(self.control_url())
             .headers(self.auth_headers())
             .json(&payload)
             .timeout(Duration::from_secs(15))
             .send()
             .await
-            .context("LG ThinQ POST control (mode)")?
-            .error_for_status()
-            .context("LG ThinQ POST control HTTP error")?;
-        info!("LG ThinQ: mode set to {:?}", mode);
+            .context("LG ThinQ POST control (mode)")?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            return Err(anyhow::anyhow!("LG ThinQ control HTTP {status}: {body}"));
+        }
+        info!("LG ThinQ: mode set to {}", mode.to_lg_str());
         Ok(())
     }
 
@@ -176,7 +189,7 @@ pub async fn spawn_poller(
     }
 
     if cfg.device_id.is_empty() || cfg.bearer_token.is_empty() {
-        warn!("LG ThinQ enabled but credentials missing (LG_DEVICE_ID / LG_BEARER_TOKEN)");
+        warn!("LG ThinQ enabled but credentials missing (device_id / bearer_token)");
         return None;
     }
 
@@ -185,9 +198,8 @@ pub async fn spawn_poller(
 
     let client = LgThinqClient::new(cfg.clone());
 
-    // Spawn background polling
-    let cfg2 = cfg.clone();
-    let bus2 = bus.clone();
+    let cfg2   = cfg.clone();
+    let bus2   = bus.clone();
     let state2 = state.clone();
     tokio::spawn(async move {
         let poller = LgThinqClient::new(cfg2);
@@ -196,7 +208,6 @@ pub async fn spawn_poller(
             ticker.tick().await;
             match poller.get_state().await {
                 Ok(snap) => {
-                    debug!("LG ThinQ: {:?}", snap);
                     {
                         let mut s = state2.write().await;
                         s.water_heater_mode     = snap.mode;

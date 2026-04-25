@@ -15,7 +15,7 @@ use chrono::{Datelike, Utc};
 use serde_json::json;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::debug;
+use tracing::{debug, info};
 
 use crate::bus::AppBus;
 use crate::config::VictronConfig;
@@ -80,6 +80,11 @@ async fn handle(
     // (battery/+/...) so we match by suffix instead of exact topic.
     let is_charged    = t.ends_with("/History/ChargedEnergy")    && t.contains("/battery/");
     let is_discharged = t.ends_with("/History/DischargedEnergy") && t.contains("/battery/");
+
+    if is_charged || is_discharged {
+        // Visible in journalctl -u energy-manager -f to confirm the SmartShunt instance.
+        info!("SmartShunt energy counter topic: {t}");
+    }
     let is_shunt = t == t_voltage || t == t_current || t == t_power
         || t == t_soc || t == t_ttg || t == t_state
         || is_charged || is_discharged;
