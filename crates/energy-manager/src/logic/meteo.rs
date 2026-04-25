@@ -54,6 +54,7 @@ pub async fn publish_all(bus: &AppBus, state: &Arc<RwLock<EnergyState>>) {
     });
 
     // santuario/meteo/venus — irradiance + solar + wind
+    // Key "Mppts" matches daly-bms-server handle_meteo_topic (was "MpptList" — mismatch fixed)
     let meteo_payload = json!({
         "Irradiance":    s.irradiance_wm2,
         "TodaysYield":   s.total_yield_today_kwh,
@@ -61,7 +62,7 @@ pub async fn publish_all(bus: &AppBus, state: &Arc<RwLock<EnergyState>>) {
         "WindSpeed":     s.wind_speed_ms,
         "MpptPower":     s.mppt_273.power_w.unwrap_or(0.0) + s.mppt_289.power_w.unwrap_or(0.0),
         "SolarTotal":    s.solar_total_w,
-        "MpptList": [
+        "Mppts": [
             {
                 "Instance": 273u32,
                 "State":    s.mppt_273.state,

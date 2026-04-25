@@ -238,6 +238,12 @@ pub struct EnergyState {
     // --- Charge current (last published) ---
     pub last_charge_current_a: Option<f64>,
     pub last_power_assist: Option<i64>,
+
+    // --- SmartShunt Ah accumulators (reset at midnight) ---
+    pub ah_charged_today: f64,
+    pub ah_discharged_today: f64,
+    pub ah_last_ts: Option<DateTime<Utc>>,
+    pub ah_last_day: i32,
 }
 
 #[derive(Debug, Default, Clone, Serialize)]
