@@ -27,6 +27,7 @@ info "energy-manager compilé"
 step "Déploiement daly-bms-server…"
 sudo systemctl stop daly-bms
 sudo cp target/aarch64-unknown-linux-gnu/release/daly-bms-server /usr/local/bin/
+sudo cp Config.toml /etc/daly-bms/config.toml
 sudo systemctl start daly-bms
 sleep 2
 if systemctl is-active --quiet daly-bms; then
