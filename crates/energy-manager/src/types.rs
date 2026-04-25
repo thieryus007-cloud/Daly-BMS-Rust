@@ -219,7 +219,8 @@ pub struct EnergyState {
     // --- Solar production counters ---
     pub mppt_yield_today_kwh: f64,
     pub pvinv_yield_today_kwh: f64,
-    pub pvinv_baseline_kwh: Option<f64>,   // absolute energy at start of day
+    pub pvinv_baseline_kwh: Option<f64>,   // ET112 cumulative counter at start of day
+    pub pvinv_baseline_day: i32,           // day ordinal when baseline was set (reset at midnight)
     pub total_yield_today_kwh: f64,
     pub yield_yesterday_kwh: f64,
 

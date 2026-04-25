@@ -1,3 +1,4 @@
+use chrono::Datelike;
 use serde_json::json;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -6,7 +7,8 @@ use tracing::debug;
 
 use crate::bus::AppBus;
 use crate::config::{SolarConfig, VictronConfig};
-use crate::types::{EnergyState, InfluxPoint, LiveEvent};
+use crate::mqtt::topics::publish;
+use crate::types::{EnergyState, InfluxPoint, LiveEvent, MqttOutgoing};
 
 pub async fn spawn(
     vic: Arc<VictronConfig>,
@@ -59,7 +61,8 @@ async fn mqtt_task(
 
         // Track whether a new baseline was just established (must be published
         // *after* releasing the write lock to avoid deadlocking the bus).
-        let mut publish_baseline: Option<f64> = None;
+        // Tuple: (ordinal_day, kwh) so we can encode the day in the retained message.
+        let mut publish_baseline: Option<(i32, f64)> = None;
 
         {
             let mut s = state.write().await;
@@ -74,9 +77,15 @@ async fn mqtt_task(
                 s.pvinverter_power_w = msg.victron_value::<f64>();
             } else if *t == t_pv_energy {
                 if let Some(kwh) = msg.victron_value::<f64>() {
+                    let today = chrono::Utc::now().date_naive().num_days_from_ce();
+                    // Midnight reset: new day → discard yesterday's baseline
+                    if s.pvinv_baseline_day != today {
+                        s.pvinv_baseline_kwh = None;
+                        s.pvinv_baseline_day = today;
+                    }
                     if s.pvinv_baseline_kwh.is_none() {
                         s.pvinv_baseline_kwh = Some(kwh);
-                        publish_baseline = Some(kwh);
+                        publish_baseline = Some((today, kwh));
                     }
                     let baseline = s.pvinv_baseline_kwh.unwrap_or(kwh);
                     s.pvinv_yield_today_kwh = (kwh - baseline).max(0.0);
@@ -117,15 +126,14 @@ async fn mqtt_task(
 
         // Outside the lock: publish baseline as retained so restarts within the
         // same day pick up the correct start-of-day ET112 counter value.
-        if let Some(kwh) = publish_baseline {
-            use crate::mqtt::topics::publish;
-            use crate::types::MqttOutgoing;
+        // Format: "{ordinal_day}:{kwh}" — day is checked on restore to reject stale values.
+        if let Some((day, kwh)) = publish_baseline {
             bus.publish(MqttOutgoing::raw(
                 publish::PVINV_BASELINE,
-                format!("{kwh:.3}"),
+                format!("{day}:{kwh:.3}"),
                 true,
             )).await;
-            debug!("pvinv_baseline published as retained: {kwh:.3} kWh");
+            debug!("pvinv_baseline published as retained: day={day} kwh={kwh:.3}");
         }
     }
 }

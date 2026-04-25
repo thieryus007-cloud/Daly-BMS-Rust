@@ -36,9 +36,6 @@ async fn run(vic: Arc<VictronConfig>, bus: AppBus, state: Arc<RwLock<EnergyState
     let t_soc        = format!("N/{pid}/battery/{shunt}/Soc");
     let t_ttg        = format!("N/{pid}/battery/{shunt}/TimeToGo");
     let t_state      = format!("N/{pid}/battery/{shunt}/State");
-    let t_charged    = format!("N/{pid}/battery/{shunt}/History/ChargedEnergy");
-    let t_discharged = format!("N/{pid}/battery/{shunt}/History/DischargedEnergy");
-
     let mut rx = bus.subscribe_mqtt();
     loop {
         let msg = match rx.recv().await {
@@ -47,7 +44,7 @@ async fn run(vic: Arc<VictronConfig>, bus: AppBus, state: Arc<RwLock<EnergyState
         };
 
         if let Some(dirty) = handle(&msg, &state, &t_voltage, &t_current, &t_power,
-                                    &t_soc, &t_ttg, &t_state, &t_charged, &t_discharged).await {
+                                    &t_soc, &t_ttg, &t_state).await {
             if dirty {
                 publish_state(&bus, &state).await;
             }
@@ -58,7 +55,6 @@ async fn run(vic: Arc<VictronConfig>, bus: AppBus, state: Arc<RwLock<EnergyState
 /// Returns Some(true) if state was updated (caller should publish),
 /// Some(false) if topic matched but no value changed,
 /// None if topic was not ours.
-#[allow(clippy::too_many_arguments)]
 async fn handle(
     msg: &MqttIncoming,
     state: &Arc<RwLock<EnergyState>>,
@@ -68,8 +64,6 @@ async fn handle(
     t_soc:     &str,
     t_ttg:     &str,
     t_state:   &str,
-    t_charged: &str,
-    t_discharged: &str,
 ) -> Option<bool> {
     let t = &msg.topic;
 
@@ -82,9 +76,13 @@ async fn handle(
     let is_vebus_pw    = t.ends_with("/Dc/0/Power")      && t.contains("/vebus/");
 
     // --- Direct SmartShunt topics ---
+    // History/ChargedEnergy and DischargedEnergy use wildcard subscription
+    // (battery/+/...) so we match by suffix instead of exact topic.
+    let is_charged    = t.ends_with("/History/ChargedEnergy")    && t.contains("/battery/");
+    let is_discharged = t.ends_with("/History/DischargedEnergy") && t.contains("/battery/");
     let is_shunt = t == t_voltage || t == t_current || t == t_power
         || t == t_soc || t == t_ttg || t == t_state
-        || t == t_charged || t == t_discharged;
+        || is_charged || is_discharged;
 
     if !is_shunt && !is_sys_soc && !is_sys_current && !is_sys_state
         && !is_sys_ttg && !is_vebus_v && !is_vebus_pw {
@@ -119,7 +117,7 @@ async fn handle(
         if let Some(v) = msg.victron_value::<i64>() {
             s.battery_state = Some(v);
         }
-    } else if t == t_charged {
+    } else if is_charged {
         if let Some(kwh) = msg.victron_value::<f64>() {
             let day_key = now.date_naive().num_days_from_ce();
             if s.shunt_charged_day != day_key || s.shunt_charged_baseline_kwh.is_none() {
@@ -132,7 +130,7 @@ async fn handle(
             s.shunt_charged_today_kwh = (kwh - baseline).max(0.0);
             debug!("SmartShunt ChargedEnergy: raw={kwh:.3} baseline={baseline:.3} today={:.3}", s.shunt_charged_today_kwh);
         }
-    } else if t == t_discharged {
+    } else if is_discharged {
         if let Some(kwh) = msg.victron_value::<f64>() {
             let day_key = now.date_naive().num_days_from_ce();
             if s.shunt_discharged_day != day_key || s.shunt_discharged_baseline_kwh.is_none() {

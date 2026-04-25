@@ -45,8 +45,10 @@ pub fn all_subscriptions(portal_id: &str, vebus: u32, mppt1: u32, mppt2: u32, pv
         n(pid, &format!("battery/{shunt}/Soc")),
         n(pid, &format!("battery/{shunt}/TimeToGo")),
         n(pid, &format!("battery/{shunt}/State")),
-        n(pid, &format!("battery/{shunt}/History/ChargedEnergy")),
-        n(pid, &format!("battery/{shunt}/History/DischargedEnergy")),
+        // Wildcards: match any battery instance so we don't need to know the
+        // exact SmartShunt instance number (varies per installation).
+        n(pid, "battery/+/History/ChargedEnergy"),
+        n(pid, "battery/+/History/DischargedEnergy"),
 
         // --- MPPT 1 ---
         n(pid, &format!("solarcharger/{mppt1}/Yield/Power")),
