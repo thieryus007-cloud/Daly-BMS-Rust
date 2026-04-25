@@ -292,7 +292,7 @@ pub struct MonitorSnapshot {
     pub timestamp: DateTime<Utc>,
     /// Services systemd (daly-bms).
     pub services: Vec<ServiceStatus>,
-    /// Services réseau vérifiés par sonde TCP (mosquitto, influxdb, grafana, nodered, venus).
+    /// Services réseau vérifiés par sonde TCP (mosquitto, influxdb, energy-manager, venus).
     pub network_services: Vec<ServiceStatus>,
     /// Port série RS485 présent sur le système.
     pub serial_port_ok: bool,
@@ -337,19 +337,19 @@ pub struct AppState {
     pub tasmota_buffers: Arc<RwLock<BTreeMap<u8, TasmotaRingBuffer>>>,
 
     /// Production solaire totale aujourd'hui en kWh (MPPT + delta ET112 micro-onduleurs).
-    /// Publiée par Node-RED via POST /api/v1/solar/mppt-yield.
+    /// Publiée par energy-manager via POST /api/v1/solar/mppt-yield.
     pub mppt_yield_kwh: Arc<RwLock<f32>>,
 
     /// Puissance MPPT instantanée totale en W (somme de tous les chargeurs solaires).
-    /// Publiée par Node-RED via POST /api/v1/solar/mppt-yield.
+    /// Publiée par energy-manager via POST /api/v1/solar/mppt-yield.
     pub mppt_power_w: Arc<RwLock<f32>>,
 
     /// Puissance solaire totale en W = MPPT 273+289 + PV Inverter ET112 (VRM).
-    /// Source unique : Solar_power.json Node-RED (via POST solar_total_w).
+    /// Publiée par energy-manager via POST /api/v1/solar/mppt-yield.
     pub solar_total_w: Arc<RwLock<f32>>,
 
     /// Puissance consommée par la maison en W (ESS AC output consumption).
-    /// Source : N/c0619ab9929a/system/0/Ac/ConsumptionOnOutput/L1/Power via VRM → Node-RED.
+    /// Source : N/{portalId}/system/0/Ac/ConsumptionOnOutput/L1/Power via energy-manager.
     pub house_power_w: Arc<RwLock<f32>>,
 
     /// Données Venus OS — MPPT SolarCharger (indexé par instance).

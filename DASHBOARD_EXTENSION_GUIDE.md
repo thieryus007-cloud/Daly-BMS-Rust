@@ -1,5 +1,5 @@
 # Guide Complet — Dashboard Temps Réel & Extension des Métriques
-> ⚠ **OBSOLÈTE** — Ce document décrit l'ancienne architecture Node-RED.  
+> ⚠ **OBSOLÈTE** — Ce document décrit l'ancienne architecture energy-manager.  
 > Référence actuelle : **`docs/energy-manager-guide.md`**
 
 **Version:** 2.0  
@@ -37,7 +37,7 @@ Une architecture **complète et temps réel** en 4 étapes:
 
 ```
 NanoPi D-Bus (Victron)
-    ↓ Node-RED flows
+    ↓ energy-manager flows
 MQTT Topics (santuario/*)
     ↓ daly-bms-server
 AppState (données en mémoire)
@@ -49,9 +49,9 @@ ReactFlow Dashboard (temps réel)
 
 | Composant | Rôle | Technologie |
 |-----------|------|-------------|
-| **inverter.json** | Agréger MultiPlus D-Bus → MQTT | Node-RED |
-| **smartshunt.json** | Agréger SmartShunt D-Bus → MQTT | Node-RED |
-| **Solar_power.json** | Agréger MPPT D-Bus → MQTT | Node-RED |
+| **inverter.json** | Agréger MultiPlus D-Bus → MQTT | energy-manager |
+| **smartshunt.json** | Agréger SmartShunt D-Bus → MQTT | energy-manager |
+| **Solar_power.json** | Agréger MPPT D-Bus → MQTT | energy-manager |
 | **VenusInverter struct** | Stocker inverter en Rust | Serde |
 | **MQTT handlers** | Parser JSON MQTT → Rust | async/tokio |
 | **API endpoints** | Exposer via REST | Axum |
@@ -76,10 +76,10 @@ Victron Hardware D-Bus:
   (et 100+ autres chemins D-Bus)
 
 ┌─────────────────────────────────────────────────────────────┐
-│ ÉTAPE 2: AGGRÉGATION (Node-RED - Pi5 Docker)               │
+│ ÉTAPE 2: AGGRÉGATION (energy-manager - Pi5 Docker)               │
 └─────────────────────────────────────────────────────────────┘
 
-Node-RED Flows:
+energy-manager Flows:
   inverter.json   → subscribe D-Bus → aggregate → publish MQTT
   smartshunt.json → subscribe D-Bus → aggregate → publish MQTT
   Solar_power.json → subscribe D-Bus → aggregate → publish MQTT
@@ -229,7 +229,7 @@ impl AppState {
 
 #### santuario/inverter/venus
 
-Publié par: `inverter.json` Node-RED flow  
+Publié par: `inverter.json` energy-manager flow  
 Fréquence: Chaque nouveau message D-Bus (temps réel)  
 Résolution: Dépend de la fréquence Victron (~100ms)
 
@@ -258,7 +258,7 @@ Résolution: Dépend de la fréquence Victron (~100ms)
 
 #### santuario/system/venus
 
-Publié par: `smartshunt.json` Node-RED flow  
+Publié par: `smartshunt.json` energy-manager flow  
 Fréquence: Chaque nouveau message D-Bus (temps réel)
 
 ```json
@@ -280,7 +280,7 @@ Fréquence: Chaque nouveau message D-Bus (temps réel)
 
 #### santuario/meteo/venus
 
-Publié par: `Solar_power.json` + `meteo.json` Node-RED flows  
+Publié par: `Solar_power.json` + `meteo.json` energy-manager flows  
 Fréquence: Toutes les 25 secondes (keepalive)
 
 ```json
@@ -304,9 +304,9 @@ Fréquence: Toutes les 25 secondes (keepalive)
 
 ### 3.1 Flux MQTT sur Pi5
 
-#### Étape 1: Node-RED Flows
+#### Étape 1: energy-manager Flows
 
-**Fichier:** `flux-nodered/inverter.json`
+**Fichier:** `flux-energy-manager/inverter.json`
 
 ```
 D-Bus Input Node
@@ -461,9 +461,9 @@ dbus -y com.victronenergy.generator.XX / GetItems | grep -i temperature
 # /Ac/Temperature: 45.3  ← TROUVÉ
 ```
 
-### Étape 2: Créer le Node-RED Flow
+### Étape 2: Créer le energy-manager Flow
 
-**Fichier:** `flux-nodered/generator.json`
+**Fichier:** `flux-energy-manager/generator.json`
 
 ```json
 [
@@ -675,8 +675,8 @@ sudo systemctl stop daly-bms
 sudo cp target/aarch64-unknown-linux-gnu/release/daly-bms-server /usr/local/bin/
 sudo systemctl start daly-bms
 
-# 4. Import Node-RED flow
-# Accès: http://192.168.1.141:1880
+# 4. Import energy-manager flow
+# Accès: http://192.168.1.141:8081
 # Menu → Import → Paste generator.json content
 # Click Deploy
 
@@ -848,7 +848,7 @@ curl http://localhost:8080/api/v1/system/temperature | jq '.'
   - Ajouter on_*() et *_get() helpers
 
 □ ÉTAPE 3: Ajouter la source de données
-  - Si NanoPi → créer Node-RED flow JSON
+  - Si NanoPi → créer energy-manager flow JSON
   - Si Pi5 → ajouter tokio::spawn() polling loop
   - Si MQTT → ajouter handler dans mqtt.rs
   - Si API externe → ajouter HTTP client
@@ -953,7 +953,7 @@ if (n.id === 'mynode') {
 }
 ```
 
-### 6.3 Procédure Node-RED pour MQTT
+### 6.3 Procédure energy-manager pour MQTT
 
 ```json
 [
@@ -1011,11 +1011,11 @@ if (n.id === 'mynode') {
 
 **Causes possibles:**
 
-1. **Node-RED flow n'est pas en cours d'exécution**
+1. **energy-manager flow n'est pas en cours d'exécution**
    ```bash
-   # Vérifier les logs Node-RED
-   docker logs nodered | grep -i error
-   # Vérifier dans Node-RED UI que le flow est en "Deploy" (pas grisé)
+   # Vérifier les logs energy-manager
+   docker logs energy-manager | grep -i error
+   # Vérifier dans energy-manager UI que le flow est en "Deploy" (pas grisé)
    ```
 
 2. **MQTT topic n'est pas publié**
@@ -1023,7 +1023,7 @@ if (n.id === 'mynode') {
    # Watch MQTT
    mosquitto_sub -h 192.168.1.120 -p 1883 -t 'santuario/mydevice/venus' -v
    # Si rien n'apparaît pendant 30s, le topic n'est pas publié
-   # Vérifier la source (D-Bus disponible? Node-RED error?)
+   # Vérifier la source (D-Bus disponible? energy-manager error?)
    ```
 
 3. **Handler MQTT n'a pas parsé le JSON**
@@ -1147,7 +1147,7 @@ tokio::spawn(async move {
 **Métriques:** Temperature, Humidity, Battery%
 
 ```javascript
-// Dans Node-RED:
+// Dans energy-manager:
 [
   {
     "id": "shelly-http",
@@ -1227,13 +1227,13 @@ sudo systemctl start daly-bms
 # 4. Vérifier
 journalctl -u daly-bms -f
 
-# 5. Importer flows Node-RED
-# Accès: http://192.168.1.141:1880
+# 5. Importer flows energy-manager
+# Accès: http://192.168.1.141:8081
 # Import les fichiers JSON:
-# - flux-nodered/inverter.json
-# - flux-nodered/smartshunt.json
-# - flux-nodered/Solar_power.json (updated)
-# - flux-nodered/meteo.json (updated)
+# - flux-energy-manager/inverter.json
+# - flux-energy-manager/smartshunt.json
+# - flux-energy-manager/Solar_power.json (updated)
+# - flux-energy-manager/meteo.json (updated)
 
 # 6. Test dashboard
 # http://192.168.1.141:8080/visualization
@@ -1267,8 +1267,8 @@ make build-arm
 
 - **CLAUDE.md** — Référence projet principale
 - **IMPLEMENTATION_VERIFICATION.md** — Checklist implémentation + validation
-- **flux-nodered/inverter.json** — Flow MultiPlus (exemple Node-RED)
-- **flux-nodered/smartshunt.json** — Flow SmartShunt (exemple)
+- **flux-energy-manager/inverter.json** — Flow MultiPlus (exemple energy-manager)
+- **flux-energy-manager/smartshunt.json** — Flow SmartShunt (exemple)
 - **crates/daly-bms-server/src/state.rs** — Structures de données
 - **crates/daly-bms-server/src/bridges/mqtt.rs** — Handlers MQTT
 - **crates/daly-bms-server/src/api/system.rs** — Endpoints API

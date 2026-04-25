@@ -8,7 +8,6 @@ pub mod ats;
 pub mod et112;
 pub mod tasmota;
 pub mod chart;
-pub mod grafana;
 
 use crate::dashboard;
 use crate::state::AppState;
@@ -101,12 +100,6 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/v1/tasmota/:id/status",      get(tasmota::get_tasmota_status))
         .route("/api/v1/tasmota/:id/history",     get(tasmota::get_tasmota_history))
         .route("/api/v1/tasmota/:id/control",     post(tasmota::control_tasmota))
-
-        // ── Grafana Proxy (évite CORS) ────────────────────────────────────────
-        .route("/api/v1/grafana/api/:path",      get(grafana::proxy_grafana_api))
-        .route("/api/v1/grafana/d/:uid",         get(grafana::proxy_grafana_dashboard))
-        .route("/api/v1/grafana/render/:path",   get(grafana::proxy_grafana_render))
-
         // ── WebSocket ─────────────────────────────────────────────────────────
         .route("/ws/bms/stream",         get(bms::ws_all))
         .route("/ws/bms/:id/stream",     get(bms::ws_single))

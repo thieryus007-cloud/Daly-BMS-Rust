@@ -166,12 +166,16 @@ pub struct VictronConfig {
     /// Tasmota device ID for water heater relay (e.g. "tongou_3BC764")
     #[serde(default)]
     pub tasmota_waterheater_id: String,
+    /// SmartShunt device instance on Venus OS (e.g. 290)
+    #[serde(default = "default_smartshunt_instance")]
+    pub smartshunt_instance: u32,
 }
 
 fn default_vebus_instance() -> u32 { 275 }
 fn default_mppt1_instance() -> u32 { 273 }
 fn default_mppt2_instance() -> u32 { 289 }
 fn default_pvinv_instance() -> u32 { 32 }
+fn default_smartshunt_instance() -> u32 { 290 }
 
 // ---------------------------------------------------------------------------
 // Open-Meteo
@@ -347,6 +351,9 @@ pub struct WaterHeaterConfig {
     /// Keepalive interval for Venus OS watchdog (seconds)
     #[serde(default = "default_keepalive_secs")]
     pub keepalive_secs: u64,
+    /// Minimum irradiance to allow HEAT_PUMP mode (W/m²)
+    #[serde(default = "default_irradiance_min_wm2")]
+    pub irradiance_min_wm2: f64,
 }
 
 fn default_solar_min_w() -> f64 { 2000.0 }
@@ -356,6 +363,7 @@ fn default_hp_target_c() -> f64 { 60.0 }
 fn default_vacation_target_c() -> f64 { 45.0 }
 fn default_temp_set_delay_secs() -> u64 { 15 }
 fn default_keepalive_secs() -> u64 { 25 }
+fn default_irradiance_min_wm2() -> f64 { 300.0 }
 
 impl Default for WaterHeaterConfig {
     fn default() -> Self {
@@ -367,6 +375,7 @@ impl Default for WaterHeaterConfig {
             vacation_target_c: default_vacation_target_c(),
             temp_set_delay_secs: default_temp_set_delay_secs(),
             keepalive_secs: default_keepalive_secs(),
+            irradiance_min_wm2: default_irradiance_min_wm2(),
         }
     }
 }

@@ -1,28 +1,44 @@
-/// WebSocket live server — broadcasts LiveEvent JSON to all connected clients.
-/// Endpoint: WS /live
+/// HTTP + WebSocket server for energy-manager.
+///
+/// Routes:
+///   GET  /live               — WebSocket live event stream
+///   GET  /health             — health check
+///   GET  /api/water-heater   — current water heater state (JSON)
+///   POST /api/water-heater/mode   — set mode ("HEAT_PUMP" | "VACATION" | "TURBO")
 use axum::{
     extract::{
         ws::{Message, WebSocket, WebSocketUpgrade},
-        State,
+        Json, State,
     },
-    response::IntoResponse,
-    routing::get,
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    routing::{get, post},
     Router,
 };
+use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
-use tokio::sync::broadcast;
+use std::sync::Arc;
+use tokio::sync::{broadcast, RwLock};
 use tower_http::cors::{Any, CorsLayer};
 use tracing::info;
 
-use crate::types::LiveEvent;
+use crate::http_clients::lg_thinq::LgThinqClient;
+use crate::types::{EnergyState, LiveEvent, WaterHeaterMode};
 
 #[derive(Clone)]
-struct WsState {
-    tx: broadcast::Sender<LiveEvent>,
+struct ServerState {
+    tx:       broadcast::Sender<LiveEvent>,
+    state:    Arc<RwLock<EnergyState>>,
+    lg:       Option<Arc<LgThinqClient>>,
 }
 
-pub async fn serve(bind: &str, live_tx: broadcast::Sender<LiveEvent>) {
-    let state = WsState { tx: live_tx };
+pub async fn serve(
+    bind: &str,
+    live_tx: broadcast::Sender<LiveEvent>,
+    state: Arc<RwLock<EnergyState>>,
+    lg: Option<Arc<LgThinqClient>>,
+) {
+    let srv = ServerState { tx: live_tx, state, lg };
 
     let cors = CorsLayer::new()
         .allow_origin(Any)
@@ -30,25 +46,81 @@ pub async fn serve(bind: &str, live_tx: broadcast::Sender<LiveEvent>) {
         .allow_headers(Any);
 
     let app = Router::new()
-        .route("/live", get(ws_handler))
-        .route("/health", get(health_handler))
-        .with_state(state)
+        .route("/live",                     get(ws_handler))
+        .route("/health",                   get(health_handler))
+        .route("/api/water-heater",         get(wh_status_handler))
+        .route("/api/water-heater/mode",    post(wh_set_mode_handler))
+        .with_state(srv)
         .layer(cors);
 
     let addr: SocketAddr = bind.parse().unwrap_or_else(|_| "0.0.0.0:8081".parse().unwrap());
-    info!("Live WebSocket server listening on {addr}");
+    info!("Energy-manager HTTP server listening on {addr}");
 
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
 
+// ---------------------------------------------------------------------------
+// Water heater REST handlers
+// ---------------------------------------------------------------------------
+
+#[derive(Serialize)]
+struct WaterHeaterStatus {
+    mode:             String,
+    current_temp_c:   Option<f64>,
+    target_temp_c:    Option<f64>,
+    lg_enabled:       bool,
+}
+
+async fn wh_status_handler(State(srv): State<ServerState>) -> Response {
+    let s = srv.state.read().await;
+    let status = WaterHeaterStatus {
+        mode:           s.water_heater_mode.to_lg_str().to_string(),
+        current_temp_c: s.water_heater_temp_c,
+        target_temp_c:  s.water_heater_target_c,
+        lg_enabled:     srv.lg.is_some(),
+    };
+    Json(status).into_response()
+}
+
+#[derive(Deserialize)]
+struct SetModeRequest {
+    mode: String,
+}
+
+async fn wh_set_mode_handler(
+    State(srv): State<ServerState>,
+    Json(body): Json<SetModeRequest>,
+) -> Response {
+    let Some(lg) = srv.lg else {
+        return (StatusCode::SERVICE_UNAVAILABLE, "LG ThinQ not configured").into_response();
+    };
+    let mode = WaterHeaterMode::from_lg_str(&body.mode);
+    if let Err(e) = lg.set_mode(mode).await {
+        return (StatusCode::BAD_GATEWAY, format!("LG error: {e}")).into_response();
+    }
+    {
+        let mut s = srv.state.write().await;
+        s.water_heater_mode = mode;
+    }
+    (StatusCode::OK, "ok").into_response()
+}
+
+// ---------------------------------------------------------------------------
+// Health
+// ---------------------------------------------------------------------------
+
 async fn health_handler() -> &'static str {
     "energy-manager ok"
 }
 
+// ---------------------------------------------------------------------------
+// WebSocket
+// ---------------------------------------------------------------------------
+
 async fn ws_handler(
     ws: WebSocketUpgrade,
-    State(state): State<WsState>,
+    State(state): State<ServerState>,
 ) -> impl IntoResponse {
     ws.on_upgrade(|socket| handle_socket(socket, state.tx))
 }

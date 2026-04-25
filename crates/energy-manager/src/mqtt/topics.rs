@@ -13,7 +13,7 @@ pub fn w(portal_id: &str, path: &str) -> String {
 // All topics the energy-manager subscribes to
 // ---------------------------------------------------------------------------
 
-pub fn all_subscriptions(portal_id: &str, vebus: u32, mppt1: u32, mppt2: u32, pvinv: u32) -> Vec<String> {
+pub fn all_subscriptions(portal_id: &str, vebus: u32, mppt1: u32, mppt2: u32, pvinv: u32, shunt: u32) -> Vec<String> {
     let pid = portal_id;
     vec![
         // --- VEBus ---
@@ -29,7 +29,7 @@ pub fn all_subscriptions(portal_id: &str, vebus: u32, mppt1: u32, mppt2: u32, pv
         n(pid, &format!("vebus/{vebus}/Energy/InverterToAcOut")),
         n(pid, &format!("vebus/{vebus}/Energy/OutToInverter")),
 
-        // --- System / SmartShunt ---
+        // --- System aggregates ---
         n(pid, "system/0/Dc/Battery/Soc"),
         n(pid, "system/0/Dc/Battery/Current"),
         n(pid, "system/0/Dc/Battery/State"),
@@ -37,6 +37,16 @@ pub fn all_subscriptions(portal_id: &str, vebus: u32, mppt1: u32, mppt2: u32, pv
         n(pid, "system/0/Dc/Pv/Power"),
         n(pid, "system/0/Ac/PvOnOutput/L1/Power"),
         n(pid, "system/0/Ac/ConsumptionOnOutput/L1/Power"),
+
+        // --- SmartShunt (battery/{shunt}) — native energy counters ---
+        n(pid, &format!("battery/{shunt}/Dc/0/Voltage")),
+        n(pid, &format!("battery/{shunt}/Dc/0/Current")),
+        n(pid, &format!("battery/{shunt}/Dc/0/Power")),
+        n(pid, &format!("battery/{shunt}/Soc")),
+        n(pid, &format!("battery/{shunt}/TimeToGo")),
+        n(pid, &format!("battery/{shunt}/State")),
+        n(pid, &format!("battery/{shunt}/History/ChargedEnergy")),
+        n(pid, &format!("battery/{shunt}/History/DischargedEnergy")),
 
         // --- MPPT 1 ---
         n(pid, &format!("solarcharger/{mppt1}/Yield/Power")),

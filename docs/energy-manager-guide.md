@@ -6,7 +6,7 @@ Référence complète pour modifier, ajouter ou supprimer une fonctionnalité du
 
 ## 1. Vue d'ensemble
 
-`energy-manager` est un binaire Rust autonome qui remplace les flows Node-RED. Il tourne en service systemd sur le Pi5 (`energy-manager.service`), écoute le broker MQTT Mosquitto, applique la logique métier, et publie sur MQTT, InfluxDB et WebSocket.
+`energy-manager` est un binaire Rust autonome qui remplace les flows energy-manager. Il tourne en service systemd sur le Pi5 (`energy-manager.service`), écoute le broker MQTT Mosquitto, applique la logique métier, et publie sur MQTT, InfluxDB et WebSocket.
 
 ### Flux de données
 

@@ -1,7 +1,7 @@
-# Guide de Dépannage MQTT — Pi5 → Node-RED (2026-04-10)
+# Guide de Dépannage MQTT — Pi5 → energy-manager (2026-04-10)
 
 ## 🔴 Problème
-Aucun message MQTT ne provient du Pi5 vers Node-RED depuis le dernier changement.
+Aucun message MQTT ne provient du Pi5 vers energy-manager depuis le dernier changement.
 
 ## ✅ Vérifications Préalables
 - Mosquitto (NanoPi) fonctionne bien
@@ -192,9 +192,9 @@ journalctl -u daly-bms -f
 
 ---
 
-### Étape 8 — Vérifier depuis Node-RED (Pi5)
+### Étape 8 — Vérifier depuis energy-manager (Pi5)
 
-**Accès Node-RED** : `http://192.168.1.141:1880`
+**Accès energy-manager** : `http://192.168.1.141:8081`
 
 **Vérifier les nœuds MQTT** :
 1. Cliquer sur un nœud **mqtt in** ou **mqtt out**
@@ -225,7 +225,7 @@ journalctl -u daly-bms -f
 
 ### Niveau 3 — Connectivité MQTT
 - [ ] `mosquitto_sub -h 192.168.1.120 -p 1883 -t 'santuario/#' -v` → affiche les messages ✓
-- [ ] Node-RED : nœuds MQTT affichés en **vert** (connectés)
+- [ ] energy-manager : nœuds MQTT affichés en **vert** (connectés)
 - [ ] Dashboard Pi5 : données visibles (ou API `/api/v1/bms`)
 
 ### Niveau 4 — Compilation & Binaire
@@ -278,7 +278,7 @@ timeout 5 mosquitto_sub -h 192.168.1.120 -p 1883 -t 'santuario/bms/1/venus'
 | Pas de messages MQTT | Serveur ne démarre pas ou config MQTT fausse | Checker logs + config |
 | Broker inaccessible | Réseau ou firewall | `ping 192.168.1.120` |
 | Port série /dev/ttyUSB0 absent | BMS non connecté ou USB débranché | Vérifier câbles USB |
-| Anciennes données dans Node-RED | Cache MQTT retained | `make reset` (destructif) ou nettoyer manuellement |
+| Anciennes données dans energy-manager | Cache MQTT retained | `make reset` (destructif) ou nettoyer manuellement |
 
 ---
 

@@ -84,13 +84,14 @@ async fn control_task(
         ticker.tick().await;
         let now = Utc::now();
 
-        let (ac_ignore, soc, batt_current, solar_total, current_mode, last_change) = {
+        let (ac_ignore, soc, batt_current, solar_total, irradiance, current_mode, last_change) = {
             let s = state.read().await;
             (
                 s.ac_ignore.unwrap_or(0),
                 s.soc_pct.unwrap_or(0.0),
                 s.battery_current_a.unwrap_or(0.0),
                 s.solar_total_w,
+                s.irradiance_wm2,
                 s.water_heater_mode,
                 s.water_heater_last_change,
             )
@@ -126,7 +127,10 @@ async fn control_task(
             (now - t).num_seconds() as u64 >= cfg.debounce_secs
         }).unwrap_or(false);
 
-        let want_vacation = grid_on || soc_low || discharge_too_long || solar_too_low;
+        // Condition 5: irradiance below minimum threshold (immediate, no debounce)
+        let irradiance_low = irradiance.map(|w| w < cfg.irradiance_min_wm2).unwrap_or(true);
+
+        let want_vacation = grid_on || soc_low || discharge_too_long || solar_too_low || irradiance_low;
         let target_mode = if want_vacation { WaterHeaterMode::Vacation } else { WaterHeaterMode::HeatPump };
 
         // --- Rate limiting ---
@@ -139,7 +143,7 @@ async fn control_task(
         }
 
         info!("Water heater: changing mode {:?} → {:?} (grid={grid_on}, soc={soc:.1}%, \
-            discharge={discharge_too_long}, solar_low={solar_too_low})",
+            discharge={discharge_too_long}, solar_low={solar_too_low}, irradiance_low={irradiance_low})",
             current_mode, target_mode);
 
         // --- Apply change ---

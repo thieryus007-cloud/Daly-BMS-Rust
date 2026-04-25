@@ -11,16 +11,15 @@ Exécuter chaque commande **dans l'ordre exact** sur Pi5, noter les résultats.
 ```bash
 # Sur Pi5 — État des services
 systemctl status daly-bms | head -20
-docker ps | grep -E "nodered|mosquitto"
+docker ps | grep mosquitto
 ```
 
 **Résultat attendu:**
 - daly-bms: `active (running)`
-- nodered: container running
 - mosquitto: container running
 
 **Si NOK:** 
-- Redémarrer: `sudo systemctl restart daly-bms && docker restart nodered mosquitto`
+- Redémarrer: `sudo systemctl restart daly-bms && docker restart mosquitto`
 
 ---
 
@@ -40,7 +39,7 @@ journalctl -u daly-bms -n 30 --no-pager
 - → Vérifier MQTT broker (étape 3)
 
 **Si PAS de messages "Updated":**
-- → Vérifier Node-RED flows (étape 4)
+- → Vérifier les topics MQTT avec mosquitto_sub
 
 ---
 
@@ -81,16 +80,12 @@ santuario/bms/2/venus {...}
 ```
 
 ### 🔴 SI `santuario/inverter/venus` EST ABSENT:
-- **Cause:** Node-RED flow inverter.json n'est pas déployé OU ne reçoit pas les données D-Bus du NanoPi
 
 **Diagnostic:**
 ```bash
-# Vérifier dans Node-RED si les flows sont présents et deployed
-docker logs nodered 2>&1 | grep -i "error\|flow\|deployed" | tail -20
 ```
 
 ### 🔴 SI `santuario/system/venus` EST ABSENT:
-- **Cause:** Node-RED flow smartshunt.json n'est pas déployé OU ne reçoit pas les données D-Bus du NanoPi
 
 ---
 
@@ -210,22 +205,6 @@ Onduleur affiche "—" ?
 
 ## 🔧 FIXES RAPIDES
 
-### FIX #1: Node-RED inverter.json pas importé
-
-**Sur Pi5, accès Node-RED:** http://192.168.1.141:1880
-
-1. Menu → Import → "Select a file"
-2. Naviguer à: `~/Daly-BMS-Rust/flux-nodered/inverter.json`
-3. Cliquer "Import"
-4. Cliquer "Deploy" (bouton rouge en haut à droite)
-5. Attendre que le bouton redevienne gris
-6. Vérifier: étape 4 doit maintenant afficher `santuario/inverter/venus`
-
-### FIX #2: Node-RED smartshunt.json pas importé
-
-Même procédure que FIX #1, mais avec:
-- Fichier: `~/Daly-BMS-Rust/flux-nodered/smartshunt.json`
-
 ### FIX #3: MQTT handler pas enregistré
 
 **Vérifier:** `crates/daly-bms-server/src/bridges/mqtt.rs`
@@ -278,7 +257,7 @@ journalctl -u daly-bms -n 10
 ## ✅ CHECKLIST DE VÉRIFICATION
 
 ```
-□ Services tournent (BMS, Node-RED, Mosquitto)
+□ Services tournent (BMS, Mosquitto, energy-manager)
   Commande: systemctl status daly-bms && docker ps
 
 □ MQTT topics publiés
@@ -290,7 +269,6 @@ journalctl -u daly-bms -n 10
 □ Dashboard peut fetch l'API
   Console navigateur: fetch('/api/v1/venus/inverter').then(r => r.json()).then(console.log)
 
-□ Node-RED flows déployés
   Accès: http://192.168.1.141:1880 → vérifier flows présents et "Deploy" gris
 
 □ Logs BMS sans erreurs
@@ -306,7 +284,6 @@ Une fois le problème identifié, fournir:
 1. **Résultat étape 4:** Topics MQTT publiés oui/non
 2. **Résultat étape 5:** API endpoints répondent oui/non (connected: true/false)
 3. **Logs pertinents:** Copier/coller depuis journalctl
-4. **Node-RED status:** Flows présents? Deployed? Erreurs?
 5. **Dernière action prise:** Quelle commande exécutée
 
 Cela permettra de diagnostiquer rapidement.
@@ -318,7 +295,7 @@ Cela permettra de diagnostiquer rapidement.
 ```bash
 # Redémarrer tout
 sudo systemctl restart daly-bms
-docker restart nodered mosquitto
+docker restart mosquitto
 sleep 5
 
 # Vérifier MQTT
@@ -342,5 +319,4 @@ Fournir exactement:
 1. Résultat étape 4 (MQTT topics)
 2. Résultat étape 5 (API endpoints)
 3. Output de: `journalctl -u daly-bms -n 50`
-4. Output de: `docker logs nodered 2>&1 | tail -30`
-5. Les 3 flows visibles dans Node-RED? (inverter.json, smartshunt.json, Solar_power.json)
+4. Output de: `

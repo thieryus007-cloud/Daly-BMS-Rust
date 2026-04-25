@@ -688,19 +688,6 @@ pub async fn dashboard_ats(State(_state): State<AppState>) -> Response {
 }
 
 // =============================================================================
-// Dashboard Grafana — Historique avec InfluxDB
-// =============================================================================
-
-#[derive(Template)]
-#[template(path = "grafana_dashboard.html")]
-struct GrafanaDashboardTemplate {}
-
-/// Page du dashboard Grafana (affiche l'historique via iframe).
-pub async fn dashboard_grafana() -> Response {
-    render(GrafanaDashboardTemplate {})
-}
-
-// =============================================================================
 // Dashboard Monitoring système Pi5
 // =============================================================================
 
@@ -727,7 +714,6 @@ pub fn build_dashboard_router() -> Router<AppState> {
         .route("/dashboard/tasmota/:id",       get(dashboard_tasmota))
         .route("/dashboard/ats",               get(dashboard_ats))
         .route("/dashboard/monitor",           get(dashboard_monitor))
-        .route("/dashboard/grafana",           get(dashboard_grafana))
         .route("/dashboard/visualization",     get(dashboard_visualization))
         .route("/visualization",               get(dashboard_visualization))
 }

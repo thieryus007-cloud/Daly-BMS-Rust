@@ -51,6 +51,7 @@ async fn main() -> anyhow::Result<()> {
         cfg.victron.mppt1_instance,
         cfg.victron.mppt2_instance,
         cfg.victron.pvinverter_instance,
+        cfg.victron.smartshunt_instance,
     );
 
     // --- Spawn MQTT client ---
@@ -78,7 +79,7 @@ async fn main() -> anyhow::Result<()> {
     let vic = Arc::new(cfg.victron.clone());
 
     logic::inverter::spawn(vic.clone(), bus.clone(), state.clone()).await;
-    logic::smartshunt::spawn(bus.clone(), state.clone()).await;
+    logic::smartshunt::spawn(vic.clone(), bus.clone(), state.clone()).await;
     logic::irradiance::spawn(bus.clone(), state.clone()).await;
     logic::tasmota::spawn(vic.clone(), bus.clone(), state.clone()).await;
     logic::switch_ats::spawn(bus.clone(), state.clone()).await;
@@ -90,11 +91,13 @@ async fn main() -> anyhow::Result<()> {
     logic::meteo::spawn(cfg.solar.clone(), bus.clone(), state.clone()).await;
     logic::victron_keepalive::spawn(cfg.victron.portal_id.clone(), bus.clone()).await;
 
-    // --- Live WebSocket server ---
-    let bind    = cfg.api.bind.clone();
-    let live_tx = bus.live.clone();
+    // --- Live WebSocket + REST server ---
+    let bind     = cfg.api.bind.clone();
+    let live_tx  = bus.live.clone();
+    let srv_state = state.clone();
+    let srv_lg    = lg_arc.clone();
     tokio::spawn(async move {
-        live_ws::server::serve(&bind, live_tx).await;
+        live_ws::server::serve(&bind, live_tx, srv_state, srv_lg).await;
     });
 
     info!("energy-manager fully started");

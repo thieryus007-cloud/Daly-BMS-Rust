@@ -40,7 +40,7 @@ com.victronenergy.acload (when used as consumer to measure an acload)
         │
         │ (HTTP, RS485, Shelly, LG ThinQ API...)
         ▼
-[Node-RED sur Pi5]
+[energy-manager sur Pi5]
         │
         │ MQTT publish  topic: santuario/{type}/{index}/venus
         │               payload: JSON {"Champ": valeur, ...}
@@ -73,7 +73,7 @@ com.victronenergy.acload (when used as consumer to measure an acload)
 
 | Machine | IP | Rôle |
 |---|---|---|
-| Pi5 (Raspberry Pi 5) | 192.168.1.141 | Docker : Mosquitto, Node-RED, InfluxDB, Grafana |
+| Pi5 (Raspberry Pi 5) | 192.168.1.141 | Docker : Mosquitto, energy-manager, InfluxDB, Grafana |
 | NanoPi Neo3 | 192.168.1.120 | Venus OS, service Rust dbus-mqtt-venus, D-Bus |
 
 ---
@@ -115,7 +115,7 @@ device_instance  = 20       # doit être unique sur le bus D-Bus
 santuario/heat/1/venus
 ```
 
-Payload JSON (publié par Node-RED) :
+Payload JSON (publié par energy-manager) :
 ```json
 {"Temperature": 11.5, "Humidity": 42.0}
 ```
@@ -126,7 +126,7 @@ Payload JSON (publié par Node-RED) :
 com.victronenergy.temperature.mqtt_1
 ```
 
-### 5. Flux Node-RED (meteo.json)
+### 5. Flux energy-manager (meteo.json)
 
 **Inject → HTTP Open-Meteo → Extraire température → mqtt out**
 
@@ -178,7 +178,7 @@ topic santuario/# in 0
 ```
 Sert à InfluxDB/Grafana pour lire les données BMS.
 
-### Direction Pi5 → NanoPi (commandes Node-RED → service Rust)
+### Direction Pi5 → NanoPi (commandes energy-manager → service Rust)
 ```
 topic santuario/heat/#     out 0
 topic santuario/heatpump/# out 0
@@ -199,7 +199,7 @@ Le service Rust gère deux intervalles (configurables dans Config.toml section `
 | `republish_sec` | 25s | Réémet `ItemsChanged` vers D-Bus même sans nouveau MQTT |
 | `watchdog_sec` | 30s | Après ce délai sans MQTT, met `/Connected = 0` |
 
-Node-RED doit publier le topic au moins une fois par `watchdog_sec`.
+energy-manager doit publier le topic au moins une fois par `watchdog_sec`.
 Pour les sources lentes (Open-Meteo = 15 min), un nœud keepalive est obligatoire.
 
 ---
@@ -258,7 +258,7 @@ rustup target add armv7-unknown-linux-gnueabihf
 
 ```bash
 cd ~/Daly-BMS-Rust
-git pull origin claude/migrate-nodered-pi5-91idx
+git pull origin claude/migrate-energy-manager-pi5-91idx
 ```
 
 ### Étape 2 — Compiler pour ARMv7 (Pi5)
@@ -306,24 +306,24 @@ ssh root@192.168.1.120 "svc -d /data/etc/sv/dbus-mqtt-venus && \
 
 ```bash
 cd ~/Daly-BMS-Rust
-git pull origin claude/migrate-nodered-pi5-91idx
+git pull origin claude/migrate-energy-manager-pi5-91idx
 docker compose restart mosquitto
 ```
 
-### Étape 6 — Mettre à jour les flux Node-RED si modifiés
+### Étape 6 — Mettre à jour les flux energy-manager si modifiés
 
 ```bash
 # Sur Pi5 — récupérer les derniers JSON de flux
 cd ~/Daly-BMS-Rust
-git pull origin claude/migrate-nodered-pi5-91idx
-# Puis importer manuellement dans Node-RED (voir section ci-dessous)
+git pull origin claude/migrate-energy-manager-pi5-91idx
+# Puis importer manuellement dans energy-manager (voir section ci-dessous)
 ```
 
 ---
 
-## Procédure d'import d'un flux Node-RED
+## Procédure d'import d'un flux energy-manager
 
-1. Ouvrir Node-RED : http://192.168.1.141:1880
+1. Ouvrir energy-manager : http://192.168.1.141:8081
 2. Double-clic sur l'onglet existant → clic **Delete** → confirmer
 3. Menu ≡ → **Import** → coller le JSON → **Import**
 4. Vérifier les nœuds (broker connecté, topics corrects)
@@ -426,7 +426,7 @@ device_instance = 30      # DeviceInstance unique sur D-Bus
 santuario/heatpump/1/venus
 ```
 
-Payload JSON (publié par Node-RED) :
+Payload JSON (publié par energy-manager) :
 ```json
 {
   "State": 1,
@@ -473,7 +473,7 @@ Réponse utilisée :
 }
 ```
 
-### 7. Commandes SET disponibles dans Node-RED
+### 7. Commandes SET disponibles dans energy-manager
 
 ```
 POST https://api-eic.lgthinq.com/devices/{device_id}/control
@@ -486,7 +486,7 @@ POST https://api-eic.lgthinq.com/devices/{device_id}/control
 | Régler température 40°C | `{"temperature": {"targetTemperature": 40}}` |
 | Régler température 55°C | `{"temperature": {"targetTemperature": 55}}` |
 
-### 8. Flux Node-RED (setwaterheater.json)
+### 8. Flux energy-manager (setwaterheater.json)
 
 **Structure :**
 ```
@@ -534,7 +534,7 @@ dbus -y com.victronenergy.heatpump.mqtt_1 /Position           GetValue
 dbus -y com.victronenergy.heatpump.mqtt_1 /Connected          GetValue
 ```
 
-### 10. Test MQTT direct (sans Node-RED)
+### 10. Test MQTT direct (sans energy-manager)
 
 ```bash
 # Depuis Pi5 ou NanoPi
@@ -612,7 +612,7 @@ device_instance = 64
 santuario/switch/1/venus
 ```
 
-Payload JSON (publié par Node-RED) :
+Payload JSON (publié par energy-manager) :
 ```json
 {"Position": 0, "State": 1}
 ```
@@ -760,7 +760,7 @@ Payload JSON :
 }
 ```
 
-### 4. Flux Node-RED (exemple)
+### 4. Flux energy-manager (exemple)
 
 ```javascript
 // Déclencher un backup Pi5 via script SSH ou API
@@ -786,7 +786,7 @@ dbus -y com.victronenergy.platform /Backup/LastRun GetValue
 
 ## Batterie agrégée 628Ah (BMS-3 virtuel)
 
-La batterie 628Ah est une batterie **virtuelle agrégée** calculée par Node-RED
+La batterie 628Ah est une batterie **virtuelle agrégée** calculée par energy-manager
 à partir des données BMS-1 (360Ah) et BMS-2 (268Ah) ou des deux BMS réels.
 
 Configuration dans Config.toml :
@@ -800,7 +800,7 @@ mqtt_index      = 3
 device_instance = 143
 ```
 
-Flux Node-RED — calcul agrégé et publication sur `santuario/bms/3/venus` :
+Flux energy-manager — calcul agrégé et publication sur `santuario/bms/3/venus` :
 ```javascript
 const bms1 = global.get('bms1_snapshot');
 const bms2 = global.get('bms2_snapshot');
@@ -816,11 +816,11 @@ const bms2 = global.get('bms2_snapshot');
 1. Vérifier que le service Rust tourne : `ps | grep dbus-mqtt-venus`
 2. Vérifier qu'un message MQTT a été reçu (le service D-Bus est créé au 1er message)
 3. Vérifier le bridge Mosquitto : règle `out` présente pour le topic concerné
-4. Vérifier que Node-RED est déployé et le nœud connecté (vert "Connecté")
+4. Vérifier que energy-manager est déployé et le nœud connecté (vert "Connecté")
 
 ### /Connected = 0 (device déconnecté dans VRM)
 
-Le keepalive Node-RED est trop long (> `watchdog_sec` = 30s).
+Le keepalive energy-manager est trop long (> `watchdog_sec` = 30s).
 Réduire le repeat de l'inject keepalive à 25s maximum.
 
 ### scp échoue avec "Failure"
@@ -840,11 +840,11 @@ sudo chown $(whoami):$(whoami) docker/mosquitto/config/mosquitto.conf
 NanoPi = ARMv7 32-bit. Le binaire Pi5 (aarch64) ne fonctionne pas.
 Toujours compiler avec `--target armv7-unknown-linux-gnueabihf`.
 
-### Onglet Node-RED vide après docker compose down/up
+### Onglet energy-manager vide après docker compose down/up
 
-Les volumes Node-RED sont persistants. Si les flux disparaissent :
-1. Vérifier `docker volume ls | grep nodered`
-2. Réimporter depuis `flux-nodered/*.json`
+Les volumes energy-manager sont persistants. Si les flux disparaissent :
+1. Vérifier `docker volume ls | grep energy-manager`
+2. Réimporter depuis `flux-energy-manager/*.json`
 
 
 ### annexe: Victron switch parameters
@@ -949,7 +949,7 @@ SETTINGS:
 
                                                    (optional) Indicate if the control is shown in the local  and in the remote UI
                                                    If used, set to 1 by default.
-                                                   (for usage in Node-RED, but not in the gui)
+                                                   (for usage in energy-manager, but not in the gui)
 
                                                    Values:
                                                    0bxx1: Show control in all UI's
@@ -1027,7 +1027,7 @@ SETTINGS:
                                                    Speed (Knots, km/h, ..), Temperature (Celcius, Fahrenheit),
                                                    Volume (Litres, m3, ... ).
 
-                                                   To all switches/node-red and so forth systems to have controls
+                                                   To all switches/energy-manager and so forth systems to have controls
                                                    in the units that are configured system wide by the user, we
                                                    introduce special texts that the UI control will recognize
                                                    and when used it will use the user configured unit:
