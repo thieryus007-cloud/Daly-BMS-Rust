@@ -5,6 +5,7 @@
 pub mod system;
 pub mod bms;
 pub mod ats;
+pub mod console;
 pub mod et112;
 pub mod tasmota;
 pub mod chart;
@@ -104,6 +105,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/ws/bms/stream",         get(bms::ws_all))
         .route("/ws/bms/:id/stream",     get(bms::ws_single))
         .route("/ws/venus/stream",       get(bms::ws_venus))
+        .route("/ws/console",            get(console::ws_console))
 
         // ── Middlewares ───────────────────────────────────────────────────────
         .layer(cors)

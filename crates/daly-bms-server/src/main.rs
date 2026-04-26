@@ -16,6 +16,7 @@
 mod autodetect;
 mod config;
 mod ats;
+mod console;
 mod et112;
 mod irradiance;
 mod tasmota;
