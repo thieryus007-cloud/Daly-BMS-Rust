@@ -35,8 +35,11 @@ pub enum EventDevice {
     Bms2,
     Et112,
     Ats,
+    Irradiance,   // PRALRAN capteur irradiance RS485
+    #[serde(rename = "smartshunt")]
     SmartShunt,
     Tasmota,
+    Shelly,
     WaterHeater,  // LG ThinQ / heatpump
     Solar,        // MPPT / pvinverter (energy-manager)
     Inverter,     // Venus OS onduleur

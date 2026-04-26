@@ -222,8 +222,10 @@
 .dev-bms2         { background: #56d364; }
 .dev-et112        { background: #d29922; }
 .dev-ats          { background: #f0883e; }
+.dev-irradiance   { background: #ffdf5d; }
 .dev-smartshunt   { background: #a371f7; }
 .dev-tasmota      { background: #e3b341; }
+.dev-shelly       { background: #ff6b9d; }
 .dev-water_heater { background: #ff7b72; }
 .dev-solar        { background: #ffa657; }
 .dev-inverter     { background: #3fb950; }
@@ -341,13 +343,20 @@
     <!-- Filter sidebar -->
     <div class="con-sidebar">
 
+      <!-- Select All / Deselect All -->
+      <div style="display:flex;gap:0.3rem;margin-bottom:0.25rem;">
+        <button class="btn btn-outline" onclick="selectAllDevs(true)"  style="flex:1;font-size:0.65rem;padding:0.2rem 0.3rem;">✅ Tout</button>
+        <button class="btn btn-outline" onclick="selectAllDevs(false)" style="flex:1;font-size:0.65rem;padding:0.2rem 0.3rem;">☐ Aucun</button>
+      </div>
+
       <!-- RS485 -->
       <div class="con-filter-grp">
         <div class="con-filter-title">RS485</div>
-        <label class="con-check"><input type="checkbox" class="dev-filter" value="bms1"  checked onchange="applyFilters()"><span class="con-dot dev-bms1"></span> BMS-1</label>
-        <label class="con-check"><input type="checkbox" class="dev-filter" value="bms2"  checked onchange="applyFilters()"><span class="con-dot dev-bms2"></span> BMS-2</label>
-        <label class="con-check"><input type="checkbox" class="dev-filter" value="et112" checked onchange="applyFilters()"><span class="con-dot dev-et112"></span> ET112</label>
-        <label class="con-check"><input type="checkbox" class="dev-filter" value="ats"   checked onchange="applyFilters()"><span class="con-dot dev-ats"></span> ATS CHINT</label>
+        <label class="con-check"><input type="checkbox" class="dev-filter" value="bms1"       checked onchange="applyFilters()"><span class="con-dot dev-bms1"></span> BMS-1</label>
+        <label class="con-check"><input type="checkbox" class="dev-filter" value="bms2"       checked onchange="applyFilters()"><span class="con-dot dev-bms2"></span> BMS-2</label>
+        <label class="con-check"><input type="checkbox" class="dev-filter" value="et112"      checked onchange="applyFilters()"><span class="con-dot dev-et112"></span> ET112</label>
+        <label class="con-check"><input type="checkbox" class="dev-filter" value="ats"        checked onchange="applyFilters()"><span class="con-dot dev-ats"></span> ATS CHINT</label>
+        <label class="con-check"><input type="checkbox" class="dev-filter" value="irradiance" checked onchange="applyFilters()"><span class="con-dot dev-irradiance"></span> PRALRAN</label>
       </div>
 
       <!-- Energy Manager (collapsible) -->
@@ -381,6 +390,7 @@
       <div class="con-filter-grp">
         <div class="con-filter-title">Prises / Système</div>
         <label class="con-check"><input type="checkbox" class="dev-filter" value="tasmota" checked onchange="applyFilters()"><span class="con-dot dev-tasmota"></span> Tasmota</label>
+        <label class="con-check"><input type="checkbox" class="dev-filter" value="shelly"  checked onchange="applyFilters()"><span class="con-dot dev-shelly"></span> Shelly</label>
         <label class="con-check"><input type="checkbox" class="dev-filter" value="system"  checked onchange="applyFilters()"><span class="con-dot dev-system"></span> Système</label>
       </div>
 
@@ -543,7 +553,11 @@ function rerender() {
   const filtered = (limit > 0 ? events.slice(-limit) : events).filter(passesFilter);
 
   if (filtered.length === 0) {
-    stream.innerHTML = `<div class="con-empty"><div class="con-empty-icon">🔍</div><div class="con-empty-msg">Aucun événement ne correspond aux filtres actuels</div></div>`;
+    const connected = ws && ws.readyState === WebSocket.OPEN;
+    const msg = connected
+      ? 'En attente des prochains événements pour ces filtres…'
+      : 'Aucun événement dans le buffer pour ces filtres';
+    stream.innerHTML = `<div class="con-empty con-empty-filter" id="con-empty"><div class="con-empty-icon">🔍</div><div class="con-empty-msg">${msg}</div></div>`;
   } else {
     for (const ev of filtered) {
       stream.appendChild(buildRow(ev));
@@ -556,8 +570,8 @@ function rerender() {
 // ── DOM row construction ───────────────────────────────────────────────
 function appendRow(ev) {
   const stream = document.getElementById('con-stream');
-  // Remove empty placeholder
-  const empty = document.getElementById('con-empty');
+  // Remove empty placeholder (both initial and filter-empty)
+  const empty = stream.querySelector('.con-empty');
   if (empty) empty.remove();
 
   stream.appendChild(buildRow(ev));
@@ -698,7 +712,8 @@ function kindLabel(k) {
 function deviceLabel(d) {
   return {
     bms1:'BMS-1', bms2:'BMS-2', et112:'ET112', ats:'ATS',
-    smartshunt:'SmartShunt', tasmota:'Tasmota',
+    irradiance:'PRALRAN', smartshunt:'SmartShunt',
+    tasmota:'Tasmota', shelly:'Shelly',
     water_heater:'ChauffEau', solar:'Solaire',
     inverter:'Onduleur', venus:'Venus', system:'Système'
   }[d] || d;
@@ -711,6 +726,11 @@ function toggleGrp(id) {
   const isOpen = body.style.display !== 'none';
   body.style.display = isOpen ? 'none' : '';
   if (arr) arr.classList.toggle('open', !isOpen);
+}
+
+function selectAllDevs(checked) {
+  document.querySelectorAll('.dev-filter').forEach(c => { c.checked = checked; });
+  applyFilters();
 }
 
 // ── Utilities ──────────────────────────────────────────────────────────

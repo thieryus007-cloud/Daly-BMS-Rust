@@ -579,6 +579,10 @@ impl AppState {
 
     /// Enregistre la dernière mesure du capteur d'irradiance.
     pub async fn on_irradiance_snapshot(&self, snap: IrradianceSnapshot) {
+        self.console_bus.emit(ConsoleEvent::rs485(EventDevice::Irradiance, &format!("PRALRAN irradiance — {} W/m²", snap.irradiance_wm2 as i32), json!({
+            "address": snap.address,
+            "irradiance_wm2": snap.irradiance_wm2,
+        })));
         *self.irradiance_value.write().await = Some(snap);
     }
 
