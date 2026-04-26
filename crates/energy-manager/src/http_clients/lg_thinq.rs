@@ -9,31 +9,34 @@ use crate::config::LgThinqConfig;
 use crate::types::{LiveEvent, WaterHeaterMode};
 
 // ---------------------------------------------------------------------------
-// API response types — ThinQ EIC API v2 (corrigé selon réponse réelle)
+// API response types — ThinQ EIC API v2
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct LgStateResponse {
     response: LgStateResponseData,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct LgStateResponseData {
-    waterHeaterJobMode: Option<WaterHeaterJobMode>,
+    water_heater_job_mode: Option<WaterHeaterJobMode>,
     temperature: Option<TemperatureData>,
-    // operation et temperatureInUnits sont ignorés
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct WaterHeaterJobMode {
-    currentJobMode: String,
+    current_job_mode: String,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct TemperatureData {
-    currentTemperature: f64,
-    targetTemperature: f64,
-    unit: String,
+    current_temperature: f64,
+    target_temperature: f64,
+    // unit: String, // non utilisé, supprimé pour éviter warning dead_code
 }
 
 // ---------------------------------------------------------------------------
@@ -115,20 +118,20 @@ impl LgThinqClient {
         let body: LgStateResponse = resp.json().await.context("LG ThinQ parse state")?;
 
         let mode_str = body.response
-            .waterHeaterJobMode
+            .water_heater_job_mode
             .as_ref()
-            .map(|m| m.currentJobMode.as_str())
+            .map(|m| m.current_job_mode.as_str())
             .unwrap_or_default()
             .to_string();
 
         let current_temp_c = body.response
             .temperature
             .as_ref()
-            .map(|t| t.currentTemperature);
+            .map(|t| t.current_temperature);
         let target_temp_c = body.response
             .temperature
             .as_ref()
-            .map(|t| t.targetTemperature);
+            .map(|t| t.target_temperature);
 
         debug!("LG ThinQ state: mode={mode_str} temp={current_temp_c:?} target={target_temp_c:?}");
         Ok(LgSnapshot {
