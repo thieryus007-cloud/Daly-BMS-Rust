@@ -90,14 +90,17 @@ async fn handle_ws_console(socket: WebSocket, state: AppState, q: ConsoleQuery) 
 
 fn device_to_str(d: &EventDevice) -> &'static str {
     match d {
-        EventDevice::Bms1         => "bms1",
-        EventDevice::Bms2         => "bms2",
-        EventDevice::Et112        => "et112",
-        EventDevice::SmartShunt   => "smartshunt",
-        EventDevice::Ats          => "ats",
-        EventDevice::EnergyManager => "energy_manager",
-        EventDevice::Venus        => "venus",
-        EventDevice::System       => "system",
+        EventDevice::Bms1        => "bms1",
+        EventDevice::Bms2        => "bms2",
+        EventDevice::Et112       => "et112",
+        EventDevice::Ats         => "ats",
+        EventDevice::SmartShunt  => "smartshunt",
+        EventDevice::Tasmota     => "tasmota",
+        EventDevice::WaterHeater => "water_heater",
+        EventDevice::Solar       => "solar",
+        EventDevice::Inverter    => "inverter",
+        EventDevice::Venus       => "venus",
+        EventDevice::System      => "system",
     }
 }
 

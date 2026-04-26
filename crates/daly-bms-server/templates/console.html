@@ -221,11 +221,39 @@
 .dev-bms1         { background: #58a6ff; }
 .dev-bms2         { background: #56d364; }
 .dev-et112        { background: #d29922; }
-.dev-smartshunt   { background: #a371f7; }
 .dev-ats          { background: #f0883e; }
-.dev-energy_manager { background: #39d353; }
+.dev-smartshunt   { background: #a371f7; }
+.dev-tasmota      { background: #e3b341; }
+.dev-water_heater { background: #ff7b72; }
+.dev-solar        { background: #ffa657; }
+.dev-inverter     { background: #3fb950; }
 .dev-venus        { background: #79c0ff; }
 .dev-system       { background: #8b949e; }
+
+/* Sub-group (Energy Manager / Venus OS) */
+.con-subgrp {
+  padding-left: 0.6rem;
+  border-left: 2px solid rgba(255,255,255,0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-top: 0.1rem;
+}
+.con-grp-hdr {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted2);
+  cursor: pointer;
+  padding: 0.15rem 0;
+  user-select: none;
+}
+.con-grp-hdr:hover { color: var(--text); }
+.con-grp-arrow { font-size: 0.6rem; transition: transform 0.15s; }
+.con-grp-arrow.open { transform: rotate(90deg); }
+.con-grp-body { display: flex; flex-direction: column; gap: 0.3rem; }
 
 /* ── Expandable payload ──────────────────────────────────────────────── */
 .ev-payload {
@@ -313,16 +341,47 @@
     <!-- Filter sidebar -->
     <div class="con-sidebar">
 
+      <!-- RS485 -->
       <div class="con-filter-grp">
-        <div class="con-filter-title">Appareils</div>
-        <label class="con-check"><input type="checkbox" class="dev-filter" value="bms1"          checked onchange="applyFilters()"><span class="con-dot dev-bms1"></span> BMS-1</label>
-        <label class="con-check"><input type="checkbox" class="dev-filter" value="bms2"          checked onchange="applyFilters()"><span class="con-dot dev-bms2"></span> BMS-2</label>
-        <label class="con-check"><input type="checkbox" class="dev-filter" value="et112"         checked onchange="applyFilters()"><span class="con-dot dev-et112"></span> ET112</label>
-        <label class="con-check"><input type="checkbox" class="dev-filter" value="smartshunt"    checked onchange="applyFilters()"><span class="con-dot dev-smartshunt"></span> SmartShunt</label>
-        <label class="con-check"><input type="checkbox" class="dev-filter" value="ats"           checked onchange="applyFilters()"><span class="con-dot dev-ats"></span> ATS</label>
-        <label class="con-check"><input type="checkbox" class="dev-filter" value="energy_manager" checked onchange="applyFilters()"><span class="con-dot dev-energy_manager"></span> Energy-Mgr</label>
-        <label class="con-check"><input type="checkbox" class="dev-filter" value="venus"         checked onchange="applyFilters()"><span class="con-dot dev-venus"></span> Venus OS</label>
-        <label class="con-check"><input type="checkbox" class="dev-filter" value="system"        checked onchange="applyFilters()"><span class="con-dot dev-system"></span> Système</label>
+        <div class="con-filter-title">RS485</div>
+        <label class="con-check"><input type="checkbox" class="dev-filter" value="bms1"  checked onchange="applyFilters()"><span class="con-dot dev-bms1"></span> BMS-1</label>
+        <label class="con-check"><input type="checkbox" class="dev-filter" value="bms2"  checked onchange="applyFilters()"><span class="con-dot dev-bms2"></span> BMS-2</label>
+        <label class="con-check"><input type="checkbox" class="dev-filter" value="et112" checked onchange="applyFilters()"><span class="con-dot dev-et112"></span> ET112</label>
+        <label class="con-check"><input type="checkbox" class="dev-filter" value="ats"   checked onchange="applyFilters()"><span class="con-dot dev-ats"></span> ATS CHINT</label>
+      </div>
+
+      <!-- Energy Manager (collapsible) -->
+      <div class="con-filter-grp">
+        <div class="con-grp-hdr" onclick="toggleGrp('grp-em')">
+          <span class="con-grp-arrow open" id="arr-grp-em">▶</span> Energy Manager
+        </div>
+        <div class="con-grp-body" id="grp-em">
+          <div class="con-subgrp">
+            <label class="con-check"><input type="checkbox" class="dev-filter" value="smartshunt"  checked onchange="applyFilters()"><span class="con-dot dev-smartshunt"></span> SmartShunt</label>
+            <label class="con-check"><input type="checkbox" class="dev-filter" value="water_heater" checked onchange="applyFilters()"><span class="con-dot dev-water_heater"></span> Chauffe-eau LG</label>
+            <label class="con-check"><input type="checkbox" class="dev-filter" value="solar"       checked onchange="applyFilters()"><span class="con-dot dev-solar"></span> Solaire/MPPT</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Venus OS (collapsible) -->
+      <div class="con-filter-grp">
+        <div class="con-grp-hdr" onclick="toggleGrp('grp-venus')">
+          <span class="con-grp-arrow open" id="arr-grp-venus">▶</span> Venus OS
+        </div>
+        <div class="con-grp-body" id="grp-venus">
+          <div class="con-subgrp">
+            <label class="con-check"><input type="checkbox" class="dev-filter" value="inverter" checked onchange="applyFilters()"><span class="con-dot dev-inverter"></span> Onduleur</label>
+            <label class="con-check"><input type="checkbox" class="dev-filter" value="venus"    checked onchange="applyFilters()"><span class="con-dot dev-venus"></span> Températures</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Prises & Système -->
+      <div class="con-filter-grp">
+        <div class="con-filter-title">Prises / Système</div>
+        <label class="con-check"><input type="checkbox" class="dev-filter" value="tasmota" checked onchange="applyFilters()"><span class="con-dot dev-tasmota"></span> Tasmota</label>
+        <label class="con-check"><input type="checkbox" class="dev-filter" value="system"  checked onchange="applyFilters()"><span class="con-dot dev-system"></span> Système</label>
       </div>
 
       <div class="con-filter-grp">
@@ -518,14 +577,16 @@ function buildRow(ev) {
   const hdr = document.createElement('div');
   hdr.className = 'ev-header';
 
-  const ts     = mkEl('span', 'ev-ts',     ev.ts);
+  const ts     = mkEl('span', 'ev-ts', ev.ts);
   const badge  = mkEl('span', `ev-badge badge-${ev.kind}`, kindLabel(ev.kind));
-  const device = mkEl('span', 'ev-device', `[${deviceLabel(ev.device)}]`);
+  const dot    = mkEl('span', `con-dot dev-${ev.device}`, '');
+  dot.style.cssText = 'display:inline-block;width:7px;height:7px;border-radius:50%;flex-shrink:0;';
+  const device = mkEl('span', 'ev-device', deviceLabel(ev.device));
   const label  = document.createElement('span');
   label.className = 'ev-label';
   label.innerHTML = searchTerm ? highlightSearch(escHtml(ev.label)) : escHtml(ev.label);
 
-  hdr.append(ts, badge, device, label);
+  hdr.append(ts, badge, dot, device, label);
   row.appendChild(hdr);
 
   // Payload (expandable)
@@ -635,8 +696,21 @@ function kindLabel(k) {
   return { mqtt_in:'MQTT↓', mqtt_out:'MQTT↑', rs485:'RS485', state:'STATE', error:'ERROR', system:'SYS' }[k] || k.toUpperCase();
 }
 function deviceLabel(d) {
-  return { bms1:'BMS-1', bms2:'BMS-2', et112:'ET112', smartshunt:'SmartShunt',
-           ats:'ATS', energy_manager:'EnergyMgr', venus:'Venus', system:'System' }[d] || d;
+  return {
+    bms1:'BMS-1', bms2:'BMS-2', et112:'ET112', ats:'ATS',
+    smartshunt:'SmartShunt', tasmota:'Tasmota',
+    water_heater:'ChauffEau', solar:'Solaire',
+    inverter:'Onduleur', venus:'Venus', system:'Système'
+  }[d] || d;
+}
+
+function toggleGrp(id) {
+  const body = document.getElementById(id);
+  const arr  = document.getElementById('arr-' + id);
+  if (!body) return;
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : '';
+  if (arr) arr.classList.toggle('open', !isOpen);
 }
 
 // ── Utilities ──────────────────────────────────────────────────────────

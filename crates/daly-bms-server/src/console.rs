@@ -34,10 +34,13 @@ pub enum EventDevice {
     Bms1,
     Bms2,
     Et112,
-    SmartShunt,
     Ats,
-    EnergyManager,
-    Venus,
+    SmartShunt,
+    Tasmota,
+    WaterHeater,  // LG ThinQ / heatpump
+    Solar,        // MPPT / pvinverter (energy-manager)
+    Inverter,     // Venus OS onduleur
+    Venus,        // températures et autres données Venus OS
     System,
 }
 
