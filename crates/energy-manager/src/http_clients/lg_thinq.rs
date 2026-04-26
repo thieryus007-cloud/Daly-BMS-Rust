@@ -9,17 +9,31 @@ use crate::config::LgThinqConfig;
 use crate::types::{LiveEvent, WaterHeaterMode};
 
 // ---------------------------------------------------------------------------
-// API response types — ThinQ EIC API v2
+// API response types — ThinQ EIC API v2 (corrigé selon réponse réelle)
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Deserialize)]
 struct LgStateResponse {
-    result: Option<LgStateResult>,
+    response: LgStateResponseData,
 }
 
 #[derive(Debug, Deserialize)]
-struct LgStateResult {
-    data: Option<serde_json::Value>,
+struct LgStateResponseData {
+    waterHeaterJobMode: Option<WaterHeaterJobMode>,
+    temperature: Option<TemperatureData>,
+    // operation et temperatureInUnits sont ignorés
+}
+
+#[derive(Debug, Deserialize)]
+struct WaterHeaterJobMode {
+    currentJobMode: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct TemperatureData {
+    currentTemperature: f64,
+    targetTemperature: f64,
+    unit: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -77,7 +91,6 @@ impl LgThinqClient {
             h.insert("x-client-id",
                 HeaderValue::from_str(&self.cfg.client_id).unwrap());
         }
-        // x-message-id: unique per request (simple counter via timestamp)
         let msg_id = format!("{:x}", std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
@@ -100,25 +113,22 @@ impl LgThinqClient {
             .context("LG ThinQ GET state HTTP error")?;
 
         let body: LgStateResponse = resp.json().await.context("LG ThinQ parse state")?;
-        let data = body.result.and_then(|r| r.data).unwrap_or(serde_json::Value::Null);
 
-        // ThinQ EIC API: data.waterHeaterJobMode.currentJobMode
-        let mode_str = data
-            .get("waterHeaterJobMode")
-            .and_then(|v| v.get("currentJobMode"))
-            .and_then(|v| v.as_str())
+        let mode_str = body.response
+            .waterHeaterJobMode
+            .as_ref()
+            .map(|m| m.currentJobMode.as_str())
             .unwrap_or_default()
             .to_string();
 
-        // temperature: data.temperature.currentTemperature / targetTemperature
-        let current_temp_c = data
-            .get("temperature")
-            .and_then(|v| v.get("currentTemperature"))
-            .and_then(|v| v.as_f64());
-        let target_temp_c = data
-            .get("temperature")
-            .and_then(|v| v.get("targetTemperature"))
-            .and_then(|v| v.as_f64());
+        let current_temp_c = body.response
+            .temperature
+            .as_ref()
+            .map(|t| t.currentTemperature);
+        let target_temp_c = body.response
+            .temperature
+            .as_ref()
+            .map(|t| t.targetTemperature);
 
         debug!("LG ThinQ state: mode={mode_str} temp={current_temp_c:?} target={target_temp_c:?}");
         Ok(LgSnapshot {
@@ -129,7 +139,6 @@ impl LgThinqClient {
     }
 
     pub async fn set_mode(&self, mode: WaterHeaterMode) -> Result<()> {
-        // ThinQ EIC API control payload format (from Node-RED reference implementation)
         let payload = json!({
             "waterHeaterJobMode": {
                 "currentJobMode": mode.to_lg_str()
@@ -175,7 +184,7 @@ impl LgThinqClient {
 }
 
 // ---------------------------------------------------------------------------
-// Polling task (read state every N minutes)
+// Polling task
 // ---------------------------------------------------------------------------
 
 pub async fn spawn_poller(
