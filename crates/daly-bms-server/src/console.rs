@@ -15,6 +15,7 @@ pub const CONSOLE_CAPACITY: usize = 512;
 // Event classification
 // ---------------------------------------------------------------------------
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum EventKind {
@@ -26,6 +27,7 @@ pub enum EventKind {
     System,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum EventDevice {
@@ -57,6 +59,7 @@ pub struct ConsoleEvent {
     pub text:    Option<String>,
 }
 
+#[allow(dead_code)]
 impl ConsoleEvent {
     fn now() -> String {
         Utc::now().format("%H:%M:%S%.3f").to_string()
