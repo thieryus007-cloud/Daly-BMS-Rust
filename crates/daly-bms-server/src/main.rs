@@ -19,6 +19,7 @@ mod ats;
 mod console;
 mod et112;
 mod irradiance;
+mod shelly;
 mod tasmota;
 mod state;
 mod api;
@@ -262,6 +263,30 @@ async fn main() -> anyhow::Result<()> {
                 move |snap| {
                     let s = state_ta.clone();
                     tokio::spawn(async move { s.on_tasmota_snapshot(snap).await });
+                },
+            )
+            .await;
+        });
+    }
+
+    // ── Shelly Pro 2PM MQTT subscriber ────────────────────────────────────────
+    if !config.shelly.devices.is_empty() {
+        info!(
+            count = config.shelly.devices.len(),
+            "Démarrage Shelly Pro 2PM MQTT subscriber"
+        );
+        let state_sh  = state.clone();
+        let devs_sh   = config.shelly.devices.clone();
+        let mqtt_sh   = config.mqtt.clone();
+        let client_sh = state.shelly_client.clone();
+        tokio::spawn(async move {
+            shelly::run_shelly_mqtt_loop(
+                devs_sh,
+                mqtt_sh,
+                client_sh,
+                move |snap| {
+                    let s = state_sh.clone();
+                    tokio::spawn(async move { s.on_shelly_snapshot(snap).await });
                 },
             )
             .await;

@@ -1,14 +1,18 @@
-//! Subscriber MQTT Shelly EM — réception des topics natifs Shelly.
+//! Subscriber MQTT Shelly Pro 2PM — réception des topics natifs Shelly Gen3.
 //!
-//! Topics surveillés (wildcards) :
-//!   shellies/+/emeter/0/power           → puissance canal 0 (W)
-//!   shellies/+/emeter/0/reactive_power  → puissance réactive canal 0 (VAr)
-//!   shellies/+/emeter/0/voltage         → tension canal 0 (V)
-//!   shellies/+/emeter/0/pf              → facteur de puissance canal 0
-//!   shellies/+/emeter/0/energy          → énergie cumul canal 0 (Wh)
-//!   shellies/+/emeter/0/returned_energy → retour réseau canal 0 (Wh)
-//!   (idem pour /emeter/1)
-//!   shellies/+/info                     → JSON avec wifi.rssi
+//! Topics surveillés :
+//!   {shelly_id}/status/switch:0   → état + mesures canal 0
+//!   {shelly_id}/status/switch:1   → état + mesures canal 1
+//!
+//! Format JSON (par canal) :
+//! ```json
+//! {
+//!   "id": 0, "source": "timer", "output": true,
+//!   "apower": 250.0, "voltage": 230.0, "current": 1.09, "pf": 0.99,
+//!   "aenergy": { "total": 1234.567 },
+//!   "ret_aenergy": { "total": 0.0 }
+//! }
+//! ```
 
 use crate::config::{MqttConfig, ShellyDeviceConfig};
 use super::types::{ShellyChannelData, ShellyEmSnapshot};
@@ -28,14 +32,14 @@ struct ShellyCache {
     rssi: Option<i32>,
 }
 
-/// Boucle principale d'abonnement MQTT Shelly EM.
+/// Boucle principale d'abonnement MQTT Shelly Pro 2PM.
 ///
-/// Se reconnecte automatiquement après déconnexion (backoff 10 s).
+/// Reconnexion automatique après déconnexion (backoff 10 s).
 /// Appelle `on_snapshot` pour chaque mise à jour reçue.
 pub async fn run_shelly_mqtt_loop<F>(
-    devices:     Vec<ShellyDeviceConfig>,
-    mqtt_cfg:    MqttConfig,
-    client_out:  Arc<Mutex<Option<AsyncClient>>>,
+    devices:         Vec<ShellyDeviceConfig>,
+    mqtt_cfg:        MqttConfig,
+    client_out:      Arc<Mutex<Option<AsyncClient>>>,
     mut on_snapshot: F,
 )
 where
@@ -45,9 +49,8 @@ where
         return;
     }
 
-    info!(count = devices.len(), host = %mqtt_cfg.host, "Démarrage Shelly EM MQTT subscriber");
+    info!(count = devices.len(), host = %mqtt_cfg.host, "Démarrage Shelly Pro 2PM MQTT subscriber");
 
-    // Cache par id de device
     let mut cache: HashMap<u8, ShellyCache> = HashMap::new();
     for dev in &devices {
         cache.insert(dev.id, ShellyCache::default());
@@ -67,26 +70,20 @@ where
 
         let (client, mut eventloop) = AsyncClient::new(opts, 128);
 
-        // Partager le client pour les commandes (non utilisé pour Shelly — read-only)
         {
             let mut guard = client_out.lock().await;
             *guard = Some(client.clone());
         }
 
-        // Abonnement aux wildcards Shelly
-        let _ = client.subscribe("shellies/+/emeter/0/power",           QoS::AtMostOnce).await;
-        let _ = client.subscribe("shellies/+/emeter/0/reactive_power",  QoS::AtMostOnce).await;
-        let _ = client.subscribe("shellies/+/emeter/0/voltage",         QoS::AtMostOnce).await;
-        let _ = client.subscribe("shellies/+/emeter/0/pf",              QoS::AtMostOnce).await;
-        let _ = client.subscribe("shellies/+/emeter/0/energy",          QoS::AtMostOnce).await;
-        let _ = client.subscribe("shellies/+/emeter/0/returned_energy", QoS::AtMostOnce).await;
-        let _ = client.subscribe("shellies/+/emeter/1/power",           QoS::AtMostOnce).await;
-        let _ = client.subscribe("shellies/+/emeter/1/reactive_power",  QoS::AtMostOnce).await;
-        let _ = client.subscribe("shellies/+/emeter/1/voltage",         QoS::AtMostOnce).await;
-        let _ = client.subscribe("shellies/+/emeter/1/pf",              QoS::AtMostOnce).await;
-        let _ = client.subscribe("shellies/+/emeter/1/energy",          QoS::AtMostOnce).await;
-        let _ = client.subscribe("shellies/+/emeter/1/returned_energy", QoS::AtMostOnce).await;
-        let _ = client.subscribe("shellies/+/info",                     QoS::AtMostOnce).await;
+        // Abonnement aux topics status de chaque device configuré
+        for dev in &devices {
+            let t0 = format!("{}/status/switch:0", dev.shelly_id);
+            let t1 = format!("{}/status/switch:1", dev.shelly_id);
+            let ti = format!("{}/info", dev.shelly_id);
+            let _ = client.subscribe(&t0, QoS::AtMostOnce).await;
+            let _ = client.subscribe(&t1, QoS::AtMostOnce).await;
+            let _ = client.subscribe(&ti, QoS::AtMostOnce).await;
+        }
 
         loop {
             match eventloop.poll().await {
@@ -101,41 +98,29 @@ where
                         Err(_) => continue,
                     };
 
-                    // shellies/{device_id}/emeter/{channel}/{metric}
-                    // shellies/{device_id}/info
-                    let parts: Vec<&str> = topic.split('/').collect();
-                    if parts.len() < 3 { continue; }
-                    let device_name = parts[1];
-
-                    // Trouver la config du device par son shelly_id
-                    let dev_cfg = match devices.iter().find(|d| d.shelly_id == device_name) {
+                    // Trouver le device par shelly_id (préfixe du topic)
+                    let dev_cfg = match devices.iter().find(|d| topic.starts_with(&d.shelly_id)) {
                         Some(d) => d,
                         None    => continue,
                     };
                     let id = dev_cfg.id;
-
                     let entry = cache.entry(id).or_default();
 
-                    if parts.len() == 5 && parts[2] == "emeter" {
-                        // parts[3] = "0" ou "1", parts[4] = métrique
-                        let channel: u8 = parts[3].parse().unwrap_or(0);
-                        let metric  = parts[4];
-                        let val_f32: f32 = payload.trim().parse().unwrap_or(0.0);
-                        let val_f64: f64 = payload.trim().parse().unwrap_or(0.0);
+                    // {shelly_id}/status/switch:0 ou /status/switch:1
+                    if topic.ends_with("/status/switch:0") || topic.ends_with("/status/switch:1") {
+                        let channel: u8 = if topic.ends_with(":0") { 0 } else { 1 };
 
-                        let ch = if channel == 0 { &mut entry.ch0 } else { &mut entry.ch1 };
-
-                        match metric {
-                            "power"           => ch.power_w            = val_f32,
-                            "reactive_power"  => ch.reactive_power_var = val_f32,
-                            "voltage"         => ch.voltage_v          = val_f32,
-                            "pf"              => ch.power_factor        = val_f32,
-                            "energy"          => ch.energy_wh           = val_f64,
-                            "returned_energy" => ch.returned_wh         = val_f64,
-                            _ => {}
+                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(payload) {
+                            let ch = if channel == 0 { &mut entry.ch0 } else { &mut entry.ch1 };
+                            ch.output      = json["output"].as_bool().unwrap_or(false);
+                            ch.power_w     = json["apower"].as_f64().unwrap_or(0.0) as f32;
+                            ch.voltage_v   = json["voltage"].as_f64().unwrap_or(0.0) as f32;
+                            ch.current_a   = json["current"].as_f64().unwrap_or(0.0) as f32;
+                            ch.power_factor = json["pf"].as_f64().unwrap_or(0.0) as f32;
+                            ch.energy_wh   = json["aenergy"]["total"].as_f64().unwrap_or(0.0);
+                            ch.returned_wh = json["ret_aenergy"]["total"].as_f64().unwrap_or(0.0);
                         }
 
-                        // Émettre un snapshot à chaque mise à jour
                         let total_power_w = entry.ch0.power_w + entry.ch1.power_w;
                         let snap = ShellyEmSnapshot {
                             id,
@@ -149,10 +134,11 @@ where
                         };
                         on_snapshot(snap);
 
-                    } else if parts.len() == 3 && parts[2] == "info" {
-                        // Payload JSON avec wifi.rssi
+                    } else if topic.ends_with("/info") {
                         if let Ok(json) = serde_json::from_str::<serde_json::Value>(payload) {
-                            entry.rssi = json["wifi"]["rssi"].as_i64().map(|v| v as i32);
+                            entry.rssi = json["wifi"]["rssi"].as_i64()
+                                .or_else(|| json["wifi_sta"]["rssi"].as_i64())
+                                .map(|v| v as i32);
                         }
                     }
                 }
@@ -161,7 +147,7 @@ where
 
                 Err(e) => {
                     warn!("Shelly MQTT erreur : {:?}", e);
-                    break; // sortir pour reconnecter
+                    break;
                 }
             }
         }

@@ -23,6 +23,7 @@ use daly_bms_core::types::BmsSnapshot;
 use std::sync::atomic::Ordering;
 use tracing::error;
 use crate::tasmota::TasmotaSnapshot;
+use crate::shelly::ShellyEmSnapshot;
 
 // =============================================================================
 // Filtres Askama pour le formatage des nombres
@@ -530,11 +531,68 @@ pub struct TasmotaDeviceSummary {
     pub service_type:         String,
 }
 
+/// Résumé d'un compteur Shelly Pro 2PM pour la page Tasmota.
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub struct ShellyDeviceSummary {
+    pub id:            u8,
+    pub name:          String,
+    pub shelly_id:     String,
+    pub connected:     bool,
+    pub total_power_w: f32,
+    pub ch0_output:    bool,
+    pub ch0_power_w:   f32,
+    pub ch0_voltage_v: f32,
+    pub ch0_current_a: f32,
+    pub ch0_energy_kwh: f32,
+    pub ch1_output:    bool,
+    pub ch1_power_w:   f32,
+    pub ch1_voltage_v: f32,
+    pub ch1_current_a: f32,
+    pub ch1_energy_kwh: f32,
+    pub rssi:          Option<i32>,
+    pub last_ts:       String,
+}
+
+fn summary_from_shelly(id: u8, name: &str, shelly_id: &str, snap_opt: Option<ShellyEmSnapshot>) -> ShellyDeviceSummary {
+    if let Some(s) = snap_opt {
+        ShellyDeviceSummary {
+            id,
+            name:          s.name.clone(),
+            shelly_id:     s.shelly_id.clone(),
+            connected:     true,
+            total_power_w: s.total_power_w,
+            ch0_output:    s.channel_0.output,
+            ch0_power_w:   s.channel_0.power_w,
+            ch0_voltage_v: s.channel_0.voltage_v,
+            ch0_current_a: s.channel_0.current_a,
+            ch0_energy_kwh: (s.channel_0.energy_wh / 1000.0) as f32,
+            ch1_output:    s.channel_1.output,
+            ch1_power_w:   s.channel_1.power_w,
+            ch1_voltage_v: s.channel_1.voltage_v,
+            ch1_current_a: s.channel_1.current_a,
+            ch1_energy_kwh: (s.channel_1.energy_wh / 1000.0) as f32,
+            rssi:          s.rssi,
+            last_ts:       s.timestamp.format("%H:%M:%S").to_string(),
+        }
+    } else {
+        ShellyDeviceSummary {
+            id, name: name.to_string(), shelly_id: shelly_id.to_string(),
+            connected: false, total_power_w: 0.0,
+            ch0_output: false, ch0_power_w: 0.0, ch0_voltage_v: 0.0, ch0_current_a: 0.0, ch0_energy_kwh: 0.0,
+            ch1_output: false, ch1_power_w: 0.0, ch1_voltage_v: 0.0, ch1_current_a: 0.0, ch1_energy_kwh: 0.0,
+            rssi: None, last_ts: "—".to_string(),
+        }
+    }
+}
+
 #[derive(Template)]
 #[template(path = "tasmota_all.html")]
 struct TasmotaAllTemplate {
-    devices:      Vec<TasmotaDeviceSummary>,
-    device_count: usize,
+    devices:        Vec<TasmotaDeviceSummary>,
+    device_count:   usize,
+    shelly_devices: Vec<ShellyDeviceSummary>,
+    shelly_count:   usize,
 }
 
 #[derive(Template)]
@@ -612,8 +670,15 @@ pub async fn dashboard_tasmota_list(State(state): State<AppState>) -> Response {
         devices.push(summary_from_tasmota(cfg, snap_opt));
     }
 
+    let mut shelly_devices: Vec<ShellyDeviceSummary> = Vec::new();
+    for dev in &state.config.shelly.devices {
+        let snap = state.shelly_latest_for(dev.id).await;
+        shelly_devices.push(summary_from_shelly(dev.id, &dev.name, &dev.shelly_id, snap));
+    }
+
     let device_count = devices.len();
-    render(TasmotaAllTemplate { devices, device_count })
+    let shelly_count = shelly_devices.len();
+    render(TasmotaAllTemplate { devices, device_count, shelly_devices, shelly_count })
 }
 
 /// Page de détail d'une prise Tasmota.
