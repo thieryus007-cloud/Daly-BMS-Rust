@@ -700,6 +700,15 @@ pub async fn dashboard_monitor() -> Response {
     render(MonitorTemplate {})
 }
 
+#[derive(Template)]
+#[template(path = "console.html")]
+struct ConsoleTemplate {}
+
+/// Console de diagnostic — streaming WebSocket temps réel.
+pub async fn dashboard_console() -> Response {
+    render(ConsoleTemplate {})
+}
+
 /// Construit le routeur du dashboard (à fusionner dans le routeur principal).
 pub fn build_dashboard_router() -> Router<AppState> {
     Router::new()
@@ -714,6 +723,7 @@ pub fn build_dashboard_router() -> Router<AppState> {
         .route("/dashboard/tasmota/:id",       get(dashboard_tasmota))
         .route("/dashboard/ats",               get(dashboard_ats))
         .route("/dashboard/monitor",           get(dashboard_monitor))
+        .route("/dashboard/console",           get(dashboard_console))
         .route("/dashboard/visualization",     get(dashboard_visualization))
         .route("/visualization",               get(dashboard_visualization))
 }

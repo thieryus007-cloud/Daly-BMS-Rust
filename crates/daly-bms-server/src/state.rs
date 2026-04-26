@@ -5,6 +5,7 @@
 
 use crate::ats::AtsSnapshot;
 use crate::config::AppConfig;
+use crate::console::{ConsoleBus, ConsoleEvent, EventDevice};
 use crate::et112::Et112Snapshot;
 use crate::irradiance::IrradianceSnapshot;
 use crate::tasmota::TasmotaSnapshot;
@@ -12,6 +13,7 @@ use daly_bms_core::bus::DalyPort;
 use daly_bms_core::types::BmsSnapshot;
 use chrono::{DateTime, Datelike, Utc};
 use serde::Serialize;
+use serde_json::json;
 use std::collections::{BTreeMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use tokio::sync::{broadcast, RwLock};
@@ -386,6 +388,9 @@ pub struct AppState {
     /// Compteurs de santé par appareil RS485 (indexés par adresse).
     /// Alimenté par les boucles de polling BMS / ET112 / irradiance / ATS.
     pub rs485_stats: Arc<RwLock<BTreeMap<u8, Rs485DeviceStats>>>,
+
+    /// Canal broadcast pour la console de diagnostic (/ws/console).
+    pub console_bus: ConsoleBus,
 }
 
 impl AppState {
@@ -440,6 +445,7 @@ impl AppState {
             ats_snapshot: Arc::new(RwLock::new(None)),
             ats_bus: Arc::new(RwLock::new(None)),
             rs485_stats: Arc::new(RwLock::new(BTreeMap::new())),
+            console_bus: ConsoleBus::new(),
         }
     }
 
@@ -476,6 +482,20 @@ impl AppState {
 
     /// Enregistre un nouveau snapshot dans le ring buffer et broadcast WebSocket.
     pub async fn on_snapshot(&self, snap: BmsSnapshot) {
+        // Console diagnostic event
+        let device = if snap.address == 1 { EventDevice::Bms1 } else { EventDevice::Bms2 };
+        self.console_bus.emit(ConsoleEvent::rs485(device, &format!("BMS-{} snapshot", snap.address), json!({
+            "address": snap.address,
+            "soc": snap.soc,
+            "voltage": snap.dc.voltage,
+            "current": snap.dc.current,
+            "power": snap.dc.power,
+            "temp_max": snap.system.max_cell_temperature,
+            "cell_delta_mv": snap.system.cell_delta_mv(),
+            "charge_ok": snap.io.allow_to_charge != 0,
+            "discharge_ok": snap.io.allow_to_discharge != 0,
+        })));
+
         {
             let mut buffers = self.buffers.write().await;
             buffers
@@ -519,6 +539,15 @@ impl AppState {
 
     /// Enregistre un snapshot ET112 dans le ring buffer correspondant.
     pub async fn on_et112_snapshot(&self, snap: Et112Snapshot) {
+        self.console_bus.emit(ConsoleEvent::rs485(EventDevice::Et112, &format!("ET112-{:#04x} snapshot", snap.address), json!({
+            "address": snap.address,
+            "power_w": snap.power_w,
+            "voltage_v": snap.voltage_v,
+            "current_a": snap.current_a,
+            "energy_import_kwh": snap.energy_import_kwh(),
+            "energy_export_kwh": snap.energy_export_kwh(),
+        })));
+
         let mut buffers = self.et112_buffers.write().await;
         buffers
             .entry(snap.address)
@@ -647,6 +676,15 @@ impl AppState {
             *last_ts  = Some(now);
             if let Some(v) = shunt.ah_charged_today    { *charged    = v; }
             if let Some(v) = shunt.ah_discharged_today { *discharged = v; }
+            self.console_bus.emit(ConsoleEvent::state(EventDevice::SmartShunt, "SmartShunt update", json!({
+                "soc_pct": shunt.soc_percent,
+                "voltage_v": shunt.voltage_v,
+                "current_a": shunt.current_a,
+                "power_w": shunt.power_w,
+                "state": shunt.state,
+                "ah_charged_today": shunt.ah_charged_today,
+                "ah_discharged_today": shunt.ah_discharged_today,
+            })));
             *self.venus_smartshunt.write().await = Some(shunt);
             return;
         }
@@ -678,6 +716,17 @@ impl AppState {
 
         shunt.ah_charged_today    = Some(*charged);
         shunt.ah_discharged_today = Some(*discharged);
+
+        // Console event (after values are updated)
+        self.console_bus.emit(ConsoleEvent::state(EventDevice::SmartShunt, "SmartShunt update", json!({
+            "soc_pct": shunt.soc_percent,
+            "voltage_v": shunt.voltage_v,
+            "current_a": shunt.current_a,
+            "power_w": shunt.power_w,
+            "state": shunt.state,
+            "ah_charged_today": shunt.ah_charged_today,
+            "ah_discharged_today": shunt.ah_discharged_today,
+        })));
 
         *self.venus_smartshunt.write().await = Some(shunt);
     }

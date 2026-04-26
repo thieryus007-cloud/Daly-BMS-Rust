@@ -15,6 +15,7 @@
 
 use crate::ats::AtsSnapshot;
 use crate::config::MqttConfig;
+use crate::console::{ConsoleEvent, EventDevice};
 use crate::et112::Et112Snapshot;
 use crate::state::{AppState, VenusHeatpump, VenusMppt, VenusSmartShunt, VenusTemperature};
 use crate::tasmota::TasmotaSnapshot;
@@ -85,6 +86,13 @@ pub async fn run_mqtt_bridge(state: AppState, cfg: MqttConfig, addr_map: HashMap
                 .get(&snap.address)
                 .cloned()
                 .unwrap_or_else(|| snap.address.to_string());
+            let topic = format!("{}/bms/{}/venus", cfg.topic_prefix.trim_end_matches('/').rsplit_once('/').map(|(p,_)| p).unwrap_or("santuario"), topic_id);
+            let device = if snap.address == 1 { EventDevice::Bms1 } else { EventDevice::Bms2 };
+            state.console_bus.emit(ConsoleEvent::mqtt_out(device, &topic, json!({
+                "Soc": snap.soc,
+                "Voltage": snap.dc.voltage,
+                "Current": snap.dc.current,
+            })));
             if let Err(e) = publish_snapshot(&client, &cfg, snap, &topic_id).await {
                 error!("MQTT publish BMS erreur : {:?}", e);
             }
@@ -508,6 +516,18 @@ pub async fn start_venus_mqtt_subscriber(state: AppState, cfg: MqttConfig) {
 
                 // Parser le payload JSON
                 if let Ok(json) = serde_json::from_str::<Value>(payload) {
+                    // Console diagnostic events
+                    let ev_device = if topic.contains("/meteo/") || topic.contains("/inverter/") {
+                        EventDevice::Venus
+                    } else if topic.contains("/system/") {
+                        EventDevice::SmartShunt
+                    } else if topic.contains("/heat/") || topic.contains("/heatpump/") {
+                        EventDevice::EnergyManager
+                    } else {
+                        EventDevice::Venus
+                    };
+                    state.console_bus.emit(ConsoleEvent::mqtt_in(ev_device, topic, json.clone()));
+
                     if topic == "santuario/meteo/venus" {
                         handle_meteo_topic(&state, &json).await;
                     } else if topic.starts_with("santuario/heat/") && topic.ends_with("/venus") {
