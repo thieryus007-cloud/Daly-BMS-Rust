@@ -6,13 +6,13 @@ use serde_json::json;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio::time::{interval, sleep, Duration};
-use tracing::info;
+use tracing::{debug, info};
 
 use crate::bus::AppBus;
 use crate::config::WaterHeaterConfig;
 use crate::http_clients::lg_thinq::LgThinqClient;
 use crate::mqtt::topics::publish;
-use crate::types::{EnergyState, LiveEvent, MqttOutgoing, WaterHeaterMode};
+use crate::types::{EnergyState, InfluxPoint, LiveEvent, MqttOutgoing, WaterHeaterMode};
 
 pub async fn spawn(
     cfg: WaterHeaterConfig,
@@ -133,17 +133,32 @@ async fn control_task(
         let want_vacation = grid_on || soc_low || discharge_too_long || solar_too_low || irradiance_low;
         let target_mode = if want_vacation { WaterHeaterMode::Vacation } else { WaterHeaterMode::HeatPump };
 
+        debug!(
+            "Water heater conditions: grid_on={grid_on} soc={soc:.1}% soc_low={soc_low} \
+            batt_current={batt_current:.1}A discharge_too_long={discharge_too_long} \
+            solar_total={solar_total:.0}W solar_too_low={solar_too_low} \
+            irradiance={:?}W/m² irradiance_low={irradiance_low} \
+            → want_vacation={want_vacation} current={current_mode:?}",
+            irradiance
+        );
+
         // --- Rate limiting ---
         let can_change = last_change.map(|t| {
             (now - t).num_seconds() as u64 >= cfg.mode_change_min_secs
         }).unwrap_or(true);
 
         if target_mode == current_mode || !can_change {
+            if target_mode != current_mode && !can_change {
+                let wait = cfg.mode_change_min_secs.saturating_sub(
+                    last_change.map(|t| (now - t).num_seconds() as u64).unwrap_or(0)
+                );
+                debug!("Water heater: mode change blocked — rate limit, {wait}s remaining");
+            }
             continue;
         }
 
         info!("Water heater: changing mode {:?} → {:?} (grid={grid_on}, soc={soc:.1}%, \
-            discharge={discharge_too_long}, solar_low={solar_too_low}, irradiance_low={irradiance_low})",
+            discharge={discharge_too_long}, solar={solar_total:.0}W solar_low={solar_too_low}, irradiance_low={irradiance_low})",
             current_mode, target_mode);
 
         // --- Apply change ---
@@ -157,6 +172,12 @@ async fn control_task(
             s.water_heater_mode        = target_mode;
             s.water_heater_last_change = Some(now);
         }
+
+        // Write mode change to InfluxDB
+        let pt = InfluxPoint::new("water_heater_status")
+            .field_s("mode",  target_mode.to_lg_str())
+            .field_i("state", target_mode.to_venus_state() as i64);
+        bus.write_influx(pt).await;
 
         publish_to_venus(&bus, &state).await;
 
