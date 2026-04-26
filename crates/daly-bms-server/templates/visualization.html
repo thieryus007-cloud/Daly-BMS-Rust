@@ -96,10 +96,10 @@ const HIST_ET112_9 = { measurement: 'et112_status',     field: 'current_a',     
 const HIST_BMS_1   = { measurement: 'bms_status',       field: 'current',             address: '0x01', label: 'BMS-360Ah — I (6h)' };
 const HIST_BMS_2   = { measurement: 'bms_status',       field: 'current',             address: '0x02', label: 'BMS-320Ah — I (6h)' };
 const HIST_BMS_3   = { measurement: 'bms_status',       field: 'current',             address: '0x03', label: 'BMS-3 — I (6h)' };
-const HIST_MPPT    = { measurement: 'solar_power',     field: 'mppt_power_w',     label: 'MPPT total — Puissance DC (6h)' };
+const HIST_MPPT    = { measurement: 'venus_mppt_total', field: 'current_a',        label: 'MPPT total — I DC (6h)' };
 const HIST_INV_DC  = { measurement: 'inverter_status', field: 'dc_current_a',     label: 'Onduleur — I DC (6h)' };
 const HIST_INV_AC  = { measurement: 'inverter_status', field: 'ac_out_current_a', label: 'Onduleur — I AC sortie (6h)' };
-const HIST_SHUNT   = { measurement: 'battery_status',  field: 'current_a',        label: 'SmartShunt — I batterie (6h)' };
+const HIST_SHUNT   = { measurement: 'venus_smartshunt', field: 'current_a',       label: 'SmartShunt — I batterie (6h)' };
 
 const EDGES0 = [
   mkEdge('e-ats-maison', 'ats-main', 'et112-maison',   COLOR.ac,  { sourceHandle: 'main-right', targetHandle: 'tl', type: 'customBezier', history: HIST_ET112_8 }),

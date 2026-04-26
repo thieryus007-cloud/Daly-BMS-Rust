@@ -781,9 +781,11 @@ async fn handle_heatpump_topic(state: &AppState, topic: &str, json: &Value) {
 
     debug!(index = idx, state = hp_state, "Heatpump MQTT reçu");
     let mode_lbl = match hp_state { 0 => "Vacances", 1 => "HEAT_PUMP", 2 => "TURBO", _ => "Inconnu" };
-    state.console_bus.emit(ConsoleEvent::state(EventDevice::WaterHeater, &format!("Chauffe-eau idx={idx} — {mode_lbl}"), json!({
+    let temp_str = temperature.map(|t| format!(" | {:.1}°C", t)).unwrap_or_default();
+    let tgt_str  = target_temp.map(|t| format!(" → {:.1}°C", t)).unwrap_or_default();
+    state.console_bus.emit(ConsoleEvent::state(EventDevice::WaterHeater, &format!("Chauffe-eau idx={idx} — {mode_lbl}{temp_str}{tgt_str}"), json!({
         "idx": idx, "state": hp_state, "mode": mode_lbl,
-        "temperature": temperature, "target": target_temp,
+        "temperature_c": temperature, "target_c": target_temp,
         "power_w": ac_power, "energy_kwh": ac_energy,
     })));
     state.on_venus_heatpump(hp).await;

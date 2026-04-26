@@ -1,18 +1,12 @@
 //! Subscriber MQTT Shelly Pro 2PM — réception des topics natifs Shelly Gen3.
 //!
 //! Topics surveillés :
-//!   {shelly_id}/status/switch:0   → état + mesures canal 0
-//!   {shelly_id}/status/switch:1   → état + mesures canal 1
+//!   {shelly_id}/status/switch:0   → état + mesures canal 0 (publié sur changement)
+//!   {shelly_id}/status/switch:1   → état + mesures canal 1 (publié sur changement)
+//!   daly-bms-shelly/rpc           → réponses aux RPC GetStatus demandées par ce client
 //!
-//! Format JSON (par canal) :
-//! ```json
-//! {
-//!   "id": 0, "source": "timer", "output": true,
-//!   "apower": 250.0, "voltage": 230.0, "current": 1.09, "pf": 0.99,
-//!   "aenergy": { "total": 1234.567 },
-//!   "ret_aenergy": { "total": 0.0 }
-//! }
-//! ```
+//! Interrogation active toutes les 30 s via RPC Switch.GetStatus pour obtenir l'état
+//! initial et combler les absences de publication (aucun changement d'état).
 
 use crate::config::{MqttConfig, ShellyDeviceConfig};
 use super::types::{ShellyChannelData, ShellyEmSnapshot};
@@ -23,6 +17,9 @@ use std::time::Duration;
 use tokio::sync::Mutex;
 use tracing::{info, warn};
 use chrono::Local;
+
+/// Client ID de ce subscriber — utilisé comme topic de réponse RPC.
+const RPC_SRC: &str = "daly-bms-shelly";
 
 /// Cache intermédiaire pour assembler les mesures multi-topics.
 #[derive(Default)]
@@ -58,7 +55,7 @@ where
 
     loop {
         let mut opts = MqttOptions::new(
-            format!("daly-bms-shelly-{}", uuid::Uuid::new_v4()),
+            format!("{}-{}", RPC_SRC, uuid::Uuid::new_v4()),
             &mqtt_cfg.host,
             mqtt_cfg.port,
         );
@@ -75,7 +72,9 @@ where
             *guard = Some(client.clone());
         }
 
-        // Abonnement aux topics status de chaque device configuré
+        // Abonnement aux topics status de chaque device configuré + réponses RPC
+        let rpc_response_topic = format!("{}/rpc", RPC_SRC);
+        let _ = client.subscribe(&rpc_response_topic, QoS::AtMostOnce).await;
         for dev in &devices {
             let t0 = format!("{}/status/switch:0", dev.shelly_id);
             let t1 = format!("{}/status/switch:1", dev.shelly_id);
@@ -85,10 +84,56 @@ where
             let _ = client.subscribe(&ti, QoS::AtMostOnce).await;
         }
 
+        // Tâche de polling périodique (30 s) via RPC Switch.GetStatus.
+        // Permet d'obtenir l'état initial et de rafraîchir même sans changement d'état.
+        let poll_client  = client.clone();
+        let poll_devices = devices.clone();
+        tokio::spawn(async move {
+            let mut ticker = tokio::time::interval(Duration::from_secs(30));
+            loop {
+                ticker.tick().await;
+                for (req_id, dev) in poll_devices.iter().enumerate() {
+                    for ch in 0u8..2 {
+                        let payload = serde_json::json!({
+                            "id":     req_id * 2 + ch as usize,
+                            "src":    RPC_SRC,
+                            "method": "Switch.GetStatus",
+                            "params": { "id": ch }
+                        });
+                        let topic = format!("{}/rpc", dev.shelly_id);
+                        let _ = poll_client.publish(
+                            &topic,
+                            QoS::AtMostOnce,
+                            false,
+                            payload.to_string().as_bytes(),
+                        ).await;
+                    }
+                }
+            }
+        });
+
         loop {
             match eventloop.poll().await {
                 Ok(Event::Incoming(Incoming::ConnAck(_))) => {
                     info!("Shelly MQTT connecté (broker {}:{})", mqtt_cfg.host, mqtt_cfg.port);
+                    // Demande immédiate de l'état courant via RPC
+                    for (req_id, dev) in devices.iter().enumerate() {
+                        for ch in 0u8..2 {
+                            let payload = serde_json::json!({
+                                "id":     req_id * 2 + ch as usize + 100,
+                                "src":    RPC_SRC,
+                                "method": "Switch.GetStatus",
+                                "params": { "id": ch }
+                            });
+                            let topic = format!("{}/rpc", dev.shelly_id);
+                            let _ = client.publish(
+                                &topic,
+                                QoS::AtMostOnce,
+                                false,
+                                payload.to_string().as_bytes(),
+                            ).await;
+                        }
+                    }
                 }
 
                 Ok(Event::Incoming(Incoming::Publish(msg))) => {
@@ -97,6 +142,44 @@ where
                         Ok(s) => s,
                         Err(_) => continue,
                     };
+
+                    // Réponse RPC : daly-bms-shelly/rpc
+                    if topic == rpc_response_topic {
+                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(payload) {
+                            // { "id":..., "src": "{shelly_id}", ..., "result": { "id": 0|1, "output": ..., ... } }
+                            let result = match json.get("result") { Some(r) => r, None => continue };
+                            let src_id = json["src"].as_str().unwrap_or("");
+                            let dev_cfg = match devices.iter().find(|d| d.shelly_id == src_id) {
+                                Some(d) => d,
+                                None    => continue,
+                            };
+                            let channel = result["id"].as_u64().unwrap_or(0) as u8;
+                            let id = dev_cfg.id;
+                            let entry = cache.entry(id).or_default();
+                            let ch = if channel == 0 { &mut entry.ch0 } else { &mut entry.ch1 };
+                            ch.output      = result["output"].as_bool().unwrap_or(false);
+                            ch.power_w     = result["apower"].as_f64().unwrap_or(0.0) as f32;
+                            ch.voltage_v   = result["voltage"].as_f64().unwrap_or(0.0) as f32;
+                            ch.current_a   = result["current"].as_f64().unwrap_or(0.0) as f32;
+                            ch.power_factor = result["pf"].as_f64().unwrap_or(0.0) as f32;
+                            ch.energy_wh   = result["aenergy"]["total"].as_f64().unwrap_or(0.0);
+                            ch.returned_wh = result["ret_aenergy"]["total"].as_f64().unwrap_or(0.0);
+
+                            let total_power_w = entry.ch0.power_w + entry.ch1.power_w;
+                            let snap = ShellyEmSnapshot {
+                                id,
+                                name:         dev_cfg.name.clone(),
+                                shelly_id:    dev_cfg.shelly_id.clone(),
+                                timestamp:    Local::now(),
+                                channel_0:    entry.ch0.clone(),
+                                channel_1:    entry.ch1.clone(),
+                                rssi:         entry.rssi,
+                                total_power_w,
+                            };
+                            on_snapshot(snap);
+                        }
+                        continue;
+                    }
 
                     // Trouver le device par shelly_id (préfixe du topic)
                     let dev_cfg = match devices.iter().find(|d| topic.starts_with(&d.shelly_id)) {
