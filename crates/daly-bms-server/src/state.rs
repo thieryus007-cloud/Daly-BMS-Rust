@@ -883,6 +883,7 @@ impl AppState {
     }
 
     /// Retourne tous les derniers snapshots Shelly.
+    #[allow(dead_code)]
     pub async fn shelly_latest_all(&self) -> Vec<ShellyEmSnapshot> {
         self.shelly_latest.read().await.values().cloned().collect()
     }
