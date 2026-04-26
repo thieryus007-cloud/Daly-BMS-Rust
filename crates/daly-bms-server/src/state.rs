@@ -589,6 +589,15 @@ impl AppState {
 
     /// Enregistre un snapshot Tasmota dans le ring buffer correspondant.
     pub async fn on_tasmota_snapshot(&self, snap: TasmotaSnapshot) {
+        self.console_bus.emit(ConsoleEvent::state(EventDevice::Tasmota, &format!("Tasmota {} — {}", snap.name, if snap.power_on { "ON" } else { "OFF" }), json!({
+            "id": snap.id,
+            "name": snap.name,
+            "power_on": snap.power_on,
+            "power_w": snap.power_w,
+            "voltage_v": snap.voltage_v,
+            "current_a": snap.current_a,
+            "energy_today_kwh": snap.energy_today_kwh,
+        })));
         let mut buffers = self.tasmota_buffers.write().await;
         buffers
             .entry(snap.id)
@@ -801,6 +810,15 @@ impl AppState {
 
     /// Enregistre le dernier snapshot ATS.
     pub async fn on_ats_snapshot(&self, snap: AtsSnapshot) {
+        self.console_bus.emit(ConsoleEvent::rs485(EventDevice::Ats, &format!("ATS CHINT — {}", snap.active_source.label()), json!({
+            "source": snap.active_source.label(),
+            "v1a": snap.v1a, "v1b": snap.v1b, "v1c": snap.v1c,
+            "v2a": snap.v2a, "v2b": snap.v2b, "v2c": snap.v2c,
+            "freq1_hz": snap.freq1_hz, "freq2_hz": snap.freq2_hz,
+            "sw1_closed": snap.sw1_closed, "sw2_closed": snap.sw2_closed,
+            "fault": snap.fault.label(),
+            "sw_mode": if snap.sw_mode { "Auto" } else { "Manuel" },
+        })));
         *self.ats_snapshot.write().await = Some(snap);
     }
 

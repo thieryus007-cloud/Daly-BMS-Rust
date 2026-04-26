@@ -500,8 +500,8 @@ pub async fn start_venus_mqtt_subscriber(state: AppState, cfg: MqttConfig) {
     loop {
         match eventloop.poll().await {
             Ok(rumqttc::Event::Incoming(rumqttc::Packet::ConnAck(_))) => {
-                // Reconnexion détectée — réabonnement obligatoire (clean_session=true)
                 info!("MQTT Venus connecté/reconnecté — réabonnement aux topics");
+                state.console_bus.emit(ConsoleEvent::system("MQTT Venus", "Connecté/reconnecté — réabonnement aux topics"));
                 for (topic, qos) in &topics {
                     if let Err(e) = client.subscribe(*topic, *qos).await {
                         warn!("MQTT re-subscribe erreur pour {}: {:?}", topic, e);
@@ -516,13 +516,17 @@ pub async fn start_venus_mqtt_subscriber(state: AppState, cfg: MqttConfig) {
 
                 // Parser le payload JSON
                 if let Ok(json) = serde_json::from_str::<Value>(payload) {
-                    // Console diagnostic events
-                    let ev_device = if topic.contains("/meteo/") || topic.contains("/inverter/") {
-                        EventDevice::Venus
+                    // Console MQTT IN — device inferred from topic
+                    let ev_device = if topic.contains("/meteo/") {
+                        EventDevice::Solar
+                    } else if topic.contains("/inverter/") {
+                        EventDevice::Inverter
                     } else if topic.contains("/system/") {
                         EventDevice::SmartShunt
-                    } else if topic.contains("/heat/") || topic.contains("/heatpump/") {
-                        EventDevice::EnergyManager
+                    } else if topic.contains("/heatpump/") {
+                        EventDevice::WaterHeater
+                    } else if topic.contains("/heat/") {
+                        EventDevice::Venus
                     } else {
                         EventDevice::Venus
                     };
@@ -564,6 +568,11 @@ async fn handle_meteo_topic(state: &AppState, json: &Value) {
     let irradiance = json.get("Irradiance").and_then(|v| v.as_f64()).map(|v| v as f32).unwrap_or(0.0);
     let yield_kwh  = json.get("TodaysYield").and_then(|v| v.as_f64()).map(|v| v as f32);
     let mppt_power = json.get("MpptPower").and_then(|v| v.as_f64()).map(|v| v as f32);
+    state.console_bus.emit(ConsoleEvent::state(EventDevice::Solar, "Solaire/MPPT update", json!({
+        "irradiance_wm2": irradiance,
+        "yield_today_kwh": yield_kwh,
+        "mppt_power_w": mppt_power,
+    })));
 
     // Format v2 : tableau Mppts avec données individuelles par chargeur.
     // On remplace toute la map en une seule opération pour purger les entrées
@@ -771,6 +780,12 @@ async fn handle_heatpump_topic(state: &AppState, topic: &str, json: &Value) {
     };
 
     debug!(index = idx, state = hp_state, "Heatpump MQTT reçu");
+    let mode_lbl = match hp_state { 0 => "Vacances", 1 => "HEAT_PUMP", 2 => "TURBO", _ => "Inconnu" };
+    state.console_bus.emit(ConsoleEvent::state(EventDevice::WaterHeater, &format!("Chauffe-eau idx={idx} — {mode_lbl}"), json!({
+        "idx": idx, "state": hp_state, "mode": mode_lbl,
+        "temperature": temperature, "target": target_temp,
+        "power_w": ac_power, "energy_kwh": ac_energy,
+    })));
     state.on_venus_heatpump(hp).await;
 }
 
