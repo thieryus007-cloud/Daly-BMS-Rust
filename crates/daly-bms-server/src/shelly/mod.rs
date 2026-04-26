@@ -6,5 +6,7 @@
 pub mod types;
 pub mod mqtt;
 
-pub use types::{ShellyEmSnapshot, ShellyChannelData};
+pub use types::ShellyEmSnapshot;
+#[allow(unused_imports)]
+pub use types::ShellyChannelData;
 pub use mqtt::run_shelly_mqtt_loop;

@@ -381,6 +381,19 @@ device_instance = 65                 # Instance D-Bus Venus OS
 # service_type = "switch"     # "switch" (défaut) ou "acload"
 # device_instance = 500       # Optionnel — instance D-Bus Venus OS
 
+# =============================================================================
+# Shelly Pro 2PM — compteurs d'énergie 2 canaux
+# =============================================================================
+# Topics : {shelly_id}/status/switch:0  et  /status/switch:1
+# Commandes : {shelly_id}/rpc  (Switch.Set via MQTT RPC)
+[shelly]
+ring_buffer_size = 720
+
+[[shelly.devices]]
+id        = 1
+shelly_id = "shellypro2pm-ec62608840a4"   # IP 192.168.1.136
+name      = "DEYE — Shelly Pro 2PM"
+
 
 [influxdb]
 # true  = activer l'écriture InfluxDB (Docker infra doit être démarré)

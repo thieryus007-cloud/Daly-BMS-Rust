@@ -8,6 +8,7 @@ pub mod ats;
 pub mod console;
 pub mod et112;
 pub mod tasmota;
+pub mod shelly;
 pub mod chart;
 
 use crate::dashboard;
@@ -101,6 +102,10 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/v1/tasmota/:id/status",      get(tasmota::get_tasmota_status))
         .route("/api/v1/tasmota/:id/history",     get(tasmota::get_tasmota_history))
         .route("/api/v1/tasmota/:id/control",     post(tasmota::control_tasmota))
+        // ── Shelly ───────────────────────────────────────────────────────────
+        .route("/api/v1/shelly",                             get(shelly::list_shelly))
+        .route("/api/v1/shelly/:id/status",                  get(shelly::get_shelly_status))
+        .route("/api/v1/shelly/:id/channel/:ch/control",     post(shelly::control_shelly_channel))
         // ── WebSocket ─────────────────────────────────────────────────────────
         .route("/ws/bms/stream",         get(bms::ws_all))
         .route("/ws/bms/:id/stream",     get(bms::ws_single))

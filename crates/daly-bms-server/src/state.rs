@@ -8,6 +8,7 @@ use crate::config::AppConfig;
 use crate::console::{ConsoleBus, ConsoleEvent, EventDevice};
 use crate::et112::Et112Snapshot;
 use crate::irradiance::IrradianceSnapshot;
+use crate::shelly::ShellyEmSnapshot;
 use crate::tasmota::TasmotaSnapshot;
 use daly_bms_core::bus::DalyPort;
 use daly_bms_core::types::BmsSnapshot;
@@ -391,6 +392,12 @@ pub struct AppState {
 
     /// Canal broadcast pour la console de diagnostic (/ws/console).
     pub console_bus: ConsoleBus,
+
+    /// Derniers snapshots Shelly Pro 2PM (indexés par id device).
+    pub shelly_latest: Arc<RwLock<BTreeMap<u8, ShellyEmSnapshot>>>,
+
+    /// Client MQTT Shelly (pour les commandes de contrôle Switch.Set).
+    pub shelly_client: Arc<tokio::sync::Mutex<Option<rumqttc::AsyncClient>>>,
 }
 
 impl AppState {
@@ -446,6 +453,8 @@ impl AppState {
             ats_bus: Arc::new(RwLock::new(None)),
             rs485_stats: Arc::new(RwLock::new(BTreeMap::new())),
             console_bus: ConsoleBus::new(),
+            shelly_latest: Arc::new(RwLock::new(BTreeMap::new())),
+            shelly_client: Arc::new(tokio::sync::Mutex::new(None)),
         }
     }
 
@@ -834,5 +843,47 @@ impl AppState {
     /// Enregistre le bus ATS pour les commandes d'écriture.
     pub async fn set_ats_bus(&self, bus: Arc<rs485_bus::SharedBus>) {
         *self.ats_bus.write().await = Some(bus);
+    }
+
+    // ==========================================================================
+    // Méthodes Shelly Pro 2PM
+    // ==========================================================================
+
+    /// Enregistre le dernier snapshot Shelly et émet un événement console.
+    pub async fn on_shelly_snapshot(&self, snap: ShellyEmSnapshot) {
+        self.console_bus.emit(ConsoleEvent::state(
+            EventDevice::Shelly,
+            &format!("Shelly {} — {:.0}W total", snap.name, snap.total_power_w),
+            json!({
+                "id": snap.id,
+                "name": snap.name,
+                "shelly_id": snap.shelly_id,
+                "total_power_w": snap.total_power_w,
+                "ch0": {
+                    "output": snap.channel_0.output,
+                    "power_w": snap.channel_0.power_w,
+                    "voltage_v": snap.channel_0.voltage_v,
+                    "current_a": snap.channel_0.current_a,
+                },
+                "ch1": {
+                    "output": snap.channel_1.output,
+                    "power_w": snap.channel_1.power_w,
+                    "voltage_v": snap.channel_1.voltage_v,
+                    "current_a": snap.channel_1.current_a,
+                },
+            }),
+        ));
+        let mut map = self.shelly_latest.write().await;
+        map.insert(snap.id, snap);
+    }
+
+    /// Retourne le dernier snapshot Shelly pour un id donné.
+    pub async fn shelly_latest_for(&self, id: u8) -> Option<ShellyEmSnapshot> {
+        self.shelly_latest.read().await.get(&id).cloned()
+    }
+
+    /// Retourne tous les derniers snapshots Shelly.
+    pub async fn shelly_latest_all(&self) -> Vec<ShellyEmSnapshot> {
+        self.shelly_latest.read().await.values().cloned().collect()
     }
 }
