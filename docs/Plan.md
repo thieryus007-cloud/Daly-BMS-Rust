@@ -28,7 +28,7 @@
 
 Réécrire **entièrement** le projet Python Daly-BMS en Rust, en conservant :
 - **100% des fonctionnalités** du projet Python (protocole, API, bridges, alertes)
-- **La même infrastructure Docker** (Mosquitto, InfluxDB, Grafana, energy-manager)
+- **La même infrastructure Docker** (Mosquitto, InfluxDB, energy-manager)
 - **Le même dashboard React** (WebSocket compatible)
 - **La même intégration Venus OS** (dbus-mqtt-battery via MQTT)
 
@@ -139,7 +139,7 @@ Daly-BMS-Rust/
 │
 ├── dashboard/              React SPA (inchangée)
 ├── contrib/                systemd, nginx, scripts install
-├── docker/                 Configs Docker (Mosquitto, Grafana)
+├── docker/                 Configs Docker (Mosquitto)
 ├── docs/
 │   ├── Plan.md             Ce fichier
 │   ├── JSONData.json       Structure JSON de référence
@@ -282,7 +282,7 @@ pub struct BmsSnapshot {
 **Durée** : 30 min
 
 ```bash
-make up     # Mosquitto:1883 InfluxDB:8086 Grafana:3001 energy-manager:8081
+make up     # Mosquitto:1883 InfluxDB:8086 energy-manager:8081
 make ps     # vérifier
 ```
 
@@ -326,7 +326,6 @@ make ps     # vérifier
 | energy-manager | ~229 MB | ~4% |
 | gui (VNC) | ~164 MB | ~6% |
 | dbus-modbus-client | ~91 MB | 0% |
-| dbus-canbattery.can0 | stoppé | — |
 | dbus-mqtt-battery x2 | ~84 MB | ~2% |
 
 RAM disponible : ~77 MB. Le binary Rust (~10 MB) remplacera plusieurs scripts Python.
@@ -366,7 +365,7 @@ Trame correcte : A5 40 90 08 00 00 00 00 00 00 00 00 7D
 bind = "0.0.0.0:8080"
 ```
 
-#### Correction Grafana — UID datasource (17 mars 2026)
+#### Correction — UID datasource (17 mars 2026)
 
 **Bug** : Le fichier `grafana/provisioning/datasources/influxdb.yaml` déclarait
 `uid: influxdb-dalybms-flux` mais les **33 panels** du dashboard utilisaient
@@ -381,11 +380,6 @@ uid: influxdb-dalybms-flux
 uid: influxdb-dalybms
 ```
 
-Après ce fix, redémarrer Grafana pour recharger le provisioning :
-```bash
-docker compose -f docker-compose.infra.yml restart grafana
-# ou
-make restart-grafana
 ```
 
 ---
@@ -425,7 +419,7 @@ addresses = ["0x01", "0x02", "0x03"]   # ← ajouter 0x03
 
 [[bms]]
 address         = "0x03"
-name            = "BMS-280Ah"
+name            = "BMS-620Ah"
 capacity_ah     = 280.0
 max_charge_a    = 200.0
 max_discharge_a = 120.0
@@ -440,7 +434,6 @@ Services démarrés avec `docker compose -f docker-compose.infra.yml up -d` :
 |---------|------|-----|
 | Mosquitto MQTT | 1883 | mqtt://localhost:1883 |
 | InfluxDB 2.7 | 8086 | http://localhost:8086 |
-| Grafana 11.6 | 3001 | http://localhost:3001 |
 | energy-manager | 8081 | http://localhost:8081 |
 
 Serveur Rust (natif, hors Docker) :
@@ -495,7 +488,7 @@ Grafana affichera uniquement 0x01 et 0x02 dès les premières données reçues (
 | `make up` | Démarre toute l'infra Docker |
 | `make down` | Arrête les containers (volumes conservés) |
 | `make reset-influx` | Supprime uniquement le volume InfluxDB, redémarre |
-| `make reset` | Supprime TOUS les volumes (InfluxDB + Grafana + energy-manager) |
+| `make reset` | Supprime TOUS les volumes (InfluxDB + energy-manager) |
 | `make logs` | Suit les logs de tous les containers |
 | `make ps` | État des containers |
 
@@ -620,7 +613,7 @@ sudo cp -r dist /opt/dalybms/frontend/
 ```bash
 cargo install cross
 make build-arm
-make deploy PI_HOST=pi@192.168.1.100
+make deploy PI_HOST=pi@192.168.1.141
 ```
 
 ---
@@ -768,7 +761,7 @@ journalctl -u daly-bms -f
 
 ```bash
 make build-arm
-make deploy PI_HOST=pi@192.168.1.100
+make deploy PI_HOST=pi@192.168.1.141
 ```
 
 ### Surveillance
