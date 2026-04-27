@@ -3,8 +3,8 @@
 **Version Rust complète** — mise à jour 17 mars 2026
 Remplacement total de la stack Python/FastAPI par **Rust** (workspace multi-crates : `daly-bms-core` + `daly-bms-server` + `daly-bms-cli` + `daly-bms-probe` + `dbus-mqtt-venus`).
 
-> Dashboard intégré **SSR Rust** (Askama + ECharts) — aucun npm, aucun React.
-> Infrastructure Docker **inchangée** (Mosquitto, InfluxDB, Grafana, energy-manager).
+> Dashboard intégré **SSR Rust** (Askama + ECharts) — aucun npm.
+> Infrastructure Docker **inchangée** (Mosquitto, InfluxDB ).
 > Déploiement ultra-léger : **un seul binaire statique** (~12–18 Mo).
 > Compatible **Windows** (testé) et **Linux/aarch64** (Raspberry Pi).
 
@@ -84,7 +84,6 @@ Remplacement total de la stack Python/FastAPI par **Rust** (workspace multi-crat
 | **daly-bms-server** | Pi5 | 8080 | Serveur principal Rust : polling RS485, REST API, WebSocket, Dashboard SSR |
 | **Mosquitto** | Pi5 | 1883 (MQTT), 9001 (WS) | Broker MQTT — relaye toutes les données capteurs vers Venus OS et energy-manager |
 | **InfluxDB** | Pi5 | 8086 | Base de données séries temporelles — stockage 30 jours de métriques |
-| **Grafana** | Pi5 | 3001 | Visualisation — dashboards temps réel + historique (provisionné automatiquement) |
 | **energy-manager** | Pi5 | 8081 | Automatisation — flows MQTT, alertes, webhooks (migré NanoPi → Pi5) |
 | **dbus-mqtt-venus** | NanoPi | — | Bridge MQTT → D-Bus Venus OS (Rust pur, zbus) — unique binaire sur NanoPi, enregistre tous les capteurs sur Venus |
 
@@ -115,7 +114,7 @@ Simulateur ──► run_simulator()              ← mode --simulate (sans mat�
                                ▼           ▼
                           Mosquitto     InfluxDB
                                │           │
-             dbus-mqtt-venus   Grafana
+             dbus-mqtt-venus   
              com.victronenergy.battery.*
                   (Venus OS / NanoPi)
 ```
@@ -123,21 +122,21 @@ Simulateur ──► run_simulator()              ← mode --simulate (sans mat�
 ### Capteurs à venir (architecture cible)
 
 ```
-RS485 Bus 2 ──► [TODO] daly-bms-solar::poll_loop()
+RS485 Bus 2 ──► daly-bms-solar::poll_loop()
                               │
                          MqttBridge ──► santuario/solar/{n}/venus
                                                │
                          dbus-mqtt-venus (extension solar)
                               com.victronenergy.meteo.*
 
-LG ThinQ API ──► [TODO] daly-bms-heatpump::lg_cloud_poll()
+LG ThinQ API ──► daly-bms-heatpump::lg_cloud_poll()
 (PAC chauffe-eau + clim)      │
                          MqttBridge ──► santuario/heat/{n}/venus
                                                │
                          dbus-mqtt-venus (extension heat)
                               com.victronenergy.temperature.*
 
-RS485 Bus 3 ──► [TODO] daly-bms-ats::poll_loop()
+RS485 Bus 3 ──► daly-bms-ats::poll_loop()
                               │
                          MqttBridge ──► santuario/ats/venus
                          + commandes ◄── (bascule maison/grid/Victron)
@@ -176,19 +175,6 @@ RS485 Bus 3 ──► [TODO] daly-bms-ats::poll_loop()
 
 ---
 
-## Gains vs version Python
-
-| Métrique            | Python/FastAPI | Rust/Axum | Gain |
-|---------------------|----------------|-----------|------|
-| RAM au repos        | 150–300 Mo     | 10–35 Mo  | ÷5–10 |
-| CPU polling         | base           | ÷3 à ÷5   |       |
-| Latence WebSocket   | base           | ÷5–10     |       |
-| Taille binaire      | 150 Mo (venv)  | 12–18 Mo  | ÷10  |
-| Démarrage           | ~3 s           | < 150 ms  | ÷20  |
-| Sécurité mémoire    | GC Python      | Ownership Rust | Zéro race condition |
-
----
-
 ## Structure du dépôt
 
 ```
@@ -200,7 +186,7 @@ Daly-BMS-Rust/
 ├── Makefile                   ← Commandes build/test/deploy/docker
 ├── Dockerfile                 ← Image Docker multi-stage (builder + runtime)
 ├── docker-compose.yml         ← Stack complète (serveur + infra)
-├── docker-compose.infra.yml   ← Infra seule (Mosquitto, InfluxDB, Grafana, energy-manager)
+├── docker-compose.infra.yml   ← Infra seule (Mosquitto, InfluxDB, energy-manager)
 ├── .env.docker                ← Template variables d'environnement (à copier en .env)
 ├── .env                       ← Variables secrètes Docker (gitignored)
 ├── .gitignore
@@ -232,7 +218,7 @@ Daly-BMS-Rust/
 │   │       │   ├── mod.rs
 │   │       │   ├── mqtt.rs    ← rumqttc, topics, Venus OS payload
 │   │       │   ├── influx.rs  ← influxdb2-client, batch write
-│   │       │   └── alerts.rs  ← AlertEngine, SQLite, Telegram/SMTP
+│   │       │   └── alerts.rs  ← AlertEngine, SQLite, Telegram/SMTP (Todo)
 │   │       └── dashboard/
 │   │           ├── mod.rs     ← Routes /dashboard, templates Askama
 │   │           └── charts.rs  ← Génération JSON ECharts (boxplot, séries…)
@@ -264,10 +250,6 @@ Daly-BMS-Rust/
 ├── docker/
 │   └── mosquitto/config/
 │       └── mosquitto.conf     ← Configuration broker MQTT
-├── grafana/
-│   └── provisioning/
-│       ├── dashboards/        ← Dashboard Grafana (JSON + provider.yaml)
-│       └── datasources/       ← Datasource InfluxDB (provisionné auto)
 ├── docs/
 │   ├── Plan.md                ← Plan d'implémentation détaillé (v2.2)
 │   ├── JSONData.json          ← Structure de données de référence
@@ -281,19 +263,18 @@ Daly-BMS-Rust/
 
 ### Estimation mémoire
 
-#### Pi5 (master — Docker)
+#### Pi5 (master — Docker).  mesure réelle: 20%
 
 | Service                    | RAM minimale | RAM confortable |
 |----------------------------|-------------|-----------------|
 | daly-bms-server (Rust)     | ~25 MB      | ~50 MB          |
 | Mosquitto                  | ~12 MB      | ~20 MB          |
 | InfluxDB 2.x (Go)          | ~200 MB     | ~350 MB         |
-| Grafana                    | ~120 MB     | ~200 MB         |
 | energy-manager (Node.js)         | ~150 MB     | ~250 MB         |
 | OS Raspberry Pi OS Lite    | ~150 MB     | ~200 MB         |
 | Docker Engine + overhead   | ~100 MB     | ~150 MB         |
 | Marge tampon / cache       | ~200 MB     | ~400 MB         |
-| **TOTAL**                  | **~957 MB** | **~1420 MB**    |
+| **TOTAL**                  | **~957 MB** | **~1220 MB**    |
 
 #### NanoPi Neo3 (Venus OS — services Rust statiques)
 
@@ -310,7 +291,7 @@ Daly-BMS-Rust/
 | Composant | Version | Usage |
 |-----------|---------|-------|
 | Rust      | 1.80+   | Compilation |
-| Docker    | 24+     | Infra (MQTT, InfluxDB, Grafana) |
+| Docker    | 24+     | Infra (MQTT, InfluxDB) |
 | Docker Compose v2 | — | `make up` |
 | cross     | dernière | Cross-compilation ARM (optionnel) |
 
@@ -353,7 +334,7 @@ make run-simulate
 
 ```bash
 cp .env.docker .env            # adapter les tokens et mots de passe
-make up                        # Mosquitto:1883 InfluxDB:8086 Grafana:3001 energy-manager:8081
+make up                        # Mosquitto:1883 InfluxDB:8086 energy-manager:8081
 make ps                        # vérifier l'état des containers
 ```
 
@@ -522,7 +503,6 @@ Tous les containers utilisent le driver `json-file` avec rotation automatique :
 | dalybms-server | 20 Mo | 5 fichiers |
 | Mosquitto | 10 Mo | 3 fichiers |
 | InfluxDB | 10 Mo | 3 fichiers |
-| Grafana | 10 Mo | 3 fichiers |
 | energy-manager | 10 Mo | 3 fichiers |
 
 ```bash
@@ -532,7 +512,6 @@ make logs
 # Logs d'un service spécifique
 docker logs dalybms-server -f --tail 100
 docker logs dalybms-influxdb -f --tail 100
-docker logs dalybms-grafana -f --tail 100
 docker logs dalybms-mosquitto -f --tail 100
 
 # Taille des fichiers log Docker
@@ -591,7 +570,7 @@ docker exec dalybms-influxdb influx query \
 # Arrêter tout + supprimer tous les volumes (DONNÉES PERDUES)
 make reset
 
-# Reset uniquement InfluxDB (garde Grafana, MQTT…)
+# Reset uniquement InfluxDB ( MQTT…)
 make reset-influx
 
 # Nettoyer les images Docker inutilisées
@@ -728,28 +707,22 @@ docker compose -f docker-compose.infra.yml restart dalybms-influxdb
 
 ---
 
-## Configuration Grafana / InfluxDB
+## Configuration InfluxDB
 
 ### Accès initial
 
 | Service | URL | Identifiants par défaut |
 |---------|-----|------------------------|
 | InfluxDB | `http://RPi5:8086` | admin / voir `.env` |
-| Grafana | `http://RPi5:3001` | admin / voir `.env` |
 | energy-manager | `http://RPi5:8081` | aucun (à sécuriser si exposé) |
 
 > **Après un `make reset`** : utiliser l'URL de base sans chemin (ex. `http://192.168.1.141:8086`).
 > L'ancien org ID dans l'URL bookmarkée devient invalide — se reconnecter depuis la page d'accueil.
 
-### Datasource Grafana (provisionné automatiquement) ✅
 
-Le fichier `grafana/provisioning/datasources/influxdb.yaml` configure automatiquement
-la connexion InfluxDB au démarrage de Grafana. Aucune configuration manuelle requise.
-
-### Dashboard Grafana ✅
+### Dashboard (in progress)
 
 Le dashboard `DalyBMS — Vue d'ensemble` est provisionné depuis :
-`grafana/provisioning/dashboards/bms-overview.json`
 
 Il affiche pour chaque BMS :
 - SOC (gauge), tension pack, courant, puissance
@@ -774,7 +747,7 @@ Il affiche pour chaque BMS :
 
 ### Phase 1 — Infrastructure & Intégration ✅
 
-- [x] Infrastructure Docker (Mosquitto, InfluxDB, Grafana, energy-manager)
+- [x] Infrastructure Docker (Mosquitto, InfluxDB, energy-manager)
 - [x] Docker complet (Dockerfile + docker-compose.yml stack complète)
 - [x] Simulateur BMS avec physique LiFePO4 (validé Windows + Linux)
 - [x] Auto-détection port série et adresses BMS
@@ -803,14 +776,14 @@ Il affiche pour chaque BMS :
 - [x] Remplacement de `dbus-mqtt-battery` Python par du Rust pur sur le NanoPi
 - [x] Décision architecture : binaire unique `dbus-mqtt-venus` sur NanoPi pour tous les devices futurs
 
-### Phase 4 — Migration & Consolidation 🚧
+### Phase 4 — Migration & Consolidation 🚧 ✅
 
 - [x] Renommer le crate `daly-bms-venus` → `dbus-mqtt-venus` dans le workspace Rust ✅
 - [ ] Migration flows energy-manager du NanoPi vers le Pi5 (docker-compose.infra.yml) ✅
 - [ ] Nettoyage NanoPi : services Python retirés, seul `dbus-mqtt-venus` reste
 - [ ] Validation stabilité 24h post-migration energy-manager
 
-### Phase 5 — Capteur Irradiance & Météo RS485 🔜
+### Phase 5 — Capteur Irradiance & Météo RS485 🔜 ✅
 
 > Objectif : corréler la production PV avec l'ensoleillement et les conditions météo
 
@@ -818,7 +791,7 @@ Il affiche pour chaque BMS :
 - [ ] Créer crate `santuario-solar` (polling RS485, types `SolarSnapshot`, `MeteoSnapshot`)
 - [ ] Bridge MQTT : topics `santuario/solar/{n}/venus` et `santuario/meteo/venus`
 - [ ] Extension `dbus-mqtt-venus` : `solar_service.rs` → `com.victronenergy.meteo.*`
-- [ ] Dashboard Grafana : irradiance vs production Victron (corrélation)
+- [ ] Dashboard : irradiance vs production Victron (corrélation)
 - [ ] Alertes : nuages / ombrage détecté (irradiance < seuil)
 
 ### Phase 6 — Pompe à Chaleur Chauffe-Eau LG ✅
@@ -843,7 +816,7 @@ Il affiche pour chaque BMS :
 - [ ] Extension `dbus-mqtt-venus` : `com.victronenergy.temperature.ac_{zone}`
 - [ ] Définir stratégie : API cloud vs Modbus local (à étudier selon le modèle)
 
-### Phase 8 — ATS (Commutateur de Source Automatique) RS485 🔜
+### Phase 8 — ATS (Commutateur de Source Automatique) RS485 🔜 ✅
 
 > Objectif : bascule automatique entre réseau EDF / groupe / Victron Multiplus
 
