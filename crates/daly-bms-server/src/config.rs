@@ -40,6 +40,10 @@ pub struct AppConfig {
     #[serde(default)]
     pub influxdb: InfluxConfig,
 
+    /// Time-series embarqué Tsink (remplace InfluxDB)
+    #[serde(default)]
+    pub tsink: TsinkConfig,
+
     #[serde(default)]
     pub alerts: AlertsConfig,
 
@@ -436,6 +440,33 @@ impl InfluxConfig {
             bucket_downsampled:       "daly_bms_1m".into(),
             batch_size:               50,
             batch_flush_interval_sec: 5.0,
+        }
+    }
+}
+
+/// Configuration du stockage Tsink embarqué.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct TsinkConfig {
+    /// Activer le stockage Tsink
+    pub enabled: bool,
+    /// Répertoire de stockage des données
+    pub data_path: String,
+    /// Rétention en jours
+    pub retention_days: u64,
+    /// Limite mémoire en Mo
+    pub memory_limit_mb: usize,
+    /// Limite de cardinalité (nombre de séries max)
+    pub cardinality_limit: usize,
+}
+
+impl Default for TsinkConfig {
+    fn default() -> Self {
+        Self {
+            enabled:           true,
+            data_path:         "./data/tsink".to_string(),
+            retention_days:    30,
+            memory_limit_mb:   512,
+            cardinality_limit: 100_000,
         }
     }
 }

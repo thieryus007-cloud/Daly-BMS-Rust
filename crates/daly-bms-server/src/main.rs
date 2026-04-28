@@ -22,6 +22,7 @@ mod irradiance;
 mod shelly;
 mod tasmota;
 mod state;
+mod tsink_db;
 mod api;
 mod bridges;
 mod simulator;
@@ -155,12 +156,13 @@ async fn main() -> anyhow::Result<()> {
                 logging:     config::LoggingConfig::default(),
                 mqtt:        config::MqttConfig::default(),
                 influxdb:    config::InfluxConfig::default(),
+                tsink:       config::TsinkConfig::default(),
                 alerts:      config::AlertsConfig::default(),
                 read_only:   config::ReadOnlyConfig::default(),
                 bms:         Vec::new(),
                 et112:       config::Et112Config::default(),
                 irradiance:  None,
-                ats:         None, // Option<AtsConfig> — None = ATS non configuré
+                ats:         None,
                 tasmota:     config::TasmotaConfig::default(),
                 shelly:      config::ShellyConfig::default(),
             }
@@ -207,8 +209,25 @@ async fn main() -> anyhow::Result<()> {
         "DalyBMS Server démarrage"
     );
 
+    // ── Tsink (stockage time-series embarqué) ─────────────────────────────────
+    let tsink_handle = if config.tsink.enabled {
+        match tsink_db::TsinkHandle::new(&config.tsink).await {
+            Ok(h) => {
+                info!("Tsink activé — stockage dans '{}'", config.tsink.data_path);
+                Some(h)
+            }
+            Err(e) => {
+                warn!("Tsink init échoué : {} — stockage désactivé", e);
+                None
+            }
+        }
+    } else {
+        info!("Tsink désactivé (tsink.enabled = false)");
+        None
+    };
+
     // ── État partagé ───────────────────────────────────────────────────────────
-    let state = AppState::new(config.clone(), log_buffer);
+    let state = AppState::new(config.clone(), log_buffer, tsink_handle);
 
     // ── Bridges en arrière-plan ─────────────────────────────────────────────────
 

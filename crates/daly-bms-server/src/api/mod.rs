@@ -10,6 +10,8 @@ pub mod et112;
 pub mod tasmota;
 pub mod shelly;
 pub mod chart;
+pub mod promql;
+pub mod health;
 
 use crate::dashboard;
 use crate::state::AppState;
@@ -106,6 +108,14 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/v1/shelly",                             get(shelly::list_shelly))
         .route("/api/v1/shelly/:id/status",                  get(shelly::get_shelly_status))
         .route("/api/v1/shelly/:id/channel/:ch/control",     post(shelly::control_shelly_channel))
+        // ── PromQL (historique Tsink) ─────────────────────────────────────────
+        .route("/api/v1/query",          get(promql::query_instant))
+        .route("/api/v1/query_range",    get(promql::query_range))
+        .route("/api/v1/labels",         get(promql::list_metrics))
+
+        // ── Health check ──────────────────────────────────────────────────────
+        .route("/health",                get(health::health_check))
+
         // ── WebSocket ─────────────────────────────────────────────────────────
         .route("/ws/bms/stream",         get(bms::ws_all))
         .route("/ws/bms/:id/stream",     get(bms::ws_single))
