@@ -1086,7 +1086,7 @@ async fn handle_websocket(mut socket: WebSocket, state: AppState) {
 }
 ```
 
-### ❓ Migration des données historiques depuis InfluxDB
+### ❓ Migration des données historiques depuis InfluxDB (optionnel Doit etre confirmé)
 
 ```python
 # migrate_influx_to_tsink.py (script Python exemple)
@@ -1133,7 +1133,7 @@ ls -lh target/release/daly-bms-server
 # Objectif : < 15 MB (Tsink embarqué inclus)
 ```
 
-### Dockerfile minimal (optionnel)
+### Dockerfile minimal (Migration de Mosquitto sans Docker)
 
 ```dockerfile
 FROM debian:bookworm-slim
