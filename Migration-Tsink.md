@@ -1196,3 +1196,90 @@ RUST_LOG=daly_bms_server=debug,tsink=info ./target/release/daly-bms-server
 
 *Document généré pour Daly-BMS-Rust – Migration InfluxDB → TsinkDB + PromQL*  
 *Dernière mise à jour : $(date +%Y-%m-%d)* 🦀⚡
+
+
+Voici des exemples concrets basés sur les métriques écrites par l'implémentation :
+
+## GET /api/v1/query — requête instantanée
+
+### Tension du BMS 0x01 (maintenant)
+```
+GET http://192.168.1.141:8080/api/v1/query?query=bms_voltage{bms_id="0x01"}
+```
+
+### SOC de tous les BMS
+```
+GET http://192.168.1.141:8080/api/v1/query?query=bms_soc
+```
+
+### Puissance BMS à un timestamp précis (ms)
+```
+GET http://192.168.1.141:8080/api/v1/query?query=bms_power{bms_id="0x02"}&time=1745800000000
+```
+
+---
+
+## GET /api/v1/query_range — historique sur une plage
+
+### SOC du BMS 0x01 sur les dernières 24h, pas de 1 minute
+```
+GET http://192.168.1.141:8080/api/v1/query_range
+  ?query=bms_soc{bms_id="0x01"}
+  &start=1745713600000
+  &end=1745800000000
+  &step=60000
+```
+
+> `start`/`end`/`step` sont en **millisecondes** (pas en secondes comme Prometheus standard).
+
+---
+
+## Réponse JSON attendue (exemple query_range)
+
+```json
+{
+  "status": "success",
+  "data": {
+    "resultType": "matrix",
+    "result": [
+      {
+        "metric": {
+          "__name__": "bms_soc",
+          "bms_id": "0x01"
+        },
+        "values": [
+          [1745713600.0, "87.5"],
+          [1745713660.0, "87.3"],
+          [1745713720.0, "87.1"]
+        ]
+      }
+    ]
+  }
+}
+```
+
+> Les timestamps dans la réponse sont en **secondes** (float), valeurs en **string** — format Prometheus standard.
+
+---
+
+## Métriques disponibles
+
+| Métrique | Tags |
+|----------|------|
+| `bms_voltage`, `bms_current`, `bms_power`, `bms_soc` | `bms_id` (ex: `"0x01"`) |
+| `bms_temp_max`, `bms_temp_min`, `bms_cell_delta_mv` | `bms_id` |
+| `bms_cell_voltage` | `bms_id`, `cell` (ex: `"C1"`) |
+| `et112_power_w`, `et112_energy_import_wh` | `address`, `name` |
+| `irradiance_wm2` | `address` |
+| `venus_shunt_soc_percent`, `venus_shunt_power_w` | aucun |
+| `venus_inverter_power_w` | aucun |
+
+---
+
+## Test rapide depuis le Pi5
+
+```bash
+curl -s "http://localhost:8080/api/v1/query?query=bms_soc" | python3 -m json.tool
+```
+
+> **Note** : Les données n'apparaissent qu'après le premier poll BMS — si Tsink vient d'être initialisé, attendre ~1 seconde.
