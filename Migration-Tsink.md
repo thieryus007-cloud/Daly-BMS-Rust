@@ -1283,3 +1283,17 @@ curl -s "http://localhost:8080/api/v1/query?query=bms_soc" | python3 -m json.too
 ```
 
 > **Note** : Les données n'apparaissent qu'après le premier poll BMS — si Tsink vient d'être initialisé, attendre ~1 seconde.
+>
+> # Requête instantanée
+curl -s "http://localhost:8080/api/v1/query?query=bms_soc" | python3 -m json.tool
+
+# Avec filtre sur un BMS
+curl -s 'http://localhost:8080/api/v1/query?query=bms_soc%7Bbms_id%3D%220x01%22%7D' | python3 -m json.tool
+
+# Historique 1h (start/end en ms, step=60s)
+START=$(( $(date +%s%3N) - 3600000 ))
+END=$(date +%s%3N)
+curl -s "http://localhost:8080/api/v1/query_range?query=bms_soc&start=${START}&end=${END}&step=60000" | python3 -m json.tool
+
+# Health check
+curl -s "http://localhost:8080/health" | python3 -m json.tool
