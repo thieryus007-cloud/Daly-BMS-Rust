@@ -463,7 +463,7 @@ impl Default for TsinkConfig {
     fn default() -> Self {
         Self {
             enabled:           true,
-            data_path:         "./data/tsink".to_string(),
+            data_path:         "/var/lib/daly-bms/tsink".to_string(),
             retention_days:    30,
             memory_limit_mb:   512,
             cardinality_limit: 100_000,
