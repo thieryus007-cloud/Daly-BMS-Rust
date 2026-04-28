@@ -31,10 +31,13 @@ info "Config.toml déployée"
 
 # ── 4. Répertoire Tsink ──────────────────────────────────────────────────────
 TSINK_DIR="/var/lib/daly-bms/tsink"
-step "Vérification répertoire Tsink (${TSINK_DIR})…"
+# Récupère l'utilisateur qui exécute le service (ExecStart user, pas root)
+SERVICE_USER=$(systemctl show daly-bms --property=User --value 2>/dev/null)
+SERVICE_USER="${SERVICE_USER:-$(logname 2>/dev/null || echo pi5compute)}"
+step "Vérification répertoire Tsink (${TSINK_DIR}) → owner=${SERVICE_USER}…"
 sudo mkdir -p "${TSINK_DIR}"
-sudo chown "$(whoami):$(id -gn)" "${TSINK_DIR}"
-info "Répertoire Tsink OK"
+sudo chown "${SERVICE_USER}:${SERVICE_USER}" "${TSINK_DIR}"
+info "Répertoire Tsink OK (owner=${SERVICE_USER})"
 
 # ── 5. Déploiement daly-bms-server ───────────────────────────────────────────
 step "Déploiement daly-bms-server…"
