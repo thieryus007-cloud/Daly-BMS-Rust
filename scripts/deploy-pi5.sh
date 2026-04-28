@@ -33,7 +33,7 @@ info "Config.toml déployée"
 TSINK_DIR="/var/lib/daly-bms/tsink"
 # Récupère l'utilisateur qui exécute le service (ExecStart user, pas root)
 SERVICE_USER=$(systemctl show daly-bms --property=User --value 2>/dev/null)
-SERVICE_USER="${SERVICE_USER:-$(logname 2>/dev/null || echo pi5compute)}"
+SERVICE_USER="${SERVICE_USER:-dalybms}"
 step "Vérification répertoire Tsink (${TSINK_DIR}) → owner=${SERVICE_USER}…"
 sudo mkdir -p "${TSINK_DIR}"
 sudo chown "${SERVICE_USER}:${SERVICE_USER}" "${TSINK_DIR}"
