@@ -10,6 +10,7 @@ use crate::et112::Et112Snapshot;
 use crate::irradiance::IrradianceSnapshot;
 use crate::shelly::ShellyEmSnapshot;
 use crate::tasmota::TasmotaSnapshot;
+use crate::tsink_db::TsinkHandle;
 use daly_bms_core::bus::DalyPort;
 use daly_bms_core::types::BmsSnapshot;
 use chrono::{DateTime, Datelike, Utc};
@@ -398,10 +399,13 @@ pub struct AppState {
 
     /// Client MQTT Shelly (pour les commandes de contrôle Switch.Set).
     pub shelly_client: Arc<tokio::sync::Mutex<Option<rumqttc::AsyncClient>>>,
+
+    /// Stockage time-series embarqué Tsink (None si désactivé dans la config).
+    pub tsink: Option<Arc<TsinkHandle>>,
 }
 
 impl AppState {
-    pub fn new(config: AppConfig, log_buffer: LogBuffer) -> Self {
+    pub fn new(config: AppConfig, log_buffer: LogBuffer, tsink: Option<TsinkHandle>) -> Self {
         let (ws_tx, _) = broadcast::channel(WS_BROADCAST_CAPACITY);
         let addresses = config.bms_addresses();
         let ring_size = config.serial.ring_buffer_size;
@@ -455,6 +459,7 @@ impl AppState {
             console_bus: ConsoleBus::new(),
             shelly_latest: Arc::new(RwLock::new(BTreeMap::new())),
             shelly_client: Arc::new(tokio::sync::Mutex::new(None)),
+            tsink: tsink.map(Arc::new),
         }
     }
 
@@ -515,6 +520,16 @@ impl AppState {
         // Broadcast : construire la liste de tous les derniers snapshots
         let latest = self.latest_snapshots().await;
         let _ = self.ws_tx.send(Arc::new(latest));
+
+        // Écriture Tsink en arrière-plan (non-bloquant)
+        if let Some(tsink) = self.tsink.clone() {
+            let rows = TsinkHandle::bms_rows(&snap);
+            tokio::spawn(async move {
+                if let Err(e) = tsink.write_rows(rows).await {
+                    tracing::warn!("Tsink BMS write error: {}", e);
+                }
+            });
+        }
     }
 
     /// Retourne le dernier snapshot de chaque BMS.
@@ -557,11 +572,23 @@ impl AppState {
             "energy_export_kwh": snap.energy_export_kwh(),
         })));
 
-        let mut buffers = self.et112_buffers.write().await;
-        buffers
-            .entry(snap.address)
-            .or_insert_with(|| Et112RingBuffer::new(self.config.et112.ring_buffer_size))
-            .push(snap);
+        {
+            let mut buffers = self.et112_buffers.write().await;
+            buffers
+                .entry(snap.address)
+                .or_insert_with(|| Et112RingBuffer::new(self.config.et112.ring_buffer_size))
+                .push(snap.clone());
+        }
+
+        // Écriture Tsink en arrière-plan
+        if let Some(tsink) = self.tsink.clone() {
+            let rows = TsinkHandle::et112_rows(&snap);
+            tokio::spawn(async move {
+                if let Err(e) = tsink.write_rows(rows).await {
+                    tracing::warn!("Tsink ET112 write error: {}", e);
+                }
+            });
+        }
     }
 
     /// Retourne le dernier snapshot ET112 pour une adresse donnée.
@@ -592,6 +619,14 @@ impl AppState {
             "address": snap.address,
             "irradiance_wm2": snap.irradiance_wm2,
         })));
+        if let Some(tsink) = self.tsink.clone() {
+            let rows = TsinkHandle::irradiance_rows(&snap);
+            tokio::spawn(async move {
+                if let Err(e) = tsink.write_rows(rows).await {
+                    tracing::warn!("Tsink irradiance write error: {}", e);
+                }
+            });
+        }
         *self.irradiance_value.write().await = Some(snap);
     }
 
@@ -707,6 +742,14 @@ impl AppState {
                 "ah_charged_today": shunt.ah_charged_today,
                 "ah_discharged_today": shunt.ah_discharged_today,
             })));
+            if let Some(tsink) = self.tsink.clone() {
+                let rows = TsinkHandle::smartshunt_rows(&shunt);
+                tokio::spawn(async move {
+                    if let Err(e) = tsink.write_rows(rows).await {
+                        tracing::warn!("Tsink SmartShunt write error: {}", e);
+                    }
+                });
+            }
             *self.venus_smartshunt.write().await = Some(shunt);
             return;
         }
@@ -750,6 +793,14 @@ impl AppState {
             "ah_discharged_today": shunt.ah_discharged_today,
         })));
 
+        if let Some(tsink) = self.tsink.clone() {
+            let rows = TsinkHandle::smartshunt_rows(&shunt);
+            tokio::spawn(async move {
+                if let Err(e) = tsink.write_rows(rows).await {
+                    tracing::warn!("Tsink SmartShunt write error: {}", e);
+                }
+            });
+        }
         *self.venus_smartshunt.write().await = Some(shunt);
     }
 
@@ -772,6 +823,14 @@ impl AppState {
 
     /// Enregistre/met à jour les données de l'onduleur Victron (MultiPlus, cgwacs, etc.).
     pub async fn on_venus_inverter(&self, inverter: VenusInverter) {
+        if let Some(tsink) = self.tsink.clone() {
+            let rows = TsinkHandle::inverter_rows(&inverter);
+            tokio::spawn(async move {
+                if let Err(e) = tsink.write_rows(rows).await {
+                    tracing::warn!("Tsink inverter write error: {}", e);
+                }
+            });
+        }
         *self.venus_inverter.write().await = Some(inverter);
     }
 
