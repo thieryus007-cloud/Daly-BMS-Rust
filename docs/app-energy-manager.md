@@ -136,7 +136,7 @@ Cloner `AppBus` est gratuit (tous les champs sont `Arc`-backed).
 
 | Groupe | Champs |
 |--------|--------|
-| Solaire | `mppt_power_273_w`, `mppt_power_289_w`, `pvinverter_power_w`, `solar_total_w`, `house_power_w` |
+| Solaire | `dc_pv_power_w`, `pvinverter_power_w`, `solar_total_w`, `house_power_w`, `mppts` (une entrée `MpptState` par instance de `mppt_instances`) |
 | Batterie | `soc_pct`, `battery_voltage_v`, `battery_current_a`, `battery_power_w`, `battery_state`, `time_to_go_sec` |
 | AC/Grid | `ac_ignore` (0=réseau, 1=hors-réseau), `ac_frequency_hz` |
 | VEBus | `dc_voltage_v`, `dc_current_a`, `dc_power_w`, `ac_out_voltage_v`, `ac_out_current_a`, `ac_out_power_w` |
@@ -288,7 +288,7 @@ Champs `State` et `Mode` sont **hardcodés** (`"on"` / `"inverter"`).
 
 **Topics en entrée** :
 - `N/{pid}/vebus/{vb}/Ac/State/IgnoreAcIn1` → `ac_ignore`
-- `N/{pid}/system/0/Ac/PvOnOutput/L1/Power` → `mppt_power_273_w` (**champ partagé avec SOLAR_POWER**)
+- `N/{pid}/system/0/Ac/PvOnOutput/L1/Power` → `ac_pv_on_output_w` (PV AC disponible en sortie onduleur, distinct de la puissance DC des MPPT)
 - `N/{pid}/system/0/Ac/ConsumptionOnOutput/L1/Power` → `house_power_w`
 
 **Logique de décision** (`rules.rs::evaluate`, fonction pure) :
@@ -357,20 +357,21 @@ ac_ignore == 1 ?
 > n'intervient : ni réseau (`grid_connected`/`ac_ignore`/`ac_connected`), ni SmartShunt
 > (SOC/irradiance/courant). La décision se résume à deux signaux :
 > 1. la **fréquence AC-Out** (seuil unique 51,0 Hz, immédiat à 51,3) ;
-> 2. l'**état des MPPT** : « batterie pleine » dès qu'un MPPT (273 **ou** 289) passe en
->    `4`=Absorption, `5`=Float ou `6`=Storage (`mppt_full_states`).
+> 2. l'**état des MPPT** : « batterie pleine » dès qu'**un** des MPPT suivis (`mppt_instances`,
+>    6 chargeurs) ayant publié récemment passe en `4`=Absorption, `5`=Float ou `6`=Storage
+>    (`mppt_full_states`).
 
 > 📘 **Contexte — curtailment PV : AC-couplé vs DC-couplé**
 > L'installation a deux sources PV avec deux mécanismes de bridage **distincts** :
-> - **DC-couplé** (MPPT Victron sur Lynx, inst. 273/289) : bridage **continu et progressif** par la régulation de charge du MPPT (Bulk → Absorption → Float). Batterie pleine ⇒ le MPPT tient sa tension de consigne en **sortant du point de puissance maximale (MPP)** → courant réduit, **sans à-coup**. DVCC (désactivé ici) n'ajouterait qu'un contrôle centralisé CVL/CCL depuis le GX ; il **n'est pas requis** pour ce bridage ni pour publier l'état.
+> - **DC-couplé** (MPPT Victron sur Lynx, inst. 273, 288–292) : bridage **continu et progressif** par la régulation de charge du MPPT (Bulk → Absorption → Float). Batterie pleine ⇒ le MPPT tient sa tension de consigne en **sortant du point de puissance maximale (MPP)** → courant réduit, **sans à-coup**. DVCC (désactivé ici) n'ajouterait qu'un contrôle centralisé CVL/CCL depuis le GX ; il **n'est pas requis** pour ce bridage ni pour publier l'état.
 > - **AC-couplé** (micro-onduleurs DEYE sur AC Out) : onduleurs réseau **non pilotables en courant**. Seul levier = le **décalage de fréquence** du MultiPlus (≈ 50,2 → 51,5 Hz), avec un **trip dur et brutal à 51,5 Hz** → micro-coupures. D'où ce module + le relais Shelly.
 >
 > Conséquence : le Victron a un levier **fin et continu** sur le DC-couplé (courant), mais seulement un levier **grossier et discret** sur l'AC-couplé (fréquence).
 >
 > **Signal « batterie pleine » exploitable (sans DVCC)** : l'état des MPPT
-> `N/{pid}/solarcharger/{273,289}/State` est publié sur MQTT **indépendamment de DVCC**
+> `N/{pid}/solarcharger/{instance}/State` est publié sur MQTT **indépendamment de DVCC**
 > (la télémétrie ≠ le contrôle) et **déjà** stocké dans `EnergyState`
-> (`mppt_273.state`, `mppt_289.state`). Codes : `0`=Off, `2`=Fault, `3`=Bulk,
+> (`mppts[instance].state`). Codes : `0`=Off, `2`=Fault, `3`=Bulk,
 > `4`=Absorption, `5`=Float, `6`=Storage, `7`=Equalize, `11`=Other(Hub-1),
 > `252`=External control. **`Absorption`/`Float`/`Storage` (4/5/6) ⇒ batterie pleine**
 > (MPPT en régulation de tension) → coupe/maintien coupé ; **`Bulk` (3) ⇒ la batterie
@@ -379,7 +380,7 @@ ac_ignore == 1 ?
 
 **Topics en entrée** :
 - `N/{pid}/vebus/{vb}/Ac/Out/L1/F` → fréquence AC (Hz) — **autorité de coupure**. Le ticker (1 Hz) lit la valeur partagée `ac_frequency_hz` (maintenue par le module `inverter`, **identique au widget**) : la décision ne peut donc jamais diverger de l'affichage. (Abonnement freq propre à la boucle deye supprimé — un seul lecteur, l'inverter.)
-- État des MPPT (`mppt_273.state`, `mppt_289.state` dans `EnergyState`, alimentés par `solar_power`) — second et **seul autre** signal de décision
+- État des MPPT (`mppts[instance].state` dans `EnergyState`, alimentés par `solar_power`, pour chaque instance de `mppt_instances`) — second et **seul autre** signal de décision
 - `N/{pid}/vebus/{vb}/Ac/ActiveIn/Connected` → `ac_connected` — **purement informatif** (ligne « Réseau » du widget), **n'intervient plus** dans la décision
 - `Ac/State/IgnoreAcIn1` → `ac_ignore` — **purement informatif** (idem)
 
@@ -412,7 +413,7 @@ restaurer (ON)  si  freq < freq_high_hz (51,0)  ET  !mppt_full
 Mapping pur : `if relay_on { !(hard_cut || cut_debounced) } else { restore_debounced }`. Soit : un relais ON coupe sur `hard_cut` OU `cut_debounced` ; un relais OFF restaure sur `restore_debounced` ; sinon inchangé. Garde de non-régression : table de vérité exhaustive sur les **16 combinaisons** (`rules.rs::matches_truth_table_on_all_combos`).
 
 - **`freq`** : autorité de coupure (mesure Victron). Lue depuis la valeur partagée `ac_frequency_hz` (maintenue par le module `inverter`, **identique au widget**), avec garde de fraîcheur (cf. ci-dessous).
-- **`mppt_full`** : au moins un MPPT (273/289) dans `mppt_full_states` (défaut `[4,5,6]` = Absorption/Float/Storage), désactivable via `mppt_cut_enabled`. **Bulk (3) ⇒ pas plein ⇒ restauration autorisée.** But : couper les DEYE dès le palier d'absorption pour finir la charge sur le seul MPPT (DC-couplé), avant toute montée en fréquence.
+- **`mppt_full`** : au moins un MPPT suivi **et frais** (State reçu depuis ≤ `input_max_age_secs`) dans `mppt_full_states` — l'état d'un chargeur muet est ignoré, un Float figé ne peut pas maintenir le relais coupé (défaut `[4,5,6]` = Absorption/Float/Storage), désactivable via `mppt_cut_enabled`. **Bulk (3) ⇒ pas plein ⇒ restauration autorisée.** But : couper les DEYE dès le palier d'absorption pour finir la charge sur le seul MPPT (DC-couplé), avant toute montée en fréquence.
 - **Anti-rebattement** : purement temporel via les deux débounces. `reenable_delay_secs` (45 s de clair continu) garantit qu'un relais coupé ne rebascule pas en rafale ; `cut_delay_secs` (3 s) filtre les pics brefs (la coupure dure ≥ 51,3 reste immédiate).
 
 > **Pourquoi cette réécriture (2026-06)** — l'ancienne implémentation (moteur `rust-rule-engine` +
@@ -527,8 +528,8 @@ continuer à chauffer). Le suivi est réarmé dès que la température redescend
 **Deux tâches** : `mqtt_task` (écoute MQTT + gestion baseline) + `writer_task` (POST HTTP toutes les 1 s).
 
 **Topics en entrée** :
-- MPPT 273 : power, yield today, state, pv voltage, pv current
-- MPPT 289 : power, yield today, state, pv voltage, pv current
+- Chaque MPPT de `mppt_instances` : power, yield today, max power today, state, pv voltage, dc current
+  (production du jour MPPT = somme des `History/Daily/0/Yield` de tous les chargeurs suivis)
 - ET112 energy forward (`N/{pid}/pvinverter/{pv}/#`)
 - Consommation maison (`N/{pid}/system/0/Ac/ConsumptionOnOutput/L1/Power`)
 
@@ -769,8 +770,8 @@ N/{pid}/battery/{shunt}/#
   (Dc/0/Voltage, Dc/0/Current, Dc/0/Power, Soc, State,
    History/ChargedEnergy, History/DischargedEnergy)
 
-N/{pid}/solarcharger/{mppt1}/#  (power, yield, state, pv voltage, current)
-N/{pid}/solarcharger/{mppt2}/#
+N/{pid}/solarcharger/{m}/…  pour chaque m de mppt_instances
+  (Yield/Power, History/Daily/0/Yield, History/Daily/0/MaxPower, State, Pv/V, Dc/0/Current)
 
 N/{pid}/pvinverter/{pv}/#  (power, energy forward)
 
@@ -781,8 +782,7 @@ N/{pid}/system/0/#
 
 Instances configurées dans `[energy_manager.victron]` :
 - `vebus_instance = 276`
-- `mppt1_instance = 273`
-- `mppt2_instance = 289`
+- `mppt_instances = [273, 288, 289, 290, 291, 292]` (absent/vide → repli sur `[mppt1_instance, mppt2_instance]` = `[273, 289]`)
 - `pvinverter_instance = 32`
 - `smartshunt = 274`
 
@@ -841,17 +841,8 @@ Les métriques sont publiées via HTTP POST vers `daly-bms-server`, qui les écr
 | Tag | `day` | Date locale `YYYY-MM-DD` |
 | Tag | `host` | Valeur de `solar.host_tag` (défaut : `"pi5"`) |
 | Field (f64) | `solar_total_w` | Puissance solaire totale (MPPT + PVInverter) |
-| Field (f64) | `mppt_power_w` | Puissance MPPT totale (273 + 289) |
-| Field (f64) | `mppt_273_w` | Puissance MPPT 273 seul (W) |
-| Field (f64) | `mppt_273_voltage_v` | Tension PV MPPT 273 (V) |
-| Field (f64) | `mppt_273_current_a` | Courant DC MPPT 273 (A) |
-| Field (f64) | `mppt_273_yield_kwh` | Production MPPT 273 du jour (kWh) |
-| Field (i64) | `mppt_273_state` | État MPPT 273 (0=OFF, 3=Bulk, 4=Abs, 5=Float) |
-| Field (f64) | `mppt_289_w` | Puissance MPPT 289 seul (W) |
-| Field (f64) | `mppt_289_voltage_v` | Tension PV MPPT 289 (V) |
-| Field (f64) | `mppt_289_current_a` | Courant DC MPPT 289 (A) |
-| Field (f64) | `mppt_289_yield_kwh` | Production MPPT 289 du jour (kWh) |
-| Field (i64) | `mppt_289_state` | État MPPT 289 |
+| Field (f64) | `mppt_power_w` | Puissance MPPT totale = agrégat Victron `system/0/Dc/Pv/Power` (tous les MPPT) |
+| Séries | `venus_mppt_*{instance=…}` | Détail par MPPT (power, yield du jour, max power, état, tension PV, courant DC) : tableau `Mppts` de `santuario/meteo/venus` (un élément par instance de `mppt_instances`), écrit par daly-bms-server |
 | Field (f64) | `pvinv_power_w` | Puissance micro-onduleurs ET112 (W) |
 | Field (f64) | `pvinv_yield_kwh` | Production micro-onduleurs du jour (kWh) |
 | Field (f64) | `total_yield_kwh` | Production totale du jour (kWh) |
@@ -995,8 +986,7 @@ websocat ws://192.168.1.141:8081/live
     "freq_hz": 50.01,
     "ac_connected": 1,
     "mppt_full": false,
-    "mppt_273_state": 3,
-    "mppt_289_state": 3,
+    "mppt_states": { "273": 3, "288": 3, "289": 3, "290": 3, "291": 3, "292": 3 },
     "freq_stale": false,
     "mppt_stale": false
   },
@@ -1013,7 +1003,7 @@ Champs `deye` :
 - `freq_hz` — fréquence AC-Out pilotant le seuil unique (≥51,0 coupe / <51,0 restaure).
 - `ac_connected` — connexion physique réseau (`1`=connecté, `0`=panne). **Informatif.**
 - `mppt_full` — au moins un MPPT signale « batterie pleine » (état dans `mppt_full_states`) → pilote la coupe anticipée et bloque la restauration.
-- `mppt_273_state` / `mppt_289_state` — codes State des MPPT (`3`=Bulk, `4`=Absorption, `5`=Float, `6`=Storage, etc. — liste non exhaustive ; aussi `0`=Off, `2`=Fault, `7`=Equalize…).
+- `mppt_states` — code State de chaque MPPT suivi (clé = instance) (`3`=Bulk, `4`=Absorption, `5`=Float, `6`=Storage, etc. — liste non exhaustive ; aussi `0`=Off, `2`=Fault, `7`=Equalize…).
 - `freq_stale` — la télémétrie fréquence est périmée (topic muet > `input_max_age_secs`) → la décision la traite comme nominale (restauration permise ; filet = auto-trip DEYE 51,5 Hz).
 - `mppt_stale` — la télémétrie d'état MPPT est périmée → traitée comme « pas plein » (ne bloque pas la restauration → anti-blocage relais).
 
@@ -1063,8 +1053,9 @@ reconnect_delay_secs = 5
 [energy_manager.victron]
 portal_id            = "d81d13b31a8b"   # ID GX portal Victron (obligatoire)
 vebus_instance       = 276              # Instance VEBus
-mppt1_instance       = 273             # MPPT 1
-mppt2_instance       = 289             # MPPT 2
+mppt1_instance       = 273             # MPPT 1 (repli si mppt_instances absent)
+mppt2_instance       = 289             # MPPT 2 (repli si mppt_instances absent)
+mppt_instances       = [273, 288, 289, 290, 291, 292]   # tous les MPPT suivis
 pvinverter_instance  = 32
 smartshunt           = 274             # Instance SmartShunt (batterie)
 shelly_deye_id       = "shellypro2pm-ec62608840a4"
@@ -1533,8 +1524,7 @@ mosquitto_sub -h 192.168.1.141 -t 'santuario/meteo/venus' -C 1 | jq '.'
 |----------|---|---|
 | MultiPlus (Victron AC/DC inverter) | `com.victronenergy.system` | Données onduleur |
 | SmartShunt (Victron battery monitor) | `com.victronenergy.system` | SOC/courant batterie |
-| MPPT 273 (SolarCharger) | `com.victronenergy.solarcharger.ttyUSB*` | Puissance solaire MPPT1 |
-| MPPT 289 (SolarCharger) | `com.victronenergy.solarcharger.ttyUSB*` | Puissance solaire MPPT2 |
+| MPPT 273, 288–292 (SolarCharger) | `com.victronenergy.solarcharger.tty*` | Production, détail par chargeur, coupure DEYE « MPPT plein » |
 | ET112 Energy Counters | RS485 Modbus RTU | Métriques compteurs AC |
 
 ### Branche Git historique

@@ -40,7 +40,8 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // --- Shared state ---
-    let state: Arc<RwLock<EnergyState>> = Arc::new(RwLock::new(EnergyState::default()));
+    let state: Arc<RwLock<EnergyState>> =
+        Arc::new(RwLock::new(EnergyState::with_mppts(&cfg.victron.mppt_list())));
 
     // --- Bus ---
     let (bus, receivers) = AppBus::new();
@@ -49,8 +50,7 @@ async fn main() -> anyhow::Result<()> {
     let topics = mqtt::topics::all_subscriptions(
         &cfg.victron.portal_id,
         cfg.victron.vebus_instance,
-        cfg.victron.mppt1_instance,
-        cfg.victron.mppt2_instance,
+        &cfg.victron.mppt_list(),
         cfg.victron.pvinverter_instance,
         cfg.victron.smartshunt_instance,
     );

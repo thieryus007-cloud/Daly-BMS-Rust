@@ -103,6 +103,28 @@ struct Inputs {
     mppt_stale: bool,
 }
 
+/// MPPT part of the DEYE inputs, over every followed charger:
+/// - `stale` = no charger reported its `/State` within `max_age_secs`;
+/// - `any_full` = at least one **fresh** charger is in a "battery full" stage. A silent
+///   charger's last State is ignored, so a frozen Float can never hold the relay off.
+fn mppt_inputs<'a>(
+    mppts: impl IntoIterator<Item = &'a crate::types::MpptState>,
+    full_states: &[i64],
+    max_age_secs: i64,
+    now: DateTime<Utc>,
+) -> (bool, bool) {
+    let mut any_fresh = false;
+    let mut any_full = false;
+    for m in mppts {
+        let fresh = m.state_last_ts.is_some_and(|t| (now - t).num_seconds() <= max_age_secs);
+        if fresh {
+            any_fresh = true;
+            any_full |= m.state.is_some_and(|st| full_states.contains(&st));
+        }
+    }
+    (!any_fresh, any_full)
+}
+
 /// Reads freq + MPPT from shared state, applying freshness guards so a frozen telemetry
 /// value can never strand the relay:
 /// - stale frequency → treated as nominal (50 Hz) → restore allowed, no frequency cut;
@@ -114,20 +136,8 @@ async fn read_inputs(state: &Arc<RwLock<EnergyState>>, cfg: &DeyeConfig, now: Da
     let freq_stale = s.ac_frequency_last_ts.map(|t| (now - t).num_seconds() > max).unwrap_or(true);
     let freq_hz = if freq_stale { NOMINAL_FREQ_HZ } else { s.ac_frequency_hz.unwrap_or(NOMINAL_FREQ_HZ) };
 
-    // MPPT is fresh if at least one charger reported its State recently.
-    let mppt_stale = [s.mppt_273.state_last_ts, s.mppt_289.state_last_ts]
-        .into_iter()
-        .flatten()
-        .map(|t| (now - t).num_seconds())
-        .min()
-        .map(|age| age > max)
-        .unwrap_or(true);
-    let mppt_full = cfg.mppt_cut_enabled
-        && !mppt_stale
-        && [s.mppt_273.state, s.mppt_289.state]
-            .into_iter()
-            .flatten()
-            .any(|st| cfg.mppt_full_states.contains(&st));
+    let (mppt_stale, any_full) = mppt_inputs(s.mppts.values(), &cfg.mppt_full_states, max, now);
+    let mppt_full = cfg.mppt_cut_enabled && !mppt_stale && any_full;
 
     Inputs { freq_hz, freq_stale, mppt_full, mppt_stale }
 }
@@ -386,5 +396,40 @@ mod tests {
         assert_eq!(step(&mut c, 51.5, false, t(0), &cfg), Some(false)); // spike → cut
         assert_eq!(step(&mut c, 50.0, false, t(10), &cfg), None);
         assert_eq!(step(&mut c, 50.0, false, t(55), &cfg), Some(true)); // restore
+    }
+}
+
+#[cfg(test)]
+mod mppt_inputs_tests {
+    use super::mppt_inputs;
+    use crate::types::MpptState;
+    use chrono::{Duration, Utc};
+
+    fn mppt(instance: u32, state: i64, age_secs: i64) -> MpptState {
+        MpptState {
+            instance,
+            state: Some(state),
+            state_last_ts: Some(Utc::now() - Duration::seconds(age_secs)),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn one_fresh_full_charger_among_six_cuts() {
+        let v = [mppt(273, 3, 5), mppt(288, 3, 5), mppt(289, 3, 5),
+                 mppt(290, 5, 5), mppt(291, 3, 5), mppt(292, 3, 5)];
+        assert_eq!(mppt_inputs(&v, &[4, 5, 6], 120, Utc::now()), (false, true));
+    }
+
+    #[test]
+    fn silent_charger_frozen_in_float_does_not_count() {
+        let v = [mppt(273, 3, 5), mppt(290, 5, 600)];
+        assert_eq!(mppt_inputs(&v, &[4, 5, 6], 120, Utc::now()), (false, false));
+    }
+
+    #[test]
+    fn no_fresh_charger_is_stale() {
+        let v = [mppt(273, 5, 600), MpptState { instance: 288, ..Default::default() }];
+        assert_eq!(mppt_inputs(&v, &[4, 5, 6], 120, Utc::now()), (true, false));
     }
 }

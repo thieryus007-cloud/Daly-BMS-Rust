@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 // ---------------------------------------------------------------------------
 // Incoming MQTT message dispatched to all logic tasks
@@ -111,19 +111,16 @@ impl LiveEvent {
 #[derive(Debug, Default, Clone)]
 pub struct EnergyState {
     // --- Solar / PV ---
-    pub mppt_power_273_w: Option<f64>,
-    pub mppt_power_289_w: Option<f64>,
     pub dc_pv_power_w: Option<f64>,     // N/.../system/0/Dc/Pv/Power (aggregate MPPT)
     pub pvinverter_power_w: Option<f64>, // N/.../pvinverter/32/Ac/Power
     pub solar_total_w: f64,
     pub house_power_w: Option<f64>,
     // N/.../system/0/Ac/PvOnOutput/L1/Power — AC PV available on inverter output.
-    // Used by charge_current to decide PV-excess mode; do not confuse with mppt_power_*_w (DC).
+    // Used by charge_current to decide PV-excess mode; do not confuse with the MPPT DC power (`mppts[..].power_w`).
     pub ac_pv_on_output_w: Option<f64>,
 
-    // --- MPPT detail ---
-    pub mppt_273: MpptState,
-    pub mppt_289: MpptState,
+    // --- MPPT detail: one entry per followed instance (VictronConfig::mppt_list) ---
+    pub mppts: BTreeMap<u32, MpptState>,
 
     // --- Battery ---
     pub soc_pct: Option<f64>,
@@ -240,6 +237,18 @@ pub struct EnergyState {
     // Alimenté par logic/toshiba_ac depuis `santuario/toshiba/<zone>/state`
     // (publié par le firmware ESP32 Rust). Clé = zone (salon/chambre/bureau).
     pub toshiba_ac: HashMap<String, ToshibaAcSnapshot>,
+}
+
+impl EnergyState {
+    /// Initial state with one MPPT entry per followed instance (values `None` until Venus
+    /// publishes), so the per-charger detail always lists every charger.
+    pub fn with_mppts(instances: &[u32]) -> Self {
+        let mut s = Self::default();
+        for &i in instances {
+            s.mppts.insert(i, MpptState { instance: i, ..Default::default() });
+        }
+        s
+    }
 }
 
 #[derive(Debug, Default, Clone, Serialize)]

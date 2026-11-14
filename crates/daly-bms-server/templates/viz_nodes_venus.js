@@ -1,8 +1,7 @@
 // ── MPPT GROUP NODE ───────────────────────────────────────────────────────────
-// Affiche toujours MPPT-273 et MPPT-289 (instances connues en production).
-// Si les données individuelles sont indisponibles (format v1 agrégé), les lignes
-// restent visibles avec "—" pour les métriques.
-const MPPT_KNOWN_INSTANCES = [273, 289];
+// Affiche tous les MPPT publiés par energy-manager (une ligne par instance de
+// `mppt_instances` dans Config.toml), triés par instance ; les métriques encore
+// inconnues s'affichent "—".
 
 function MPPTGroupNode({ data }) {
   const mppts       = data.mppts       ?? [];
@@ -20,14 +19,7 @@ function MPPTGroupNode({ data }) {
     return '';
   };
 
-  // Si les données individuelles des instances connues sont présentes, les afficher.
-  // Sinon, toujours montrer les deux lignes connues avec placeholders.
-  const mpptById = {};
-  for (const m of mppts) { mpptById[m.instance] = m; }
-  const hasKnown = MPPT_KNOWN_INSTANCES.some(inst => mpptById[inst]);
-  const displayList = hasKnown
-    ? MPPT_KNOWN_INSTANCES.map(inst => mpptById[inst] || { instance: inst, state: null, pv_voltage_v: null, dc_current_a: null, power_w: null, yield_today_kwh: null })
-    : mppts.length > 0 ? mppts : MPPT_KNOWN_INSTANCES.map(inst => ({ instance: inst, state: null, pv_voltage_v: null, dc_current_a: null, power_w: null, yield_today_kwh: null }));
+  const displayList = [...mppts].sort((a, b) => a.instance - b.instance);
 
   return h('div', { className: 'mppt-group-card' },
     mkHandle('target', Position.Top,    'tt'),
@@ -39,7 +31,7 @@ function MPPTGroupNode({ data }) {
     h('div', { className: 'mg-header' },
       h('span', { className: 'mg-header-icon' }, '☀️'),
       h('span', { className: 'mg-header-title' }, 'SmartSolar MPPT'),
-      h('span', { style: { fontSize:'0.65rem', opacity:0.8, marginLeft:'auto' } }, `${MPPT_KNOWN_INSTANCES.length} chargeurs`)
+      h('span', { style: { fontSize:'0.65rem', opacity:0.8, marginLeft:'auto' } }, `${displayList.length} chargeurs`)
     ),
     h('div', { className: 'mg-totals' },
       h('div', { className: 'mg-total-chip' },

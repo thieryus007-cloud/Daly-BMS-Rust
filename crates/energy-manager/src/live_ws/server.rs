@@ -17,6 +17,7 @@ use axum::{
     Router,
 };
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::{broadcast, RwLock};
@@ -170,9 +171,8 @@ struct DeyeCard {
     ac_connected:    Option<i64>,
     /// MPPT charge stage signals a full battery (the MPPT-based cut driver)
     mppt_full:       bool,
-    /// MPPT solar-charger State codes (3=Bulk, 4=Absorption, 5=Float, 6=Storage…)
-    mppt_273_state:  Option<i64>,
-    mppt_289_state:  Option<i64>,
+    /// MPPT solar-charger State code per followed instance (3=Bulk, 4=Absorption, 5=Float, 6=Storage…)
+    mppt_states:     BTreeMap<u32, Option<i64>>,
     /// AC-frequency telemetry is stale (topic silent) → decision treats it as nominal
     /// (restore allowed; DEYE 51.5 Hz auto-trip is the net). Observability/alerting.
     freq_stale:      bool,
@@ -236,8 +236,7 @@ async fn rules_status_handler(State(srv): State<ServerState>) -> Response {
             freq_hz:         s.ac_frequency_hz,
             ac_connected:    s.ac_connected,
             mppt_full:       s.deye_mppt_full,
-            mppt_273_state:  s.mppt_273.state,
-            mppt_289_state:  s.mppt_289.state,
+            mppt_states:     s.mppts.iter().map(|(i, m)| (*i, m.state)).collect(),
             freq_stale:      s.deye_freq_stale,
             mppt_stale:      s.deye_mppt_stale,
         },

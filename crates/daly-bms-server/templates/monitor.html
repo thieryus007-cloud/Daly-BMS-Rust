@@ -597,7 +597,7 @@ async function fetchRulesStatus() {
     const deyeMpptFull = deye?.mppt_full ?? false;    // l'état MPPT signale batterie pleine
     const deyeFreqStale = deye?.freq_stale ?? false;  // topic fréquence muet → traité nominal
     const deyeMpptStale = deye?.mppt_stale ?? false;  // topic état MPPT muet → traité pas-plein
-    const mpptStates = [deye?.mppt_273_state, deye?.mppt_289_state];
+    const mpptStates = Object.values(deye?.mppt_states ?? {});   // un état par MPPT suivi (instance croissante)
     // Real per-channel relay state from the Shelly Pro 2PM (daly-bms-server). output=true ⇒
     // relay closed ⇒ DEYE powered. One Shelly device → take the first.
     const shellySnap = (shR?.shelly && shR.shelly.length) ? shR.shelly[0].snapshot : null;

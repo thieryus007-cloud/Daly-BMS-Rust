@@ -59,28 +59,17 @@ pub async fn publish_all(bus: &AppBus, state: &Arc<RwLock<EnergyState>>) {
         "TodaysYield":   s.total_yield_today_kwh,
         "YieldYesterday": s.yield_yesterday_kwh,
         "WindSpeed":     s.wind_speed_ms,
-        "MpptPower":     s.mppt_273.power_w.unwrap_or(0.0) + s.mppt_289.power_w.unwrap_or(0.0),
+        "MpptPower":     s.mppts.values().filter_map(|m| m.power_w).sum::<f64>(),
         "SolarTotal":    s.solar_total_w,
-        "Mppts": [
-            {
-                "Instance": 273u32,
-                "State":    s.mppt_273.state,
-                "PvVoltage": s.mppt_273.pv_voltage_v,
-                "DcCurrent": s.mppt_273.dc_current_a,
-                "Power":     s.mppt_273.power_w,
-                "YieldToday": s.mppt_273.yield_today_kwh,
-                "MaxPowerToday": s.mppt_273.max_power_today_w,
-            },
-            {
-                "Instance": 289u32,
-                "State":    s.mppt_289.state,
-                "PvVoltage": s.mppt_289.pv_voltage_v,
-                "DcCurrent": s.mppt_289.dc_current_a,
-                "Power":     s.mppt_289.power_w,
-                "YieldToday": s.mppt_289.yield_today_kwh,
-                "MaxPowerToday": s.mppt_289.max_power_today_w,
-            },
-        ],
+        "Mppts": s.mppts.values().map(|m| json!({
+            "Instance":      m.instance,
+            "State":         m.state,
+            "PvVoltage":     m.pv_voltage_v,
+            "DcCurrent":     m.dc_current_a,
+            "Power":         m.power_w,
+            "YieldToday":    m.yield_today_kwh,
+            "MaxPowerToday": m.max_power_today_w,
+        })).collect::<Vec<_>>(),
     });
     drop(s);
 
@@ -122,8 +111,9 @@ async fn do_reset(_cfg: &SolarConfig, bus: &AppBus, state: &Arc<RwLock<EnergySta
         s.mppt_yield_today_kwh  = 0.0;
         s.pvinv_yield_today_kwh = 0.0;
         s.pvinv_baseline_kwh    = None;   // will be set on next pvinverter message
-        s.mppt_273.yield_today_kwh = Some(0.0);
-        s.mppt_289.yield_today_kwh = Some(0.0);
+        for m in s.mppts.values_mut() {
+            m.yield_today_kwh = Some(0.0);
+        }
     }
 
     // Publish yield_yesterday retained

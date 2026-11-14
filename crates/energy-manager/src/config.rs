@@ -112,6 +112,10 @@ pub struct VictronConfig {
     /// MPPT 2 device instance (e.g. 289)
     #[serde(default = "default_mppt2_instance")]
     pub mppt2_instance: u32,
+    /// All solar-charger (MPPT) instances to follow: daily yield, per-charger detail and
+    /// the DEYE "MPPT full" decision. Empty → falls back to `[mppt1_instance, mppt2_instance]`.
+    #[serde(default)]
+    pub mppt_instances: Vec<u32>,
     /// PVInverter device instance (e.g. 32)
     #[serde(default = "default_pvinv_instance")]
     pub pvinverter_instance: u32,
@@ -137,6 +141,25 @@ pub struct VictronConfig {
 fn default_vebus_instance() -> u32 { 276 }
 fn default_mppt1_instance() -> u32 { 273 }
 fn default_mppt2_instance() -> u32 { 289 }
+
+impl VictronConfig {
+    /// MPPT instances actually followed (`mppt_instances`, or `[mppt1, mppt2]` when empty),
+    /// deduplicated, configured order preserved.
+    pub fn mppt_list(&self) -> Vec<u32> {
+        let src = if self.mppt_instances.is_empty() {
+            vec![self.mppt1_instance, self.mppt2_instance]
+        } else {
+            self.mppt_instances.clone()
+        };
+        let mut out = Vec::with_capacity(src.len());
+        for i in src {
+            if !out.contains(&i) {
+                out.push(i);
+            }
+        }
+        out
+    }
+}
 fn default_pvinv_instance() -> u32 { 32 }
 fn default_smartshunt_instance() -> u32 { 274 }
 
@@ -594,4 +617,23 @@ fn find_config_path() -> String {
         }
     }
     candidates[0].to_string()
+}
+
+#[cfg(test)]
+mod mppt_list_tests {
+    use super::VictronConfig;
+
+    fn parse(extra: &str) -> VictronConfig {
+        toml::from_str(&format!("portal_id = \"x\"\n{extra}")).unwrap()
+    }
+
+    #[test]
+    fn falls_back_to_mppt1_mppt2() {
+        assert_eq!(parse("").mppt_list(), vec![273, 289]);
+    }
+
+    #[test]
+    fn uses_mppt_instances_deduplicated_in_order() {
+        assert_eq!(parse("mppt_instances = [289, 273, 289, 290]").mppt_list(), vec![289, 273, 290]);
+    }
 }

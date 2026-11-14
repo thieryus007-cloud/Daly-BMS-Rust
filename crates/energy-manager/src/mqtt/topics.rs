@@ -13,9 +13,9 @@ pub fn w(portal_id: &str, path: &str) -> String {
 // All topics the energy-manager subscribes to
 // ---------------------------------------------------------------------------
 
-pub fn all_subscriptions(portal_id: &str, vebus: u32, mppt1: u32, mppt2: u32, pvinv: u32, shunt: u32) -> Vec<String> {
+pub fn all_subscriptions(portal_id: &str, vebus: u32, mppts: &[u32], pvinv: u32, shunt: u32) -> Vec<String> {
     let pid = portal_id;
-    vec![
+    let mut v = vec![
         // --- VEBus ---
         n(pid, &format!("vebus/{vebus}/Ac/State/IgnoreAcIn1")),
         n(pid, &format!("vebus/{vebus}/Ac/Out/L1/F")),
@@ -52,22 +52,18 @@ pub fn all_subscriptions(portal_id: &str, vebus: u32, mppt1: u32, mppt2: u32, pv
         n(pid, "battery/+/History/ChargedEnergy"),
         n(pid, "battery/+/History/DischargedEnergy"),
 
-        // --- MPPT 1 ---
-        n(pid, &format!("solarcharger/{mppt1}/Yield/Power")),
-        n(pid, &format!("solarcharger/{mppt1}/History/Daily/0/Yield")),
-        n(pid, &format!("solarcharger/{mppt1}/History/Daily/0/MaxPower")),
-        n(pid, &format!("solarcharger/{mppt1}/State")),
-        n(pid, &format!("solarcharger/{mppt1}/Pv/V")),
-        n(pid, &format!("solarcharger/{mppt1}/Dc/0/Current")),
+    ];
 
-        // --- MPPT 2 ---
-        n(pid, &format!("solarcharger/{mppt2}/Yield/Power")),
-        n(pid, &format!("solarcharger/{mppt2}/History/Daily/0/Yield")),
-        n(pid, &format!("solarcharger/{mppt2}/History/Daily/0/MaxPower")),
-        n(pid, &format!("solarcharger/{mppt2}/State")),
-        n(pid, &format!("solarcharger/{mppt2}/Pv/V")),
-        n(pid, &format!("solarcharger/{mppt2}/Dc/0/Current")),
+    // --- MPPT : every followed charger (VictronConfig::mppt_list) ---
+    // Paths must match `logic::solar_power::mppt_topic_map`.
+    for m in mppts {
+        for path in ["Yield/Power", "History/Daily/0/Yield", "History/Daily/0/MaxPower",
+                     "State", "Pv/V", "Dc/0/Current"] {
+            v.push(n(pid, &format!("solarcharger/{m}/{path}")));
+        }
+    }
 
+    v.extend([
         // --- PVInverter (ET112) ---
         n(pid, &format!("pvinverter/{pvinv}/Ac/Power")),
         n(pid, &format!("pvinverter/{pvinv}/Ac/Energy/Forward")),
@@ -83,7 +79,7 @@ pub fn all_subscriptions(portal_id: &str, vebus: u32, mppt1: u32, mppt2: u32, pv
         "tele/tongou_3BC764/SENSOR".to_string(),
 
         // --- Toshiba climatiseurs (télémétrie lecture seule, wildcard par zone).
-        //     Préfixe LOCAL, non relayé par le bridge NanoPi (règle #11). ---
+        //     Préfixe LOCAL, non relayé par le bridge vers le GX (règle #11). ---
         "santuario/toshiba/+/state".to_string(),
         // Présence FP2 par pièce (contrôle opt-in `toshiba_ac.control_enabled`),
         // publiée par le pont `bridge/aqara-fp2-mqtt`. Préfixe LOCAL également.
@@ -93,7 +89,8 @@ pub fn all_subscriptions(portal_id: &str, vebus: u32, mppt1: u32, mppt2: u32, pv
         "santuario/persist/pvinv_baseline".to_string(),
         "santuario/persist/yield_yesterday".to_string(),
         "santuario/persist/deye_state".to_string(),
-    ]
+    ]);
+    v
 }
 
 // ---------------------------------------------------------------------------
