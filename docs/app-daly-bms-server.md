@@ -72,7 +72,7 @@ Responsabilités :
 - **Polling RS485** : 3 BMS Daly (0x01/0x02/0x03), 3 compteurs ET112 (0x07/0x08/0x09), capteur irradiance PRALRAN (0x05), ATS CHINT.
 - **API REST/WS** : exposer toutes les données en temps réel aux clients externes (dashboard web, Grafana, scripts).
 - **Dashboard SSR** : interface web embarquée dans le binaire, sans npm, sans serveur web séparé.
-- **Bridge MQTT** : publier les snapshots vers le broker Mosquitto local (127.0.0.1:1883), préfixe `santuario/`, relayé vers le NanoPi pour l'intégration Venus OS.
+- **Bridge MQTT** : publier les snapshots vers le broker Mosquitto local (127.0.0.1:1883), préfixe `santuario/`, relayé vers le GX pour l'intégration Venus OS.
 - **Écriture metrics-store** : persister toutes les métriques dans redb (`/mnt/nvme/daly-bms/metrics.redb`) avec tiering raw 30 j / hourly 365 j / daily 5 ans.
 - **AlertEngine** : évaluer les règles d'alarme, notifier (Telegram, SMTP), journaliser en SQLite.
 - **Interface PromQL** : shim de compatibilité Grafana sur `/api/v1/query`, `/api/v1/query_range`, `/api/v1/labels`.
@@ -117,7 +117,7 @@ pub struct AppState {
     // Ring buffer par BMS : 3600 snapshots (environ 1h à 1 snap/s)
     pub bms_snapshots: Arc<RwLock<HashMap<u8, VecDeque<BmsSnapshot>>>>,
 
-    // Données Venus OS (lues via MQTT depuis energy-manager / NanoPi)
+    // Données Venus OS (lues via MQTT depuis energy-manager / GX)
     pub venus_inverter:    Arc<RwLock<Option<VenusInverter>>>,
     pub venus_smartshunt:  Arc<RwLock<Option<VenusSmartShunt>>>,
     pub venus_mppts:       Arc<RwLock<Vec<VenusMppt>>>,
@@ -183,7 +183,7 @@ BMS UART  ──► daly_bms_core::poll_loop()   (mode hardware RS485/USB)
                                 ▼              ▼
                           Mosquitto :1883   /mnt/nvme/daly-bms/metrics.redb
                                 │
-                      dbus-mqtt-venus (NanoPi)
+                      dbus-mqtt-venus (GX)
                       com.victronenergy.battery.*
                            (Venus OS / D-Bus)
 ```
@@ -346,7 +346,7 @@ Bus `/dev/ttyUSB0` — source de vérité : CLAUDE.md §5.
 
 > **Divergence Readme vs CLAUDE.md** : le Readme mentionne parfois 2 BMS (état antérieur à mai 2026). La production compte **3 BMS** (0x01, 0x02, 0x03). CLAUDE.md §5 fait autorité.
 
-Services D-Bus actifs nominaux sur le NanoPi :
+Services D-Bus actifs nominaux sur le GX :
 
 ```
 com.victronenergy.battery.mqtt_1          BMS-360Ah (inst. 151)
@@ -1063,11 +1063,11 @@ sudo systemctl start mosquitto-broker energy-manager daly-bms
 | Marge tampon / cache | ~200 Mo | ~400 Mo |
 | **TOTAL Pi5** | **~413 Mo** | **~765 Mo** |
 
-### NanoPi Neo3 (Venus OS)
+### GX Cerbo GX MK3 (Venus OS)
 
 | Service | RAM | Notes |
 |---------|-----|-------|
-| dbus-mqtt-venus | ~5–8 Mo | Binaire statique musl, zéro dépendance système |
+| dbus-mqtt-venus | ~5–8 Mo | Binaire aarch64 Cortex-A53 (glibc) |
 | Venus OS + systemcalc-py | ~150 Mo | Existant |
 | **Impact additionnel** | **~5 Mo** | Négligeable |
 
@@ -1096,7 +1096,7 @@ du -sh /mnt/nvme/daly-bms/metrics.redb
 L'ancienne architecture décrivait 5 étapes :
 
 ```
-ÉTAPE 1: COLLECTE (NanoPi D-Bus)
+ÉTAPE 1: COLLECTE (GX D-Bus)
   Victron Hardware D-Bus:
     com.victronenergy.system/Dc/Voltage          → 48.2V
     com.victronenergy.system/Dc/Current          → -12.4A
@@ -1261,7 +1261,7 @@ Checklist générique (parties daly-bms-server, toujours valides) :
 
 ```
 □ ÉTAPE A: Identifier la source de données
-  - D'où vient la donnée ? (D-Bus NanoPi / Pi5 / RS485 / API externe / MQTT)
+  - D'où vient la donnée ? (D-Bus GX / Pi5 / RS485 / API externe / MQTT)
   - Quel est le chemin exact ? (topic MQTT, /sys path, registre RS485...)
   - Quelle est la fréquence de mise à jour ?
 
@@ -1384,13 +1384,13 @@ my_device: Arc::new(RwLock::new(None)),
 
 - [./ARCHITECTURE.md](./ARCHITECTURE.md) — Document maître, vue d'ensemble du système et index de toute la documentation.
 - [./app-energy-manager.md](./app-energy-manager.md) — energy-manager (port 8081) : modules logic, décisions Rust pur (`rules.rs`), MQTT, clients HTTP. Produit les topics `santuario/inverter/venus`, `santuario/system/venus`, `santuario/meteo/venus` consommés par daly-bms-server.
-- [./app-dbus-mqtt-venus.md](./app-dbus-mqtt-venus.md) — Bridge NanoPi (armv7) : consomme les topics MQTT publiés par daly-bms-server, les enregistre comme services D-Bus Venus OS.
+- [./app-dbus-mqtt-venus.md](./app-dbus-mqtt-venus.md) — Bridge du GX (aarch64 Cortex-A53) : consomme les topics MQTT publiés par daly-bms-server, les enregistre comme services D-Bus Venus OS.
 - [./metriques-redb-architecture.md](./metriques-redb-architecture.md) — Internals du metrics-store redb (tables, encodage, tiering, write path).
 - [./metriques-promql-reference.md](./metriques-promql-reference.md) — Catalogue des métriques exposées via l'interface PromQL, conventions de labels.
 - [./alertes.md](./alertes.md) — AlertEngine : règles complètes, hysteresis, configuration Telegram/SMTP.
 - [./integration-materiel.md](./integration-materiel.md) — Matériel RS485 : ET112 registres Modbus, ATS CHINT protocole, PRALRAN, ajout BMS.
-- [./deploiement-exploitation.md](./deploiement-exploitation.md) — Build, cross-compilation, déploiement Pi5/NanoPi, systemd, scripts.
-- [./mqtt-mosquitto.md](./mqtt-mosquitto.md) — Architecture MQTT : topics, bridge Pi5→NanoPi, anti-boucle.
+- [./deploiement-exploitation.md](./deploiement-exploitation.md) — Build, cross-compilation, déploiement Pi5/GX, systemd, scripts.
+- [./mqtt-mosquitto.md](./mqtt-mosquitto.md) — Architecture MQTT : topics, bridge Pi5→GX, anti-boucle.
 - [./grafana-dashboards.md](./grafana-dashboards.md) — 20 dashboards Grafana, datasource UID `daly-metrics`, provisioning.
 - [./diagnostic-depannage.md](./diagnostic-depannage.md) — Dépannage transverse, netdiag réseau, debug onduleur/SmartShunt.
 - `Readme.md` (racine) — Introduction projet, démarrage rapide, roadmap.

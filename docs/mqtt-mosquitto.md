@@ -20,18 +20,18 @@
   - [2.5 Commandes d'exploitation courantes](#25-commandes-dexploitation-courantes)
 - [3. Topics MQTT — table complète](#3-topics-mqtt--table-complete)
   - [3.1 Table principale santuario/* → services D-Bus](#31-table-principale-santuario--services-d-bus)
-  - [3.2 Flux EGRESS — Pi5 vers NanoPi (bridge out)](#32-flux-egress--pi5-vers-nanopi-bridge-out)
-  - [3.3 Flux INGRESS — NanoPi vers Pi5 (bridge in)](#33-flux-ingress--nanopi-vers-pi5-bridge-in)
+  - [3.2 Flux EGRESS — Pi5 vers GX (bridge out)](#32-flux-egress--pi5-vers-gx-bridge-out)
+  - [3.3 Flux INGRESS — GX vers Pi5 (bridge in)](#33-flux-ingress--gx-vers-pi5-bridge-in)
   - [3.4 Flux locaux uniquement (pas de bridge)](#34-flux-locaux-uniquement-pas-de-bridge)
-- [4. Bridge MQTT Pi5 ↔ NanoPi](#4-bridge-mqtt-pi5--nanopi)
+- [4. Bridge MQTT Pi5 ↔ GX](#4-bridge-mqtt-pi5--gx)
   - [4.1 Principe du bridge](#41-principe-du-bridge)
   - [4.2 Configuration du bridge dans mosquitto.conf](#42-configuration-du-bridge-dans-mosquittoconf)
   - [4.3 Vérification de l'état des bridges](#43-verification-de-letat-des-bridges)
 - [5. Producteurs et consommateurs MQTT](#5-producteurs-et-consommateurs-mqtt)
   - [5.1 daly-bms-server (Pi5 :8080)](#51-daly-bms-server-pi5-8080)
   - [5.2 energy-manager (Pi5 :8081)](#52-energy-manager-pi5-8081)
-  - [5.3 dbus-mqtt-venus (NanoPi)](#53-dbus-mqtt-venus-nanopi)
-  - [5.4 Tasmota / Shelly (via NanoPi)](#54-tasmota--shelly-via-nanopi)
+  - [5.3 dbus-mqtt-venus (GX)](#53-dbus-mqtt-venus-gx)
+  - [5.4 Tasmota / Shelly (via GX)](#54-tasmota--shelly-via-gx)
 - [6. Config.toml — paramètres MQTT](#6-configtoml--parametres-mqtt)
   - [6.1 Section [mqtt] — daly-bms-server](#61-section-mqtt--daly-bms-server)
   - [6.2 Section [energy_manager.mqtt]](#62-section-energy_managermqtt)
@@ -78,7 +78,7 @@
 │  │  └─────────────────────────────────────────────────────────────────┘   ││
 │  │                              │                                         ││
 │  │  ┌───────────────────────────┼─────────────────────────────────────┐   ││
-│  │  │  Bridge EGRESS (out)      │  → 192.168.1.120 (NanoPi)           │   ││
+│  │  │  Bridge EGRESS (out)      │  → 192.168.1.120 (GX)               │   ││
 │  │  │  santuario/bms/#          │  santuario/pvinverter/#             │   ││
 │  │  │  santuario/switch/#       │  santuario/heatpump/#               │   ││
 │  │  │  santuario/irradiance/raw │  santuario/meteo/venus              │   ││
@@ -89,7 +89,7 @@
 │  │  └───────────────────────────┼─────────────────────────────────────┘   ││
 │  │                              │                                         ││
 │  │  ┌───────────────────────────┼─────────────────────────────────────┐   ││
-│  │  │  Bridge INGRESS (in)      │  ← 192.168.1.120 (NanoPi)           │   ││
+│  │  │  Bridge INGRESS (in)      │  ← 192.168.1.120 (GX)               │   ││
 │  │  │  N/{portal}/#             │  tele/#                             │   ││
 │  │  │  stat/#                   │  shellypro2pm-ec62608840a4/#        │   ││
 │  │  │  daly-bms-shelly/rpc      │                                     │   ││
@@ -126,7 +126,7 @@
 │    Tasmota (WiFi)  Shelly (WiFi)                                           │
 │    192.168.1.115   192.168.1.136                                           │
 │                                                                             │
-│  ⚠️ Tasmota/Shelly restent sur NanoPi (config WiFi fixe)                   │
+│  ⚠️ Tasmota/Shelly restent sur GX (config WiFi fixe)                       │
 │     → Migration possible si reconfiguration des devices                    │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -135,16 +135,16 @@
 
 | Composant | Hôte | Ports | Rôle MQTT |
 |-----------|------|-------|-----------|
-| **mosquitto-broker.service** | Pi5 | 1883 (TCP), 9001 (WS) | Broker central natif systemd — hub de tous les messages locaux + bridge vers/depuis NanoPi |
+| **mosquitto-broker.service** | Pi5 | 1883 (TCP), 9001 (WS) | Broker central natif systemd — hub de tous les messages locaux + bridge vers/depuis GX |
 | **daly-bms-server** | Pi5 | — | Publie les snapshots RS485 (BMS, ET112, ATS, irradiance) en local 127.0.0.1:1883 |
 | **energy-manager** | Pi5 | — | Publie météo, température, commandes VEBus, keepalive, baselines en local 127.0.0.1:1883 ; souscrit N/{portal}/# pour les télémétriques Venus OS |
-| **dbus-mqtt-venus** | NanoPi | — | Souscrit sur broker NanoPi local aux topics `santuario/*/venus` bridgés depuis Pi5, enregistre les services D-Bus Victron |
-| **Tasmota / Tongou** | NanoPi (WiFi) | — | Publie `tele/#` / `stat/#` directement sur broker NanoPi ; bridgé INGRESS vers Pi5 |
-| **Shelly Pro 2PM** | NanoPi (WiFi) | — | Publie `shellypro2pm-ec62608840a4/#` sur broker NanoPi ; bridgé INGRESS vers Pi5 |
+| **dbus-mqtt-venus** | GX | — | Souscrit sur broker GX local aux topics `santuario/*/venus` bridgés depuis Pi5, enregistre les services D-Bus Victron |
+| **Tasmota / Tongou** | GX (WiFi) | — | Publie `tele/#` / `stat/#` directement sur broker GX ; bridgé INGRESS vers Pi5 |
+| **Shelly Pro 2PM** | GX (WiFi) | — | Publie `shellypro2pm-ec62608840a4/#` sur broker GX ; bridgé INGRESS vers Pi5 |
 
 > **Principe directeur** : Tout ce qui est produit sur le Pi5 est publié sur le broker LOCAL (127.0.0.1).
-> Le bridge ne sert qu'à échanger avec le NanoPi.
-> Le NanoPi reste le point d'entrée pour Tasmota/Shelly (config WiFi fixe).
+> Le bridge ne sert qu'à échanger avec le GX.
+> Le GX reste le point d'entrée pour Tasmota/Shelly (config WiFi fixe).
 
 ---
 
@@ -230,10 +230,10 @@ retry_interval 20
 message_retry_timeout 20
 
 # =============================================================================
-# BRIDGE EGRESS : Pi5 → NanoPi (192.168.1.120:1883)
+# BRIDGE EGRESS : Pi5 → GX (192.168.1.120:1883)
 #
 # ⚠ RÈGLE ABSOLUE : Ces topics ne doivent PAS être dans le bridge INGRESS.
-#   Tous les topics santuario/* viennent de Pi5, JAMAIS de NanoPi.
+#   Tous les topics santuario/* viennent de Pi5, JAMAIS de GX.
 # =============================================================================
 connection pi5-to-nanopi
 address 192.168.1.120:1883
@@ -278,15 +278,15 @@ topic santuario/system/venus out 0 "" ""
 topic santuario/platform/venus out 0 "" ""
 
 # Venus OS commandes (écriture D-Bus) — QoS 1
-topic W/c0619ab9929a/# out 1 "" ""
+topic W/d81d13b31a8b/# out 1 "" ""
 
 # Venus OS keepalive (lecture D-Bus) — QoS 1
-topic R/c0619ab9929a/# out 1 "" ""
+topic R/d81d13b31a8b/# out 1 "" ""
 
 # Commandes ON/OFF Tongou depuis energy-manager
 topic cmnd/# out 1 "" ""
 
-# Commandes RPC Shelly (energy-manager → Shelly via NanoPi)
+# Commandes RPC Shelly (energy-manager → Shelly via GX)
 topic shellypro2pm-ec62608840a4/rpc out 0 "" ""
 
 # --- Options bridge EGRESS ---
@@ -298,10 +298,10 @@ restart_timeout 10 30
 keepalive_interval 60
 
 # =============================================================================
-# BRIDGE INGRESS : NanoPi → Pi5 (192.168.1.120:1883)
+# BRIDGE INGRESS : GX → Pi5 (192.168.1.120:1883)
 #
 # ⚠ RÈGLE ABSOLUE : Ces topics doivent être ABSENTS du bridge EGRESS.
-#   NanoPi publie : N/{portal}/#, tele/#, stat/#, shellypro2pm/#, daly-bms-shelly/rpc
+#   GX publie : N/{portal}/#, tele/#, stat/#, shellypro2pm/#, daly-bms-shelly/rpc
 #   Pi5 publie   : santuario/*, cmnd/*, W/*, R/*, shellypro2pm.../rpc
 # =============================================================================
 connection nanopi-to-pi5
@@ -315,7 +315,7 @@ try_private true
 # --- Topics INGRESS ---
 
 # Venus OS télémétriques (Cerbo GX)
-topic N/c0619ab9929a/# in 0 "" ""
+topic N/d81d13b31a8b/# in 0 "" ""
 
 # Tasmota / Tongou — mesures énergie
 topic tele/# in 0 "" ""
@@ -347,10 +347,10 @@ keepalive_interval 60
 # tls_version tlsv1.2
 ```
 
-> **Note** : Remplacer `c0619ab9929a` par le `portal_id` réel si nécessaire. Vérifier avec :
+> **Note** : Remplacer `d81d13b31a8b` par le `portal_id` réel si nécessaire. Vérifier avec :
 > ```bash
 > grep '^portal_id' /etc/daly-bms/config.toml
-> # ou côté NanoPi :
+> # ou côté GX :
 > ssh root@192.168.1.120 "mosquitto_sub -h localhost -t 'N/+/system/0/Serial' -C 1 -W 5"
 > ```
 
@@ -478,7 +478,7 @@ timeout 5 mosquitto_sub -h 127.0.0.1 -t '$SYS/broker/bridge/+/state' -v -C 2
 
 Préfixe obligatoire : `santuario/`
 
-| Topic MQTT (sans préfixe) | Source (Pi5) | Bridge NanoPi | Cible D-Bus Venus |
+| Topic MQTT (sans préfixe) | Source (Pi5) | Bridge GX | Cible D-Bus Venus |
 |---|---|---|---|
 | `bms/{n}/venus` | `daly-bms-server` (RS485 BMS) | `dbus-mqtt-venus` | `com.victronenergy.battery.mqtt_{n}` |
 | `pvinverter/{n}/venus` | `daly-bms-server` (ET112 0x07) | `dbus-mqtt-venus` | `com.victronenergy.pvinverter.mqtt_{n}` |
@@ -490,15 +490,15 @@ Préfixe obligatoire : `santuario/`
 | `platform/venus` | `energy-manager` (platform Pi5) | `dbus-mqtt-venus` | `com.victronenergy.platform` |
 | `irradiance/raw` | `daly-bms-server` (PRALRAN 0x05) | bridgé EGRESS | energy-manager (local) |
 
-> `dbus-mqtt-venus` est le **seul binaire sur le NanoPi** — il souscrit à tous les topics
+> `dbus-mqtt-venus` est le **seul binaire sur le GX** — il souscrit à tous les topics
 > `santuario/*/venus` reçus via le bridge et enregistre tous les services D-Bus.
 > Un seul processus, ~5–8 Mo RAM (binaire statique musl).
 
-### 3.2 Flux EGRESS — Pi5 vers NanoPi (bridge out)
+### 3.2 Flux EGRESS — Pi5 vers GX (bridge out)
 
-Tableau complet avec QoS, retain, producteur et consommateur NanoPi :
+Tableau complet avec QoS, retain, producteur et consommateur GX :
 
-| Source | Topic complet | QoS | Retain | Producteur | Consommateur NanoPi |
+| Source | Topic complet | QoS | Retain | Producteur | Consommateur GX |
 |--------|---------------|-----|--------|------------|---------------------|
 | BMS 0x01 | `santuario/bms/1/venus` | 1 | true | daly-bms-server | dbus-mqtt-venus → D-Bus battery.mqtt_1 |
 | BMS 0x02 | `santuario/bms/2/venus` | 1 | true | daly-bms-server | dbus-mqtt-venus → D-Bus battery.mqtt_2 |
@@ -512,16 +512,16 @@ Tableau complet avec QoS, retain, producteur et consommateur NanoPi :
 | Chauffe-eau | `santuario/heatpump/1/venus` | 0 | true | energy-manager | dbus-mqtt-venus → D-Bus heatpump.mqtt_1 |
 | SmartShunt | `santuario/system/venus` | 0 | true | energy-manager | daly-bms-server (subscriber local) |
 | Platform | `santuario/platform/venus` | 0 | true | energy-manager | dbus-mqtt-venus → D-Bus platform |
-| Commandes VEBus | `W/c0619ab9929a/#` | 1 | false | energy-manager | dbus-mqtt-venus → D-Bus VEBus |
-| Keepalive | `R/c0619ab9929a/#` | 1 | false | energy-manager | dbus-mqtt-venus → D-Bus lecture |
-| Commandes Tongou | `cmnd/tongou_*/POWER` | 1 | false | energy-manager | Tasmota (sur NanoPi) |
-| RPC Shelly | `shellypro2pm-ec62608840a4/rpc` | 0 | false | energy-manager | Shelly (sur NanoPi) |
+| Commandes VEBus | `W/d81d13b31a8b/#` | 1 | false | energy-manager | dbus-mqtt-venus → D-Bus VEBus |
+| Keepalive | `R/d81d13b31a8b/#` | 1 | false | energy-manager | dbus-mqtt-venus → D-Bus lecture |
+| Commandes Tongou | `cmnd/tongou_*/POWER` | 1 | false | energy-manager | Tasmota (sur GX) |
+| RPC Shelly | `shellypro2pm-ec62608840a4/rpc` | 0 | false | energy-manager | Shelly (sur GX) |
 
-### 3.3 Flux INGRESS — NanoPi vers Pi5 (bridge in)
+### 3.3 Flux INGRESS — GX vers Pi5 (bridge in)
 
-| Source | Topic | QoS | Retain | Producteur NanoPi | Consommateur Pi5 |
+| Source | Topic | QoS | Retain | Producteur GX | Consommateur Pi5 |
 |--------|-------|-----|--------|-------------------|------------------|
-| Venus OS | `N/c0619ab9929a/#` | 0 | false | dbus-mqtt-venus (publish) | energy-manager |
+| Venus OS | `N/d81d13b31a8b/#` | 0 | false | dbus-mqtt-venus (publish) | energy-manager |
 | Tongou mesures | `tele/tongou_*/SENSOR` | 0 | false | Tasmota | daly-bms-server + energy-manager |
 | Tongou état | `stat/tongou_*/POWER` | 0 | false | Tasmota | energy-manager |
 | Shelly status | `shellypro2pm-ec62608840a4/#` | 0 | false | Shelly | energy-manager |
@@ -529,7 +529,7 @@ Tableau complet avec QoS, retain, producteur et consommateur NanoPi :
 
 ### 3.4 Flux locaux uniquement (pas de bridge)
 
-Ces topics restent sur le broker Pi5 local et ne sont **jamais** bridgés vers le NanoPi :
+Ces topics restent sur le broker Pi5 local et ne sont **jamais** bridgés vers le GX :
 
 | Source | Topic | Destination | Utilisation |
 |--------|-------|-------------|-------------|
@@ -542,16 +542,16 @@ Ces topics restent sur le broker Pi5 local et ne sont **jamais** bridgés vers l
 
 ---
 
-## 4. Bridge MQTT Pi5 ↔ NanoPi
+## 4. Bridge MQTT Pi5 ↔ GX
 
 ### 4.1 Principe du bridge
 
-Le bridge Mosquitto est une connexion TCP persistante entre le broker Pi5 (127.0.0.1:1883) et le broker NanoPi (192.168.1.120:1883).
+Le bridge Mosquitto est une connexion TCP persistante entre le broker Pi5 (127.0.0.1:1883) et le broker GX (192.168.1.120:1883).
 
 **Règles fondamentales** :
 - Un topic `out` (EGRESS) ne doit **jamais** figurer dans la liste `in` (INGRESS) — risque de boucle infinie.
-- Tous les topics `santuario/*` sont **exclusivement produits sur le Pi5** et vont en EGRESS vers le NanoPi.
-- Les topics `N/{portal}/#`, `tele/#`, `stat/#`, `shellypro2pm/#`, `daly-bms-shelly/rpc` sont **exclusivement produits sur le NanoPi** et viennent en INGRESS.
+- Tous les topics `santuario/*` sont **exclusivement produits sur le Pi5** et vont en EGRESS vers le GX.
+- Les topics `N/{portal}/#`, `tele/#`, `stat/#`, `shellypro2pm/#`, `daly-bms-shelly/rpc` sont **exclusivement produits sur le GX** et viennent en INGRESS.
 - `try_private true` signale au broker distant qu'on est un bridge (aide à prévenir les boucles si le distant dispose aussi d'un bridge symétrique).
 
 La configuration utilise **deux connexions de bridge distinctes** nommées `pi5-to-nanopi` (EGRESS) et `nanopi-to-pi5` (INGRESS), ce qui facilite le monitoring de l'état de chaque direction via :
@@ -564,7 +564,7 @@ $SYS/broker/bridge/nanopi-to-pi5/state
 
 Voir §2.2 pour la configuration complète. Les points clés :
 
-**EGRESS (Pi5 → NanoPi)** — topics produits sur Pi5 :
+**EGRESS (Pi5 → GX)** — topics produits sur Pi5 :
 ```
 santuario/bms/#
 santuario/pvinverter/#
@@ -575,15 +575,15 @@ santuario/meteo/venus
 santuario/heat/+/venus
 santuario/system/venus
 santuario/platform/venus
-W/c0619ab9929a/#
-R/c0619ab9929a/#
+W/d81d13b31a8b/#
+R/d81d13b31a8b/#
 cmnd/#
 shellypro2pm-ec62608840a4/rpc
 ```
 
-**INGRESS (NanoPi → Pi5)** — topics produits sur NanoPi :
+**INGRESS (GX → Pi5)** — topics produits sur GX :
 ```
-N/c0619ab9929a/#
+N/d81d13b31a8b/#
 tele/#
 stat/#
 shellypro2pm-ec62608840a4/#
@@ -600,10 +600,10 @@ timeout 5 mosquitto_sub -h 127.0.0.1 -t '$SYS/broker/bridge/+/state' -v -C 2
 journalctl -u mosquitto-broker | grep -i "bridge"
 # → doit afficher "Connecting bridge pi5-to-nanopi..." et "Connecting bridge nanopi-to-pi5..."
 
-# Trafic reçu depuis le NanoPi (Venus OS)
-timeout 5 mosquitto_sub -h 127.0.0.1 -t "N/c0619ab9929a/#" -v | head -5
+# Trafic reçu depuis le GX (Venus OS)
+timeout 5 mosquitto_sub -h 127.0.0.1 -t "N/d81d13b31a8b/#" -v | head -5
 
-# Test EGRESS : publier depuis Pi5, vérifier sur NanoPi
+# Test EGRESS : publier depuis Pi5, vérifier sur GX
 mosquitto_pub -h 127.0.0.1 -p 1883 -t "santuario/bms/test" -m '{"probe":1}' -q 1
 ssh root@192.168.1.120 \
   "timeout 5 mosquitto_sub -h localhost -t 'santuario/bms/test' -v -C 1"
@@ -659,8 +659,8 @@ ssh root@192.168.1.120 \
 | `santuario/heatpump/1/venus` | périodique | 0 | true | Données chauffe-eau PAC |
 | `santuario/system/venus` | périodique | 0 | true | SmartShunt / bilan DC bus |
 | `santuario/platform/venus` | périodique | 0 | true | Infos platform Pi5 |
-| `W/c0619ab9929a/#` | sur événement | 1 | false | Commandes D-Bus VEBus (DVCC) |
-| `R/c0619ab9929a/#` | périodique | 1 | false | Keepalive lecture D-Bus |
+| `W/d81d13b31a8b/#` | sur événement | 1 | false | Commandes D-Bus VEBus (DVCC) |
+| `R/d81d13b31a8b/#` | périodique | 1 | false | Keepalive lecture D-Bus |
 | `cmnd/tongou_*/POWER` | sur décision | 1 | false | Commandes ON/OFF Tongou |
 | `shellypro2pm-ec62608840a4/rpc` | sur décision | 0 | false | Commandes RPC Shelly DEYE |
 | `santuario/persist/pvinv_baseline` | sur changement | 1 | true | Baseline PV (retained) |
@@ -671,7 +671,7 @@ ssh root@192.168.1.120 \
 
 | Topic | Source | Usage |
 |-------|--------|-------|
-| `N/c0619ab9929a/#` | Venus OS (via bridge INGRESS) | Télémétriques Cerbo GX (MPPT, SmartShunt, onduleur) |
+| `N/d81d13b31a8b/#` | Venus OS (via bridge INGRESS) | Télémétriques Cerbo GX (MPPT, SmartShunt, onduleur) |
 | `tele/tongou_*/SENSOR` | Tasmota (via bridge INGRESS) | Mesures puissance Tongou |
 | `stat/tongou_*/POWER` | Tasmota (via bridge INGRESS) | État relais Tongou |
 | `shellypro2pm-ec62608840a4/#` | Shelly (via bridge INGRESS) | Données Shelly Pro 2PM |
@@ -680,9 +680,9 @@ ssh root@192.168.1.120 \
 
 > Voir [./app-energy-manager.md] pour l'architecture complète de l'energy-manager.
 
-### 5.3 dbus-mqtt-venus (NanoPi)
+### 5.3 dbus-mqtt-venus (GX)
 
-**Connexion** : `localhost:1883` (broker NanoPi local — reçoit les topics bridgés depuis Pi5)
+**Connexion** : `localhost:1883` (broker GX local — reçoit les topics bridgés depuis Pi5)
 **Bibliothèque** : `rumqttc` (async Rust)
 
 **Topics souscrits** (reçus via bridge EGRESS depuis Pi5) :
@@ -699,13 +699,13 @@ ssh root@192.168.1.120 \
 
 > Voir [./app-dbus-mqtt-venus.md] pour l'architecture complète du bridge D-Bus.
 
-### 5.4 Tasmota / Shelly (via NanoPi)
+### 5.4 Tasmota / Shelly (via GX)
 
-Les devices WiFi Tasmota (Tongou) et Shelly Pro 2PM sont configurés pour publier **directement sur le broker NanoPi** (192.168.1.120:1883). Leur config WiFi MQTT est fixe.
+Les devices WiFi Tasmota (Tongou) et Shelly Pro 2PM sont configurés pour publier **directement sur le broker GX** (192.168.1.120:1883). Leur config WiFi MQTT est fixe.
 
-Le broker NanoPi les reçoit, et le bridge INGRESS `nanopi-to-pi5` les achemine vers le broker Pi5.
+Le broker GX les reçoit, et le bridge INGRESS `nanopi-to-pi5` les achemine vers le broker Pi5.
 
-**Impact** : Si le NanoPi est indisponible, les données Tasmota/Shelly ne parviennent plus au Pi5. Migration possible si les devices sont reconfigurés pour pointer directement vers 192.168.1.141:1883.
+**Impact** : Si le GX est indisponible, les données Tasmota/Shelly ne parviennent plus au Pi5. Migration possible si les devices sont reconfigurés pour pointer directement vers 192.168.1.141:1883.
 
 ---
 
@@ -718,13 +718,13 @@ Le broker NanoPi les reçoit, et le bridge INGRESS `nanopi-to-pi5` les achemine 
 enabled = true
 host = "127.0.0.1"              # ← Mosquitto natif local (loopback)
 port = 1883
-topic_prefix = "santuario/bms"  # NE PAS CHANGER (utilisé par dbus-mqtt-venus côté NanoPi)
+topic_prefix = "santuario/bms"  # NE PAS CHANGER (utilisé par dbus-mqtt-venus côté GX)
 publish_interval_sec = 1
 format = "json"
 ```
 
-> **Important** : `topic_prefix = "santuario/bms"` est utilisé par `dbus-mqtt-venus` sur le NanoPi.
-> Ne pas modifier ce préfixe sans mettre à jour simultanément la config du NanoPi.
+> **Important** : `topic_prefix = "santuario/bms"` est utilisé par `dbus-mqtt-venus` sur le GX.
+> Ne pas modifier ce préfixe sans mettre à jour simultanément la config du GX.
 
 ### 6.2 Section [energy_manager.mqtt]
 
@@ -740,10 +740,10 @@ reconnect_delay_secs = 10
 
 ```toml
 [energy_manager]
-portal_id = "c0619ab9929a"      # Ne pas modifier — utilisé par les bridges W/R/N
+portal_id = "d81d13b31a8b"      # Ne pas modifier — utilisé par les bridges W/R/N
 ```
 
-Le `portal_id` identifie le Cerbo GX (ou équivalent Venus OS) sur le réseau VRM. Il est utilisé dans les topics `W/c0619ab9929a/#`, `R/c0619ab9929a/#` et `N/c0619ab9929a/#`. Toute modification nécessite de mettre à jour simultanément `mosquitto.conf` (patterns de bridge) et `Config.toml`.
+Le `portal_id` identifie le Cerbo GX (ou équivalent Venus OS) sur le réseau VRM. Il est utilisé dans les topics `W/d81d13b31a8b/#`, `R/d81d13b31a8b/#` et `N/d81d13b31a8b/#`. Toute modification nécessite de mettre à jour simultanément `mosquitto.conf` (patterns de bridge) et `Config.toml`.
 
 ---
 
@@ -791,7 +791,7 @@ network-online.target
 
 ### 8.1 Principe du risque
 
-Une boucle MQTT se produit quand un topic est configuré à la fois en `out` et en `in` dans le bridge. Le message publié sur Pi5 est bridgé vers NanoPi, qui le reçoit et le re-bridgé vers Pi5, qui le re-publie... créant un flood infini.
+Une boucle MQTT se produit quand un topic est configuré à la fois en `out` et en `in` dans le bridge. Le message publié sur Pi5 est bridgé vers GX, qui le reçoit et le re-bridgé vers Pi5, qui le re-publie... créant un flood infini.
 
 Les anciennes configurations Docker présentaient ce risque avec `santuario/heat/#` configuré à la fois en INGRESS et EGRESS. Ce problème est résolu dans l'architecture courante (séparation stricte des directions).
 
@@ -848,8 +848,8 @@ sudo /usr/local/bin/verify-no-loop.sh
 
 # Résultat attendu (état validé en production) :
 # === Topics EGRESS (out) ===
-# R/c0619ab9929a/#
-# W/c0619ab9929a/#
+# R/d81d13b31a8b/#
+# W/d81d13b31a8b/#
 # cmnd/#
 # santuario/bms/#
 # santuario/heatpump/#
@@ -862,7 +862,7 @@ sudo /usr/local/bin/verify-no-loop.sh
 # santuario/system/venus
 # shellypro2pm-ec62608840a4/rpc
 # === Topics INGRESS (in) ===
-# N/c0619ab9929a/#
+# N/d81d13b31a8b/#
 # daly-bms-shelly/rpc
 # shellypro2pm-ec62608840a4/#
 # stat/#
@@ -897,7 +897,7 @@ journalctl -u mosquitto-broker | grep -i "loop\|duplicate\|dropped"
 |----------|---------------|----------|
 | `daly-bms` ne démarre pas après `mosquitto-broker` | Dépendance systemd non satisfaite | `journalctl -u mosquitto-broker -n 50` — vérifier que le broker est bien actif |
 | `energy-manager` ne reçoit pas MQTT | `portal_id` incorrect ou Mosquitto inaccessible | Vérifier `portal_id` dans `Config.toml` et que Mosquitto est accessible sur `mqtt.host` |
-| Bridge non connecté (`state 0`) | NanoPi inaccessible ou broker NanoPi down | `ping 192.168.1.120` ; `ssh root@192.168.1.120 "systemctl is-active mosquitto"` |
+| Bridge non connecté (`state 0`) | GX inaccessible ou broker GX down | `ping 192.168.1.120` ; `ssh root@192.168.1.120 "systemctl is-active mosquitto"` |
 | Flood MQTT (> 100 msg/s sur `santuario/#`) | Boucle bridge | `sudo /usr/local/bin/verify-no-loop.sh` — vérifier l'absence d'intersection IN/OUT |
 | VRM n'affiche plus les devices | Bridge EGRESS coupé ou `dbus-mqtt-venus` inactif | Vérifier `$SYS/broker/bridge/pi5-to-nanopi/state` ; `ssh root@192.168.1.120 "svstat /service/dbus-mqtt-venus"` |
 | Dashboard affiche cumul brut | `pvinv_baseline` retained absent ou corrompu | Vérifier `santuario/persist/pvinv_baseline` retained MQTT : `mosquitto_sub -h 127.0.0.1 -t 'santuario/persist/#' -v -C 3` |
@@ -924,13 +924,13 @@ timeout 10 mosquitto_sub -h 127.0.0.1 -t "santuario/bms/1/venus" -v | head -n 3
 # Flux ET112
 timeout 5 mosquitto_sub -h 127.0.0.1 -t "santuario/pvinverter/7/venus" -v | head -n 1
 
-# Flux Venus OS (NanoPi → Pi5)
-timeout 5 mosquitto_sub -h 127.0.0.1 -t "N/c0619ab9929a/system/0/Dc/Battery/Soc" -v | head -n 1
+# Flux Venus OS (GX → Pi5)
+timeout 5 mosquitto_sub -h 127.0.0.1 -t "N/d81d13b31a8b/system/0/Dc/Battery/Soc" -v | head -n 1
 
-# Flux Tasmota (NanoPi → Pi5)
+# Flux Tasmota (GX → Pi5)
 timeout 5 mosquitto_sub -h 127.0.0.1 -t "tele/tongou_3BC764/SENSOR" -v | head -n 1
 
-# Flux Shelly (NanoPi → Pi5)
+# Flux Shelly (GX → Pi5)
 timeout 5 mosquitto_sub -h 127.0.0.1 -t "shellypro2pm-ec62608840a4/status/switch:0" -v | head -n 1
 
 # Vérification anti-boucle
@@ -942,8 +942,8 @@ journalctl -u daly-bms -f | grep -iE 'mqtt|connect|error'
 # Logs energy-manager (côté MQTT)
 journalctl -u energy-manager -f | grep -iE 'mqtt|connect|error'
 
-# Logs dbus-mqtt-venus sur NanoPi
-ssh root@192.168.1.120 "tail -f /var/log/dbus-mqtt-venus/current"
+# Logs dbus-mqtt-venus sur GX
+# dbus-mqtt-venus n'a pas de journal svlogd → logs : lancement manuel (docs/app-dbus-mqtt-venus.md §11.4)
 
 # Redémarrer le broker (fenêtre indisponible ~2s)
 sudo systemctl restart mosquitto-broker
@@ -973,7 +973,7 @@ sudo systemctl start mosquitto-broker
 │  │                             │              │                             ││
 │  │  ┌─────────────────────┐    │   MQTT       │  ┌─────────────────────┐   ││
 │  │  │ daly-bms-server     │────┼──►192.168.1.120  │ mosquitto (Venus)   │   ││
-│  │  │ PUBLIE sur NanoPi   │    │   (TCP)      │  │ dbus-mqtt-venus      │   ││
+│  │  │ PUBLIE sur GX       │    │   (TCP)      │  │ dbus-mqtt-venus      │   ││
 │  │  └─────────────────────┘    │              │  │   (Rust/zbus)         │   ││
 │  │         │                   │              │  │        │              │   ││
 │  │  ┌─────────────────────┐    │              │  │   D-Bus Victron       │   ││
@@ -985,7 +985,7 @@ sudo systemctl start mosquitto-broker
 │  │  ┌─────────────────────┐    │   Bridge     │    Tasmota/Shelly          ││
 │  │  │ mosquitto DOCKER    │◄───┼──────────────┼──── (WiFi direct)          ││
 │  │  │   :1883  :9001      │    │   Docker     │                            ││
-│  │  │  Bridge vers NanoPi │────┼──► NanoPi    │                            ││
+│  │  │  Bridge vers GX     │────┼──► GX        │                            ││
 │  │  └─────────────────────┘    │              │                            ││
 │  └─────────────────────────────┘              └─────────────────────────────┘│
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -994,7 +994,7 @@ sudo systemctl start mosquitto-broker
 **Config.toml avant migration** :
 ```toml
 [mqtt]
-host = "192.168.1.120"        # ← daly-bms-server publiait sur NanoPi
+host = "192.168.1.120"        # ← daly-bms-server publiait sur GX
 port = 1883
 
 [energy_manager.mqtt]
@@ -1007,14 +1007,14 @@ port = 1883
 connection nanopi-venus-bridge
 address 192.168.1.120:1883
 
-# INGRESS (NanoPi → Pi5)
-topic N/c0619ab9929a/# in 0
-topic santuario/# in 0          # ← PROBLÈME : daly-bms-server publie sur NanoPi,
+# INGRESS (GX → Pi5)
+topic N/d81d13b31a8b/# in 0
+topic santuario/# in 0          # ← PROBLÈME : daly-bms-server publie sur GX,
                                 #   le bridge les ramène. Double-hop inutile.
 
-# EGRESS (Pi5 → NanoPi)
-topic W/c0619ab9929a/# out 1
-topic R/c0619ab9929a/# out 1
+# EGRESS (Pi5 → GX)
+topic W/d81d13b31a8b/# out 1
+topic R/d81d13b31a8b/# out 1
 topic santuario/heat/# out 0    # ← CHEVAUCHEMENT avec santuario/# in
 topic santuario/heatpump/# out 0
 topic santuario/meteo/# out 0
@@ -1043,8 +1043,8 @@ After=network-online.target mosquitto.service   # ← mosquitto.service INEXISTA
 
 | # | Problème | Fichier | Impact | Sévérité |
 |---|----------|---------|--------|----------|
-| 1 | **daly-bms-server publie sur NanoPi** | `Config.toml` `[mqtt].host` | Si NanoPi down, BMS ne publie **nulle part** — pas de données locales | Critique |
-| 2 | **Double-hop BMS** | `mosquitto.conf` bridge | Pi5 → NanoPi → bridge → Pi5. Latence + fragilité | Majeur |
+| 1 | **daly-bms-server publie sur GX** | `Config.toml` `[mqtt].host` | Si GX down, BMS ne publie **nulle part** — pas de données locales | Critique |
+| 2 | **Double-hop BMS** | `mosquitto.conf` bridge | Pi5 → GX → bridge → Pi5. Latence + fragilité | Majeur |
 | 3 | **energy-manager via IP réseau** | `Config.toml` `[energy_manager.mqtt]` | Si WiFi down, MQTT local tombe | Majeur |
 | 4 | **Topics en double direction** | `mosquitto.conf` | `santuario/heat/#` en IN + OUT = risque boucle | Majeur |
 | 5 | **`shellypro2pm... both 0`** | `mosquitto.conf` | Bidirectionnel = boucle possible | Majeur |
@@ -1055,16 +1055,16 @@ After=network-online.target mosquitto.service   # ← mosquitto.service INEXISTA
 
 **Principe directeur** :
 > Tout ce qui est produit sur le Pi5 est publié sur le broker LOCAL (127.0.0.1).
-> Le bridge ne sert qu'à échanger avec le NanoPi.
-> Le NanoPi reste le point d'entrée pour Tasmota/Shelly (WiFi fixe).
+> Le bridge ne sert qu'à échanger avec le GX.
+> Le GX reste le point d'entrée pour Tasmota/Shelly (WiFi fixe).
 
 L'architecture cible est celle décrite dans les sections 1 à 9 du présent document.
 
 **Gains obtenus** :
 - RAM réduite de ~50-100 Mo (suppression Docker Mosquitto)
 - Démarrage plus rapide (~10s de moins)
-- Résilience : si NanoPi down, le Pi5 continue de stocker localement
-- Élimination du double-hop BMS (Pi5 → NanoPi → bridge → Pi5)
+- Résilience : si GX down, le Pi5 continue de stocker localement
+- Élimination du double-hop BMS (Pi5 → GX → bridge → Pi5)
 - Élimination du risque de boucle `santuario/# both`
 - Dépendances systemd correctes (`Requires=mosquitto-broker.service`)
 
@@ -1086,7 +1086,7 @@ git push origin v-pre-mosquitto-native-$(date +%Y%m%d)
 
 # Vérifier le portal_id
 grep '^portal_id' Config.toml
-# → doit afficher : portal_id = "c0619ab9929a"
+# → doit afficher : portal_id = "d81d13b31a8b"
 
 # Vérifier les adresses BMS
 grep -A5 '^\[\[bms\]\]' Config.toml | head -20
@@ -1110,7 +1110,7 @@ which mosquitto                    # doit être vide
 df -h /
 # S'assurer d'avoir au moins 500 Mo libres
 
-# Vérifier la connectivité NanoPi
+# Vérifier la connectivité GX
 ping -c 3 192.168.1.120
 ssh root@192.168.1.120 "systemctl is-active mosquitto"
 
@@ -1120,7 +1120,7 @@ ss -tlnp | grep -E ':(1883|9001)'
 
 #### Inventaire des topics (référence pré-migration)
 
-**EGRESS (Pi5 → NanoPi)** — Ce que le Pi5 produit :
+**EGRESS (Pi5 → GX)** — Ce que le Pi5 produit :
 ```
 santuario/bms/#
 santuario/pvinverter/#
@@ -1131,15 +1131,15 @@ santuario/meteo/venus
 santuario/heat/+/venus
 santuario/system/venus
 santuario/platform/venus
-W/c0619ab9929a/#
-R/c0619ab9929a/#
+W/d81d13b31a8b/#
+R/d81d13b31a8b/#
 cmnd/#
 shellypro2pm-ec62608840a4/rpc
 ```
 
-**INGRESS (NanoPi → Pi5)** — Ce que le NanoPi produit :
+**INGRESS (GX → Pi5)** — Ce que le GX produit :
 ```
-N/c0619ab9929a/#
+N/d81d13b31a8b/#
 tele/#
 stat/#
 shellypro2pm-ec62608840a4/#
@@ -1316,13 +1316,13 @@ timeout 5 mosquitto_sub -h 127.0.0.1 -t '$SYS/broker/bridge/+/state' -v -C 2
 #             $SYS/broker/bridge/nanopi-to-pi5/state 1
 ```
 
-#### Étape 7 — Vérifier les bridges avec NanoPi
+#### Étape 7 — Vérifier les bridges avec GX
 
 ```bash
-# Bridge INGRESS (NanoPi → Pi5) — Venus OS doit arriver localement
-timeout 10 mosquitto_sub -h 127.0.0.1 -p 1883 -t "N/c0619ab9929a/#" -v | head
+# Bridge INGRESS (GX → Pi5) — Venus OS doit arriver localement
+timeout 10 mosquitto_sub -h 127.0.0.1 -p 1883 -t "N/d81d13b31a8b/#" -v | head
 
-# Bridge EGRESS (Pi5 → NanoPi) — publication test depuis Pi5
+# Bridge EGRESS (Pi5 → GX) — publication test depuis Pi5
 mosquitto_pub -h 127.0.0.1 -p 1883 -t "santuario/bms/test" -m '{"probe":1}' -q 1
 ssh root@192.168.1.120 \
   "timeout 5 mosquitto_sub -h localhost -t 'santuario/bms/test' -v -C 1"
@@ -1412,13 +1412,13 @@ timeout 5 mosquitto_sub -h 127.0.0.1 -t "santuario/pvinverter/7/venus" -v | head
 mosquitto_pub -h 127.0.0.1 -t "cmnd/tongou_3BC764/POWER" -m "ON" -q 1
 # Vérifier sur le dashboard que le relais s'est activé
 
-# 4. Réception données Venus OS (NanoPi → Pi5)
-timeout 5 mosquitto_sub -h 127.0.0.1 -t "N/c0619ab9929a/system/0/Dc/Battery/Soc" -v | head -n 1
+# 4. Réception données Venus OS (GX → Pi5)
+timeout 5 mosquitto_sub -h 127.0.0.1 -t "N/d81d13b31a8b/system/0/Dc/Battery/Soc" -v | head -n 1
 
-# 5. Réception Tasmota (NanoPi → Pi5)
+# 5. Réception Tasmota (GX → Pi5)
 timeout 5 mosquitto_sub -h 127.0.0.1 -t "tele/tongou_3BC764/SENSOR" -v | head -n 1
 
-# 6. Réception Shelly (NanoPi → Pi5)
+# 6. Réception Shelly (GX → Pi5)
 timeout 5 mosquitto_sub -h 127.0.0.1 -t "shellypro2pm-ec62608840a4/status/switch:0" -v | head -n 1
 ```
 
@@ -1434,8 +1434,8 @@ journalctl -u daly-bms -f | grep -E "MQTT|bms|error"
 # Energy manager
 journalctl -u energy-manager -f | grep -E "MQTT|connect|error"
 
-# NanoPi dbus-mqtt-venus
-ssh root@192.168.1.120 "tail -f /var/log/dbus-mqtt-venus/current"
+# GX dbus-mqtt-venus
+# dbus-mqtt-venus n'a pas de journal svlogd → logs : lancement manuel (docs/app-dbus-mqtt-venus.md §11.4)
 ```
 
 ### 10.9 Procédure de rollback
@@ -1448,7 +1448,7 @@ sudo systemctl stop mosquitto-broker
 sudo systemctl disable mosquitto-broker
 
 # 2. Restaurer Config.toml avec les anciens hôtes
-# Section [mqtt] (daly-bms-server) → 192.168.1.120 (NanoPi)
+# Section [mqtt] (daly-bms-server) → 192.168.1.120 (GX)
 sudo sed -i '/^\[mqtt\]$/,/^\[/ s/host = "127.0.0.1"/host = "192.168.1.120"/' /etc/daly-bms/config.toml
 
 # Section [energy_manager.mqtt] → 192.168.1.141 (Pi5 via réseau)
@@ -1532,7 +1532,7 @@ sudo systemctl daemon-reload
 □ Créer un tag git : git tag -a v-pre-mosquitto-native -m "avant migration Mosquitto natif"
 □ Copie du dépôt GitHub faite (fork ou clone de secours)
 □ Noter l'heure : si problème > 30min → rollback immédiat
-□ Vérifier que NanoPi est accessible : ping 192.168.1.120
+□ Vérifier que GX est accessible : ping 192.168.1.120
 □ Vérifier le portal_id dans Config.toml (section [energy_manager])
 □ Vérifier que mosquitto n'est pas déjà installé nativement
 □ Avoir un accès physique ou SSH de secours au Pi5
@@ -1599,8 +1599,8 @@ Démarrer ? (y/N) y
 [ OK ] /usr/local/bin/verify-no-loop.sh installé
 [INFO] [4/9] Vérification anti-boucle
 === Topics EGRESS (out) ===
-R/c0619ab9929a/#
-W/c0619ab9929a/#
+R/d81d13b31a8b/#
+W/d81d13b31a8b/#
 cmnd/#
 santuario/bms/#
 santuario/heatpump/#
@@ -1613,7 +1613,7 @@ santuario/switch/#
 santuario/system/venus
 shellypro2pm-ec62608840a4/rpc
 === Topics INGRESS (in) ===
-N/c0619ab9929a/#
+N/d81d13b31a8b/#
 daly-bms-shelly/rpc
 shellypro2pm-ec62608840a4/#
 stat/#
@@ -1649,8 +1649,8 @@ Basculer maintenant ? (y/N) y
 [INFO] État des bridges (5s d'écoute)
       $SYS/broker/bridge/pi5-to-nanopi/state 1
       $SYS/broker/bridge/nanopi-to-pi5/state 1
-[INFO] Trafic NanoPi -> Pi5 (sample 3s sur N/c0619ab9929a/#)
-[ OK ] Bridge INGRESS reçoit du NanoPi (119 msg/3s)
+[INFO] Trafic GX -> Pi5 (sample 3s sur N/d81d13b31a8b/#)
+[ OK ] Bridge INGRESS reçoit du GX (119 msg/3s)
 [INFO] [9/9] Redémarrage daly-bms + energy-manager
 ===== État final =====
   mosquitto-broker       active
@@ -1676,7 +1676,7 @@ Basculer maintenant ? (y/N) y
 | Pub/sub local 127.0.0.1 fonctionnel | OK |
 | Bridge EGRESS `pi5-to-nanopi` état = 1 | OK |
 | Bridge INGRESS `nanopi-to-pi5` état = 1 | OK |
-| Trafic NanoPi reçu : **119 messages en 3s** sur `N/c0619ab9929a/#` | OK |
+| Trafic GX reçu : **119 messages en 3s** sur `N/d81d13b31a8b/#` | OK |
 | `daly-bms.service` actif après bascule | OK |
 | `energy-manager.service` actif après bascule | OK |
 | Aucun conteneur `mosquitto` résiduel | OK |
@@ -1699,7 +1699,7 @@ Voir §10.10 — Nettoyage post-migration :
 
 ## Voir aussi
 
-- [./app-dbus-mqtt-venus.md](./app-dbus-mqtt-venus.md) — Bridge NanoPi : intégration device MQTT → D-Bus Venus OS (zbus), déploiement armv7, services D-Bus enregistrés.
+- [./app-dbus-mqtt-venus.md](./app-dbus-mqtt-venus.md) — Bridge du GX : intégration device MQTT → D-Bus Venus OS (zbus), déploiement Cortex-A53, services D-Bus enregistrés.
 - [./app-daly-bms-server.md](./app-daly-bms-server.md) — Serveur principal Pi5 : RS485, publication MQTT BMS/ET112/ATS/irradiance, AppState, bridges.
 - [./app-energy-manager.md](./app-energy-manager.md) — Automatisation énergie Pi5 : modules logic, publication MQTT météo/commandes/baselines, souscription Venus OS.
 - [./deploiement-exploitation.md](./deploiement-exploitation.md) — Workflow déploiement complet, systemd, logs rétention.

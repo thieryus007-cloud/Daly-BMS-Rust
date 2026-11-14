@@ -1,11 +1,11 @@
-# Toolchain épinglée — builds reproductibles entre Pi5, NanoPi et CI.
+# Toolchain épinglée — builds reproductibles entre Pi5, GX Venus OS et CI.
 # Cf. audit robustesse §8. Les cibles ARM sont déclarées ici pour que
-# `make build-arm` / `make build-venus-v7` les installent automatiquement.
+# `make build-arm` / `make build-venus-arm` les installent automatiquement.
 [toolchain]
 channel = "1.94.1"
 components = ["rustfmt", "clippy"]
 targets = [
-    "aarch64-unknown-linux-gnu",       # Pi5
-    "armv7-unknown-linux-gnueabihf",   # NanoPi (Venus OS 32-bit)
+    "aarch64-unknown-linux-gnu",       # Pi5 + GX Cerbo GX MK3 (Venus OS aarch64)
+    "armv7-unknown-linux-gnueabihf",   # GX Venus OS 32-bit (aucun en production)
 ]
 profile = "minimal"

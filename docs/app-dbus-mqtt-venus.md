@@ -1,8 +1,8 @@
 # dbus-mqtt-venus — Bridge MQTT → D-Bus Venus OS — Daly-BMS-Rust
 
 > Document de référence du binaire `dbus-mqtt-venus` : bridge Rust pur (zbus) qui
-> expose tous les capteurs de l'installation sur le bus D-Bus de Venus OS (NanoPi
-> ARMv7), en souscrivant aux topics MQTT publiés par le Pi5.
+> expose tous les capteurs de l'installation sur le bus D-Bus de Venus OS (GX Cerbo
+> GX MK3, aarch64 Cortex-A53), en souscrivant aux topics MQTT publiés par le Pi5.
 > Fait partie de l'[architecture documentaire](./ARCHITECTURE.md).
 > Dernière consolidation : 2026-06-07.
 
@@ -40,7 +40,7 @@
   - [6.8 Section [grid] et [[grids]]](#68-section-grid-et-grids)
   - [6.9 Section [pvinverter] et [[pvinverters]]](#69-section-pvinverter-et-pvinverters)
   - [6.10 Section [platform]](#610-section-platform)
-  - [6.11 Fichier de production nanoPi/config-nanopi.toml](#611-fichier-de-production-nanopiconfig-nanopitoml)
+  - [6.11 Fichier de production nanoPi/config-nanopi.toml](#611-fichier-de-production-nanopiconfig-gxtoml)
 - [7. Payloads MQTT — format JSON par type de device](#7-payloads-mqtt--format-json-par-type-de-device)
   - [7.1 Payload batterie (VenusPayload)](#71-payload-batterie-venuspayload)
   - [7.2 Payload température (HeatPayload)](#72-payload-temperature-heatpayload)
@@ -54,13 +54,13 @@
   - [8.1 Fichiers Rust à créer ou modifier](#81-fichiers-rust-a-creer-ou-modifier)
   - [8.2 Étapes détaillées](#82-etapes-detaillees)
   - [8.3 Règle de configuration du bridge Mosquitto](#83-regle-de-configuration-du-bridge-mosquitto)
-- [9. Build et déploiement ARMv7](#9-build-et-deploiement-armv7)
-  - [9.1 Contrainte CRITIQUE — jamais target-cpu=native pour ARMv7](#91-contrainte-critique--jamais-target-cpunative-pour-armv7)
-  - [9.2 Prérequis cross-compilation](#92-prerequis-cross-compilation)
+- [9. Build et déploiement sur le GX (Cerbo GX MK3, aarch64 Cortex-A53)](#9-build-et-deploiement-sur-le-gx-cerbo-gx-mk3-aarch64-cortex-a53)
+  - [9.1 Contrainte CRITIQUE — jamais target-cpu=native](#91-contrainte-critique--jamais-target-cpunative)
+  - [9.2 Prérequis](#92-prerequis)
   - [9.3 Commandes Make](#93-commandes-make)
   - [9.4 Déploiement manuel pas-à-pas](#94-deploiement-manuel-pas-a-pas)
   - [9.5 Script install-venus.sh — détail des étapes](#95-script-install-venussh--detail-des-etapes)
-  - [9.6 Structure des fichiers sur le NanoPi](#96-structure-des-fichiers-sur-le-nanopi)
+  - [9.6 Structure des fichiers sur le GX](#96-structure-des-fichiers-sur-le-gx)
   - [9.7 Init system — daemontools (svc/svstat)](#97-init-system--daemontools-svcsvstat)
   - [9.8 Persistance au reboot](#98-persistance-au-reboot)
 - [10. Particularités et cas spéciaux](#10-particularites-et-cas-speciaux)
@@ -73,14 +73,14 @@
 - [11. Commandes de vérification et diagnostic](#11-commandes-de-verification-et-diagnostic)
   - [11.1 État du service runit](#111-etat-du-service-runit)
   - [11.2 Vérification D-Bus par service](#112-verification-d-bus-par-service)
-  - [11.3 Vérification MQTT sur NanoPi](#113-verification-mqtt-sur-nanopi)
+  - [11.3 Vérification MQTT sur le GX](#113-verification-mqtt-sur-le-gx)
   - [11.4 Logs du service Rust](#114-logs-du-service-rust)
-  - [11.5 Ressources système NanoPi](#115-ressources-systeme-nanopi)
-- [12. Dépannage NanoPi](#12-depannage-nanopi)
+  - [11.5 Ressources système du GX](#115-ressources-systeme-du-gx)
+- [12. Dépannage GX](#12-depannage-gx)
   - [12.1 Service D-Bus non visible](#121-service-d-bus-non-visible)
   - [12.2 /Connected = 0 (device déconnecté dans VRM)](#122-connected--0-device-deconnecte-dans-vrm)
-  - [12.3 Crash-loop SIGILL (exit 132) — architecture mismatch](#123-crash-loop-sigill-exit-132--architecture-mismatch)
-  - [12.4 Exec format error — mauvaise architecture](#124-exec-format-error--mauvaise-architecture)
+  - [12.3 Crash-loop SIGILL (exit 132) — CPU mismatch](#123-crash-loop-sigill-exit-132--cpu-mismatch)
+  - [12.4 Exec format error / "not found" — mauvaise architecture ou glibc](#124-exec-format-error--not-found--mauvaise-architecture-ou-glibc)
   - [12.5 scp échoue avec "Failure"](#125-scp-echoue-avec-failure)
   - [12.6 name already taken on the bus](#126-name-already-taken-on-the-bus)
   - [12.7 Symlink Venus disparu après mise à jour firmware](#127-symlink-venus-disparu-apres-mise-a-jour-firmware)
@@ -99,8 +99,8 @@
 
 ## 1. Vue d'ensemble et rôle
 
-`dbus-mqtt-venus` est le **binaire unique sur le NanoPi** (Venus OS, NanoPi Neo3,
-architecture ARMv7 32-bit). Il souscrit à tous les topics MQTT publiés par le Pi5 et
+`dbus-mqtt-venus` est le **binaire unique sur le GX** (Venus OS v3.85, Cerbo GX MK3,
+aarch64 Cortex-A53, 192.168.1.120). Il souscrit à tous les topics MQTT publiés par le Pi5 et
 enregistre les services D-Bus correspondants sur le bus système Venus OS, rendant tous
 les capteurs visibles dans l'interface VRM Portal, la console locale Venus et
 `systemcalc-py` (calcul DVCC charge/décharge).
@@ -139,7 +139,7 @@ les batteries, et étend la couverture à tous les autres types de capteurs. Voi
         ▼                         ▼
   Mosquitto Pi5 :1883 (mosquitto-broker.service)
         │
-        │ Bridge MQTT out (Pi5 → NanoPi)
+        │ Bridge MQTT out (Pi5 → GX)
         │ topics : santuario/bms/# out
         │           santuario/pvinverter/# out
         │           santuario/grid/# out
@@ -149,11 +149,11 @@ les batteries, et étend la couverture à tous les autres types de capteurs. Voi
         │           santuario/heatpump/# out
         │           santuario/platform/# out
         ▼
-  Mosquitto NanoPi :1883 (broker local 127.0.0.1)
+  FlashMQ du GX :1883 (broker local 127.0.0.1)
         │
         │ MQTT subscribe
         ▼
-  dbus-mqtt-venus (Rust, zbus pur) — NanoPi ARMv7
+  dbus-mqtt-venus (Rust, zbus pur) — GX aarch64 Cortex-A53
         │
         │ zbus / D-Bus system bus
         ▼
@@ -605,7 +605,7 @@ Topic fixe : `santuario/platform/venus`. Instance 50.
 ## 6. Configuration TOML — référence complète
 
 Le binaire utilise le même `config.toml` que `daly-bms-server` (section `[mqtt]`
-partagée). Chemin de déploiement sur le NanoPi : `/data/daly-bms/config.toml`.
+partagée). Chemin de déploiement sur le GX : `/data/daly-bms/config.toml`.
 
 Recherche de config (dans l'ordre) :
 1. Option CLI `--config <chemin>`
@@ -617,7 +617,7 @@ Recherche de config (dans l'ordre) :
 
 ```toml
 [mqtt]
-host         = "127.0.0.1"   # broker local (NanoPi)
+host         = "127.0.0.1"   # broker local (GX)
 port         = 1883
 topic_prefix = "santuario/bms"  # préfixe BMS uniquement
 
@@ -825,7 +825,7 @@ enabled         = true
 ### 6.11 Fichier de production nanoPi/config-nanopi.toml
 
 Le fichier `nanoPi/config-nanopi.toml` est la configuration de référence déployée sur
-le NanoPi. Déploiement depuis le Pi5 :
+le GX. Déploiement depuis le Pi5 :
 
 ```bash
 scp nanoPi/config-nanopi.toml root@192.168.1.120:/data/daly-bms/config.toml
@@ -1188,58 +1188,58 @@ sudo bash scripts/netdiag.sh
 
 ---
 
-## 9. Build et déploiement ARMv7
+## 9. Build et déploiement sur le GX (Cerbo GX MK3, aarch64 Cortex-A53)
 
-### 9.1 Contrainte CRITIQUE — jamais target-cpu=native pour ARMv7
+### 9.1 Contrainte CRITIQUE — jamais target-cpu=native
 
-> **AVERTISSEMENT** : ne jamais utiliser `-C target-cpu=native` lors de la
-> cross-compilation pour `armv7-unknown-linux-gnueabihf`. L'hôte est `aarch64` (Pi5)
-> et génère des instructions LSE/ARMv8 (ex: `+lse`) incompatibles avec l'ARMv7 du
-> NanoPi → **SIGILL (exit 132)** au démarrage, crash-loop immédiat.
+> **AVERTISSEMENT** : l'hôte de build (Pi5) est un **Cortex-A76** (ARMv8.2) ; le GX
+> est un **Cortex-A53** (ARMv8.0, sans atomiques LSE). Un binaire compilé sur le Pi5
+> avec `-C target-cpu=native` contient des instructions ARMv8.2 → **SIGILL (exit 132)**
+> au démarrage sur le GX, crash-loop immédiat. Même cible Rust
+> (`aarch64-unknown-linux-gnu`) pour les deux machines, mais **CPU différents**.
 
-Le Makefile utilise uniquement `-C link-arg=-Wl,--as-needed` pour le build ARMv7.
-Indice à la compilation : warnings `'+lse' is not a recognized feature` signalent un
-problème de flags.
+Le Makefile compile `dbus-mqtt-venus` avec
+`-C target-cpu=cortex-a53 -C link-arg=-Wl,--as-needed` dans un répertoire cible
+**séparé** `target/venus-a53` (des RUSTFLAGS différents dans `target/` invalideraient le
+cache des binaires Pi5, compilés en `native`).
 
-### 9.2 Prérequis cross-compilation
+Les instructions LSE présentes dans le binaire sont celles des *outline atomics* de
+Rust (fonctions `__aarch64_*`) : chacune est précédée d'un test CPU à l'exécution
+(`__aarch64_have_lse_atomics`) avec repli LL/SC (`ldaxr`/`stlxr`) — sans danger sur A53.
 
-À exécuter une seule fois sur le Pi5 :
+Compatibilité glibc : le Pi5 est en glibc 2.41, Venus OS v3.85 en 2.39. Vérifier
+qu'un binaire n'exige pas une version plus récente que celle du GX :
 
 ```bash
-# Installer le cross-compilateur ARM
-sudo apt-get install -y gcc-arm-linux-gnueabihf
-
-# Ajouter la target Rust
-rustup target add armv7-unknown-linux-gnueabihf
+objdump -T target/venus-a53/aarch64-unknown-linux-gnu/release/dbus-mqtt-venus \
+  | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1      # attendu : GLIBC_2.34
 ```
 
-Vérification :
-```bash
-rustup target list --installed | grep armv7
-```
+### 9.2 Prérequis
+
+Aucun outil en plus du build Pi5 : cible `aarch64-unknown-linux-gnu` (déclarée dans
+`rust-toolchain.toml`) et linker `aarch64-linux-gnu-gcc` (vérifiés par `check-arm-deps`).
 
 ### 9.3 Commandes Make
 
 | Commande | Description |
 |----------|-------------|
-| `make build-venus-v7` | Cross-compile `dbus-mqtt-venus` pour ARMv7 (NanoPi) |
-| `make install-venus-v7` | build-venus-v7 + déploiement via `install-venus.sh` sur `192.168.1.120` |
-| `make install-venus-v7 GX_IP=x.x.x.x` | Idem avec IP personnalisée |
-| `make build-venus-armv7` | Alias de `build-venus-v7` |
+| `make build-venus-arm` | Build `dbus-mqtt-venus` aarch64 Cortex-A53 → `target/venus-a53/aarch64-unknown-linux-gnu/release/` |
+| `make install-venus` | `build-venus-arm` + déploiement via `install-venus.sh` sur `192.168.1.120` |
+| `make install-venus GX_IP=x.x.x.x` | Idem avec IP personnalisée |
 | `make build-venus` | Build natif (hôte, pour dev/test D-Bus session) |
-| `make build-venus-arm` | Build pour aarch64 (64-bit, non compatible NanoPi) |
-| `make install-venus` | Déployer la version aarch64 (ne fonctionne pas sur NanoPi) |
+| `make build-venus-v7` / `make build-venus-armv7` | Build armv7 (Venus OS 32-bit) — aucun GX armv7 en production |
+| `make install-venus-v7` | **Bloqué** (message d'erreur) : le GX est aarch64 |
 
 Commande bas niveau (sans Makefile) :
 ```bash
-CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER=arm-linux-gnueabihf-gcc \
-  RUSTFLAGS="-C link-arg=-Wl,--as-needed" \
-  cargo build --release \
-  --target armv7-unknown-linux-gnueabihf \
-  -p dbus-mqtt-venus
+CARGO_TARGET_DIR=target/venus-a53 \
+CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
+RUSTFLAGS="-C target-cpu=cortex-a53 -C link-arg=-Wl,--as-needed" \
+cargo build --release --target aarch64-unknown-linux-gnu --bin dbus-mqtt-venus
 ```
 
-Binaire produit : `target/armv7-unknown-linux-gnueabihf/release/dbus-mqtt-venus`
+Binaire produit : `target/venus-a53/aarch64-unknown-linux-gnu/release/dbus-mqtt-venus`
 
 ### 9.4 Déploiement manuel pas-à-pas
 
@@ -1251,18 +1251,18 @@ Binaire produit : `target/armv7-unknown-linux-gnueabihf/release/dbus-mqtt-venus`
 cd ~/Daly-BMS-Rust
 make sync
 
-# Étape 2 — Compiler pour ARMv7 (Pi5)
-make build-venus-v7
+# Étape 2 — Compiler pour le GX (Pi5)
+make build-venus-arm
 
-# Étape 3a — Arrêter le service sur NanoPi
-ssh root@192.168.1.120 "svc -d /data/etc/sv/dbus-mqtt-venus"
+# Étape 3a — Arrêter le service sur le GX
+ssh root@192.168.1.120 "svc -d /service/dbus-mqtt-venus"
 
 # Étape 3b — Copier le binaire
-scp target/armv7-unknown-linux-gnueabihf/release/dbus-mqtt-venus \
+scp target/venus-a53/aarch64-unknown-linux-gnu/release/dbus-mqtt-venus \
     root@192.168.1.120:/data/daly-bms/dbus-mqtt-venus
 
 # Étape 3c — Redémarrer le service
-ssh root@192.168.1.120 "svc -u /data/etc/sv/dbus-mqtt-venus"
+ssh root@192.168.1.120 "svc -u /service/dbus-mqtt-venus"
 
 # Vérification
 ssh root@192.168.1.120 "svstat /service/dbus-mqtt-venus"
@@ -1272,7 +1272,7 @@ ssh root@192.168.1.120 "svstat /service/dbus-mqtt-venus"
 **Si la configuration a été modifiée** :
 
 ```bash
-# Déployer la config sur NanoPi
+# Déployer la config sur le GX
 scp nanoPi/config-nanopi.toml root@192.168.1.120:/data/daly-bms/config.toml
 
 # Redémarrer
@@ -1282,40 +1282,42 @@ ssh root@192.168.1.120 "svc -t /service/dbus-mqtt-venus"
 ### 9.5 Script install-venus.sh — détail des étapes
 
 Le script `nanoPi/install-venus.sh` automatise le déploiement. Invoqué par
-`make install-venus-v7`. Il effectue les opérations suivantes dans l'ordre :
+`make install-venus` (avec `RELEASE_DIR=target/venus-a53/aarch64-unknown-linux-gnu/release`).
+Il effectue les opérations suivantes dans l'ordre :
 
-1. Crée `/data/daly-bms/` et `/data/etc/sv/dbus-mqtt-venus/` sur le NanoPi.
+1. Crée `/data/daly-bms/` et `/data/etc/sv/dbus-mqtt-venus/` sur le GX.
 2. Arrête `dbus-mqtt-venus` s'il est actif (`svc -d`).
-3. Supprime `daly-bms-server` du NanoPi s'il est présent (ce service ne doit tourner
+3. Supprime `daly-bms-server` du GX s'il est présent (ce service ne doit tourner
    **que sur le Pi5**).
-4. Copie le binaire `dbus-mqtt-venus` vers `/data/daly-bms/` et le rend exécutable.
-5. Copie `Config.toml` vers `/data/daly-bms/config.toml` **uniquement si absent** (pour
-   préserver la config existante).
+4. Copie le binaire `dbus-mqtt-venus` (depuis `RELEASE_DIR`) vers `/data/daly-bms/` et
+   le rend exécutable.
+5. Copie `nanoPi/config-nanopi.toml` vers `/data/daly-bms/config.toml` **uniquement si
+   absent** (pour préserver la config existante).
 6. Installe le script `run` daemontools depuis `nanoPi/sv/dbus-mqtt-venus/run`.
 7. Nettoie l'ancien symlink `daly-bms-venus` (ancien nom du crate, maintenant renommé
    `dbus-mqtt-venus`).
-8. Active ou redémarre le service (`ln -sf` ou `svc -u`).
-9. Ajoute la ligne de persistance dans `/data/rc.local`.
+8. Active (lien `/service/dbus-mqtt-venus` s'il est absent) ou redémarre (`svc -u`) le service.
+9. Écrit la ligne de persistance dans `/data/rc.local` (voir 9.8).
 
 Le script utilise un SSH ControlMaster pour n'ouvrir qu'une seule connexion et éviter
 les demandes de mot de passe répétées.
 
 **Prérequis** : ajouter la clé SSH avec `ssh-copy-id root@192.168.1.120` avant la
-première utilisation. Si `install-venus.sh` retourne "Permission denied", vérifier le
-bit exécutable :
+première utilisation (la clé `pi5-nanopi-deploy` du Pi5 est déjà autorisée sur le GX
+actuel). Si `install-venus.sh` retourne "Permission denied", vérifier le bit exécutable :
 
 ```bash
 chmod +x nanoPi/install-venus.sh
 # ou :
-ARCH=armv7 bash nanoPi/install-venus.sh 192.168.1.120
+RELEASE_DIR=target/venus-a53/aarch64-unknown-linux-gnu/release bash nanoPi/install-venus.sh 192.168.1.120
 ```
 
-### 9.6 Structure des fichiers sur le NanoPi
+### 9.6 Structure des fichiers sur le GX
 
 ```
 /data/
   daly-bms/
-    dbus-mqtt-venus       ← binaire ARMv7
+    dbus-mqtt-venus       ← binaire aarch64 Cortex-A53
     config.toml           ← configuration (conservée entre déploiements)
 
   etc/
@@ -1323,10 +1325,10 @@ ARCH=armv7 bash nanoPi/install-venus.sh 192.168.1.120
       dbus-mqtt-venus/
         run               ← script daemontools
 
-  rc.local                ← ln -sf /data/etc/sv/dbus-mqtt-venus /service/dbus-mqtt-venus
+  rc.local                ← [ -e /service/dbus-mqtt-venus ] || ln -s /data/etc/sv/dbus-mqtt-venus /service/dbus-mqtt-venus
 
 /service/
-  dbus-mqtt-venus  →  /data/etc/sv/dbus-mqtt-venus   (symlink ou répertoire)
+  dbus-mqtt-venus  →  /data/etc/sv/dbus-mqtt-venus   (symlink)
     supervise/
 ```
 
@@ -1360,13 +1362,16 @@ Venus OS efface `/service/` à chaque reboot. La persistance est assurée par
 # Vérifier la ligne de persistance
 cat /data/rc.local
 # Doit contenir :
-# ln -sf /data/etc/sv/dbus-mqtt-venus /service/dbus-mqtt-venus
+# [ -e /service/dbus-mqtt-venus ] || ln -s /data/etc/sv/dbus-mqtt-venus /service/dbus-mqtt-venus
 ```
+
+> Pas de `ln -sf` : si le lien existe déjà, `ln -sf` crée un lien récursif **dans**
+> `/data/etc/sv/dbus-mqtt-venus/` au lieu de remplacer le lien.
 
 Si le symlink disparaît après une mise à jour firmware :
 
 ```bash
-ssh root@192.168.1.120 "ln -sf /data/etc/sv/dbus-mqtt-venus /service/dbus-mqtt-venus"
+ssh root@192.168.1.120 "[ -e /service/dbus-mqtt-venus ] || ln -s /data/etc/sv/dbus-mqtt-venus /service/dbus-mqtt-venus"
 ```
 
 ---
@@ -1513,7 +1518,7 @@ dbus -y com.victronenergy.platform /Backup/LastRun GetValue
 > **Note** : `GetValue` sur un chemin individuel échoue avec "Unknown object" si
 > l'objet feuille n'est pas enregistré. `GetItems` sur `/` fonctionne toujours.
 
-### 11.3 Vérification MQTT sur NanoPi
+### 11.3 Vérification MQTT sur le GX
 
 ```bash
 # Souscrire et attendre un message (doit arriver en < 2s si daly-bms-server tourne)
@@ -1526,7 +1531,7 @@ mosquitto_sub -h 127.0.0.1 -p 1883 -t "santuario/#" -v
 **Test MQTT direct (sans energy-manager) :**
 
 ```bash
-# Depuis Pi5 ou NanoPi
+# Depuis Pi5 ou GX
 mosquitto_pub -h localhost -t "santuario/heatpump/1/venus" \
   -m '{"State":1,"Temperature":60.0,"TargetTemperature":52.0,"Position":0}'
 ```
@@ -1550,7 +1555,7 @@ Les traces apparaissent aussi dans `readproctitle` :
 ps | grep readproctitle
 ```
 
-### 11.5 Ressources système NanoPi
+### 11.5 Ressources système du GX
 
 ```bash
 # Vue CPU + RAM temps réel (BusyBox compatible)
@@ -1569,7 +1574,7 @@ Empreinte mémoire attendue :
 
 ---
 
-## 12. Dépannage NanoPi
+## 12. Dépannage GX
 
 ### 12.1 Service D-Bus non visible
 
@@ -1593,13 +1598,13 @@ met `/Connected = 0` entre les publications.
 Solution : vérifier que `energy-manager` publie bien toutes les 25s. Pour les sources
 lentes (Open-Meteo = 15 min), un nœud keepalive 25s est obligatoire.
 
-### 12.3 Crash-loop SIGILL (exit 132) — architecture mismatch
+### 12.3 Crash-loop SIGILL (exit 132) — CPU mismatch
 
 **Symptôme** : `svstat` affiche uptime ≈ 0, tous les services D-Bus absents. Lancement
 manuel du binaire → `Illegal instruction` ou sortie immédiate.
 
-**Cause** : binaire compilé avec `target-cpu=native` (hôte `aarch64`) → instructions
-LSE/ARMv8 incompatibles avec ARMv7 NanoPi.
+**Cause** : binaire compilé avec `target-cpu=native` sur le Pi5 (Cortex-A76) →
+instructions ARMv8.2 absentes du Cortex-A53 du GX.
 
 **Diagnostic** :
 ```bash
@@ -1607,23 +1612,25 @@ LSE/ARMv8 incompatibles avec ARMv7 NanoPi.
 # Affiche "Illegal instruction" ou le processus sort avec code 132
 ```
 
-**Solution** : recompiler sans `target-cpu=native` :
+**Solution** : recompiler en Cortex-A53 et redéployer :
 ```bash
 # Sur Pi5
-make build-venus-v7   # utilise -C link-arg=-Wl,--as-needed uniquement
-make install-venus-v7
+make install-venus    # build-venus-arm : -C target-cpu=cortex-a53, target/venus-a53
 ```
 
-### 12.4 Exec format error — mauvaise architecture
+### 12.4 Exec format error / "not found" — mauvaise architecture ou glibc
 
 **Symptôme** :
 ```
 /data/daly-bms/dbus-mqtt-venus: cannot execute binary file: Exec format error
 ```
+ou `version 'GLIBC_2.xx' not found`.
 
-**Cause** : binaire `aarch64` (64-bit) déployé sur NanoPi ARMv7 (32-bit).
+**Cause** : binaire armv7 (32-bit) déployé sur le GX aarch64, ou binaire lié à une
+glibc plus récente que celle de Venus OS (2.39 en v3.85).
 
-**Solution** : toujours utiliser `make build-venus-v7` (cible `armv7-unknown-linux-gnueabihf`).
+**Solution** : `make install-venus` (aarch64 Cortex-A53) ; contrôler la glibc requise
+(voir 9.1).
 
 ### 12.5 scp échoue avec "Failure"
 
@@ -1653,7 +1660,7 @@ Venus OS peut supprimer les symlinks dans `/service/` lors d'une mise à jour.
 `/data/rc.local` les recrée au boot, mais si le boot a eu lieu avant la correction :
 
 ```bash
-ssh root@192.168.1.120 "ln -sf /data/etc/sv/dbus-mqtt-venus /service/dbus-mqtt-venus"
+ssh root@192.168.1.120 "[ -e /service/dbus-mqtt-venus ] || ln -s /data/etc/sv/dbus-mqtt-venus /service/dbus-mqtt-venus"
 ```
 
 Vérifier que `/data/rc.local` contient bien la ligne de persistance :
@@ -1707,7 +1714,7 @@ ps | grep daly
 **Cause** : `/service/dbus-mqtt-venus/run` pointe vers un mauvais chemin (ex:
 `/data/dbus-mqtt-venus` au lieu de `/data/daly-bms/dbus-mqtt-venus`).
 
-**Solution** : corriger le script run directement sur le NanoPi :
+**Solution** : corriger le script run directement sur le GX :
 
 ```bash
 cat > /service/dbus-mqtt-venus/run << 'EOF'
@@ -1725,7 +1732,7 @@ svc -t /service/dbus-mqtt-venus
 ```bash
 chmod +x nanoPi/install-venus.sh
 # ou contournement sans chmod :
-ARCH=armv7 bash nanoPi/install-venus.sh 192.168.1.120
+RELEASE_DIR=target/venus-a53/aarch64-unknown-linux-gnu/release bash nanoPi/install-venus.sh 192.168.1.120
 ```
 
 ### 12.13 energy-manager ne démarre pas après redémarrage Pi5
@@ -1806,7 +1813,7 @@ Référence wiki Victron pour `com.victronenergy.switch` :
 Avant le crate `dbus-mqtt-venus` Rust (Phase 3 de la roadmap), les batteries Daly
 étaient exposées sur D-Bus via le driver Python
 [dbus-mqtt-battery](https://github.com/mr-manuel/venus-os_dbus-mqtt-battery)
-installé sur le NanoPi.
+installé sur le GX.
 
 ### Architecture originale (Python)
 
@@ -1828,7 +1835,7 @@ dbus-mqtt-battery-42  →  com.victronenergy.battery.mqtt_battery_142
 
 ### Configuration Python (obsolète)
 
-Les fichiers de configuration déployés sur le NanoPi :
+Les fichiers de configuration déployés sur le GX :
 
 **BMS 1 (360Ah — adresse RS485 0x01)** :
 ```ini
@@ -1891,7 +1898,7 @@ svc -d /service/dbus-canbattery.can0
 svstat /service/dbus-canbattery.can0   # doit afficher "down"
 ```
 
-### Ressources système NanoPi avec Python (historique)
+### Ressources système GX avec Python (historique)
 
 | Process | RAM | CPU | Notes |
 |---------|-----|-----|-------|
@@ -1904,35 +1911,36 @@ svstat /service/dbus-canbattery.can0   # doit afficher "down"
 
 - Phase 3 terminée : `dbus-mqtt-venus` Rust couvre toutes les batteries + tous les
   capteurs additionnels.
-- La phase 4 (nettoyage NanoPi, retrait services Python) peut nécessiter une action
+- La phase 4 (nettoyage GX, retrait services Python) peut nécessiter une action
   manuelle si les instances Python sont encore actives.
 - Les instances 141/142 (`mqtt_battery_141`, `mqtt_battery_142`) peuvent coexister
   temporairement avec 151/152 (Rust) ; supprimer les services Python une fois la
   stabilité Rust confirmée.
 
-> ⚠️ Divergence : `nanoPi/README.md` décrit l'architecture Python (`dbus-mqtt-battery`
-> avec instances 141/142). C'est l'état **antérieur** à la Phase 3. L'état courant
-> (autorité) est le service Rust `dbus-mqtt-venus` avec instances 151/152/153.
-> `nanoPi/README.md` est **conservé** comme référence historique.
+> L'architecture Python (`dbus-mqtt-battery`, instances 141/142), antérieure à la
+> Phase 3, est conservée comme référence historique dans
+> `nanoPi/HISTORIQUE-dbus-mqtt-battery.md`. L'état courant (autorité) est le service
+> Rust `dbus-mqtt-venus` (instances 151/152/153), décrit dans `nanoPi/README.md`.
 
 ---
 
 ## Voir aussi
 
 - [./integration-materiel.md](./integration-materiel.md) — Ajout d'un BMS Daly côté
-  RS485 Pi5 et configuration NanoPi (la partie D-Bus Venus est ici, la partie RS485 est
+  RS485 Pi5 et configuration GX (la partie D-Bus Venus est ici, la partie RS485 est
   là-bas).
 - [./deploiement-exploitation.md](./deploiement-exploitation.md) — Workflow complet de
-  déploiement Pi5 + NanoPi, systemd, logs.
-- [./mqtt-mosquitto.md](./mqtt-mosquitto.md) — Architecture MQTT, bridge Pi5→NanoPi,
+  déploiement Pi5 + GX, systemd, logs.
+- [./mqtt-mosquitto.md](./mqtt-mosquitto.md) — Architecture MQTT, bridge Pi5→GX,
   anti-boucle, migration Docker→natif.
 - [./app-energy-manager.md](./app-energy-manager.md) — energy-manager Pi5 : source de
   plusieurs topics MQTT consommés par dbus-mqtt-venus (temperature, heatpump, switch,
   platform).
 - [./app-daly-bms-server.md](./app-daly-bms-server.md) — daly-bms-server Pi5 : source
   des topics BMS, ET112, ATS, PRALRAN.
-- [nanoPi/README.md](../nanoPi/README.md) — Configuration Venus OS, driver Python
-  historique (voir aussi section 14).
+- [nanoPi/README.md](../nanoPi/README.md) — GX actuel (Cerbo GX MK3) : implantation,
+  instances VRM, remplacement du GX. Driver Python historique :
+  [nanoPi/HISTORIQUE-dbus-mqtt-battery.md](../nanoPi/HISTORIQUE-dbus-mqtt-battery.md).
 - Références Victron D-Bus :
   - <https://github.com/victronenergy/venus/wiki/dbus>
   - <https://github.com/sebdehne/dbus-mqtt-services>

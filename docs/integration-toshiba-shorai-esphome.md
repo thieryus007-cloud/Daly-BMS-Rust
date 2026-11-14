@@ -64,7 +64,7 @@ CONTRÔLE CLIMATIQUE (×3 unités intérieures)      MESURE CONSO (×1 unité ex
                      (clim ↔ conso)
 ```
 
-> ⚠️ **Ne PAS bridger** ces topics vers le NanoPi. Le bridge Mosquitto ne relaie
+> ⚠️ **Ne PAS bridger** ces topics vers le GX. Le bridge Mosquitto ne relaie
 > que des topics `santuario/...` ciblés (`heatpump/#`, `switch/#`, `heat/+/venus`, …).
 > Un préfixe **local** `santuario/toshiba/#` reste local. Valider après toute modif :
 > `sudo /usr/local/bin/verify-no-loop.sh` (règle projet #11).
@@ -272,7 +272,7 @@ santuario/toshiba/chambre/...    (unité 2)
 santuario/toshiba/bureau/...     (unité 3)
 ```
 
-Choisir un **préfixe distinct** de ceux relayés par le bridge NanoPi pour éviter
+Choisir un **préfixe distinct** de ceux relayés par le bridge GX pour éviter
 tout risque de boucle. `santuario/toshiba/#` **n'est pas** dans la liste `out` du
 bridge (`docs/mqtt-mosquitto.md`) → il reste **local au Pi5**. ✅
 

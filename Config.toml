@@ -75,8 +75,8 @@ format = "pretty"
 enabled = true
 
 # Windows avec Docker Desktop local → "localhost"
-# Windows avec NanoPi comme broker → "192.168.1.120"
-# Raspberry Pi 5 production        → "127.0.0.1" (Mosquitto natif local, bridgé vers NanoPi)
+# Windows avec le GX (Cerbo GX MK3) comme broker → "192.168.1.120"
+# Raspberry Pi 5 production        → "127.0.0.1" (Mosquitto natif local, bridgé vers le GX)
 host = "127.0.0.1"
 port = 1883
 
@@ -105,7 +105,7 @@ format = "json"
 # Prérequis :
 #   - daly-bms-server actif avec mqtt.enabled = true
 #   - Broker Mosquitto accessible (mqtt.host + mqtt.port ci-dessus)
-#   - dbus-mqtt-venus déployé sur le NanoPi/GX (voir nanoPi/install-venus.sh)
+#   - dbus-mqtt-venus déployé sur le GX Cerbo GX MK3 (voir nanoPi/install-venus.sh)
 
 [venus]
 enabled = true
@@ -572,8 +572,8 @@ bind = "0.0.0.0:8081"
 
 # --- Victron / Venus OS ---
 [energy_manager.victron]
-portal_id            = "c0619ab9929a"   # ID portail Victron GX
-vebus_instance       = 275              # instance VEBus (Quattro/Multiplus)
+portal_id            = "d81d13b31a8b"   # ID portail Victron GX
+vebus_instance       = 276              # instance VEBus (MultiPlus-II) — dérivée du port VE.Bus du GX (Cerbo MK3 ttyS4 → 276)
 mppt1_instance       = 273             # SmartSolar MPPT 1
 mppt2_instance       = 289             # SmartSolar MPPT 2
 pvinverter_instance  = 32              # ET112 Micro-Onduleurs

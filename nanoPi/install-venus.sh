@@ -1,11 +1,14 @@
 #!/bin/bash
 # =============================================================================
-# install-venus.sh — Déploiement de dbus-mqtt-venus sur Venus OS (NanoPi/GX)
+# install-venus.sh — Déploiement de dbus-mqtt-venus sur Venus OS (GX Cerbo GX MK3)
 # =============================================================================
 #
-# Usage :
-#   ./nanoPi/install-venus.sh <gx-ip>
-#   ARCH=armv7 ./nanoPi/install-venus.sh 192.168.1.120
+# Usage (normalement via `make install-venus`, qui compile en Cortex-A53) :
+#   RELEASE_DIR=target/venus-a53/aarch64-unknown-linux-gnu/release ./nanoPi/install-venus.sh 192.168.1.120
+#
+# RELEASE_DIR : dossier contenant le binaire dbus-mqtt-venus à déployer
+#   (défaut : target/<cible ARCH>/release). Le binaire du GX ne doit JAMAIS être
+#   compilé avec target-cpu=native sur le Pi5 (A76 → SIGILL sur le A53 du GX).
 #
 # Prérequis (une seule fois) :
 #   ssh-copy-id root@192.168.1.120   # pour ne plus jamais saisir de mot de passe
@@ -31,19 +34,19 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Architecture : armv7 (NanoPi 32-bit) ou aarch64 (64-bit, défaut)
+# Architecture : aarch64 (GX Cerbo GX MK3, défaut) ou armv7 (Venus OS 32-bit)
 if [ "${ARCH:-}" = "armv7" ]; then
     TARGET="armv7-unknown-linux-gnueabihf"
 else
     TARGET="aarch64-unknown-linux-gnu"
 fi
-RELEASE_DIR="target/${TARGET}/release"
+RELEASE_DIR="${RELEASE_DIR:-target/${TARGET}/release}"
 
-echo "=== Déploiement dbus-mqtt-venus sur Venus OS ${GX_IP} (${TARGET}) ==="
+echo "=== Déploiement dbus-mqtt-venus sur Venus OS ${GX_IP} (${TARGET}, ${RELEASE_DIR}) ==="
 
 if [ ! -f "${RELEASE_DIR}/dbus-mqtt-venus" ]; then
     echo "ERREUR: ${RELEASE_DIR}/dbus-mqtt-venus introuvable."
-    echo "Lancer d'abord: make build-venus-armv7"
+    echo "Lancer d'abord: make build-venus-arm (ou directement: make install-venus)"
     exit 1
 fi
 
@@ -81,7 +84,7 @@ ssh ${SSH_OPTS} "${GX_SSH}" "chmod +x ${INSTALL_DIR}/dbus-mqtt-venus"
 
 echo "5. Copie de la configuration..."
 if ! ssh ${SSH_OPTS} "${GX_SSH}" "test -f ${INSTALL_DIR}/config.toml" 2>/dev/null; then
-    scp ${SCP_OPTS} "Config.toml" "${GX_SSH}:${INSTALL_DIR}/config.toml"
+    scp ${SCP_OPTS} "nanoPi/config-nanopi.toml" "${GX_SSH}:${INSTALL_DIR}/config.toml"
     echo "   config.toml copié (éditer ${INSTALL_DIR}/config.toml si nécessaire)"
 else
     echo "   config.toml existant conservé"
@@ -118,7 +121,9 @@ ssh ${SSH_OPTS} "${GX_SSH}" "
 echo "9. Persistance boot via /data/rc.local..."
 ssh ${SSH_OPTS} "${GX_SSH}" "
     RC_LOCAL='/data/rc.local'
-    RC_LINE='ln -sf /data/etc/sv/dbus-mqtt-venus /service/dbus-mqtt-venus'
+    # Test d'existence : un 'ln -sf' sur un lien déjà présent créerait un lien
+    # récursif DANS /data/etc/sv/dbus-mqtt-venus/ au lieu de remplacer le lien.
+    RC_LINE='[ -e /service/dbus-mqtt-venus ] || ln -s /data/etc/sv/dbus-mqtt-venus /service/dbus-mqtt-venus'
 
     # Créer rc.local s'il n'existe pas
     if [ ! -f \"\${RC_LOCAL}\" ]; then

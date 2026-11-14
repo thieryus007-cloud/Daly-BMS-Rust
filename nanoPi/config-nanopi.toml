@@ -1,5 +1,5 @@
 # =============================================================================
-# config.toml — dbus-mqtt-venus (NanoPi Venus OS)
+# config.toml — dbus-mqtt-venus (GX Cerbo GX MK3, Venus OS)
 # Chemin cible : /data/daly-bms/config.toml
 #
 # Déploiement depuis Pi5 :
@@ -11,7 +11,7 @@
 # =============================================================================
 
 # -----------------------------------------------------------------------------
-# MQTT broker — NanoPi est le broker (mosquitto sur 127.0.0.1)
+# MQTT broker — le GX est le broker (FlashMQ Venus OS sur 127.0.0.1)
 # topic_prefix = préfixe BMS uniquement (santuario/bms)
 # Les autres devices ont leur propre préfixe déclaré ci-dessous.
 # -----------------------------------------------------------------------------

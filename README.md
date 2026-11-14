@@ -6,7 +6,7 @@ Stack **100 % Rust** — remplacement total de l'ancienne stack Python/FastAPI *
 
 > Dashboard **SSR Rust** (Askama + ECharts, sans npm) · Broker **MQTT natif systemd** ·
 > TSDB **redb** embarquée (shim PromQL compatible Grafana) · Déploiement = **binaires statiques**, sans Docker.
-> Cibles : Raspberry Pi 5 / CM5 (aarch64) + NanoPi Venus OS (armv7). Windows et Linux x86_64 supportés pour le dev.
+> Cibles : Raspberry Pi 5 / CM5 (aarch64) + GX Victron Cerbo GX MK3 sous Venus OS (aarch64 Cortex-A53). Windows et Linux x86_64 supportés pour le dev.
 
 ---
 
@@ -15,7 +15,7 @@ Stack **100 % Rust** — remplacement total de l'ancienne stack Python/FastAPI *
 - **Workspace multi-crates** : `rs485-bus`, `daly-bms-core`, `daly-bms-server`, `energy-manager`, `metrics-store`, `dbus-mqtt-venus`.
 - **daly-bms-server** (Pi5, :8080) : polling RS485 (BMS Daly + ET112 + PRALRAN + ATS), API REST/WebSocket, dashboard SSR, AlertEngine, metrics-store redb.
 - **energy-manager** (Pi5, :8081) : automatisation énergie (solaire, DEYE, chauffe-eau LG, charge, météo) via `rust-rule-engine`.
-- **dbus-mqtt-venus** (NanoPi) : bridge MQTT → D-Bus Venus OS en zbus pur Rust (~5–8 Mo RAM).
+- **dbus-mqtt-venus** (GX Cerbo GX MK3) : bridge MQTT → D-Bus Venus OS en zbus pur Rust (~5–8 Mo RAM).
 - **Observabilité** : redb (tiering raw 30 j / hourly 365 j / daily 5 ans) + 20 dashboards Grafana.
 
 ---
@@ -29,11 +29,11 @@ et **index complet** de la documentation.
 
 - [docs/app-daly-bms-server.md](./docs/app-daly-bms-server.md) — serveur principal : RS485, protocole Daly, API REST/WS, dashboard SSR.
 - [docs/app-energy-manager.md](./docs/app-energy-manager.md) — automatisation énergie : modules `logic/`, règles `.grl`, clients HTTP.
-- [docs/app-dbus-mqtt-venus.md](./docs/app-dbus-mqtt-venus.md) — bridge MQTT → D-Bus Venus OS, déploiement armv7.
+- [docs/app-dbus-mqtt-venus.md](./docs/app-dbus-mqtt-venus.md) — bridge MQTT → D-Bus Venus OS, déploiement sur le GX (aarch64 Cortex-A53).
 
 ### Domaines transverses
 
-- [docs/deploiement-exploitation.md](./docs/deploiement-exploitation.md) — build, déploiement Pi5 + NanoPi, systemd, logs, restauration.
+- [docs/deploiement-exploitation.md](./docs/deploiement-exploitation.md) — build, déploiement Pi5 + GX, systemd, logs, restauration.
 - [docs/metriques-redb-architecture.md](./docs/metriques-redb-architecture.md) — moteur TSDB redb + historique de migration.
 - [docs/metriques-promql-reference.md](./docs/metriques-promql-reference.md) — catalogue des métriques + référence PromQL.
 - [docs/grafana-dashboards.md](./docs/grafana-dashboards.md) — Grafana : datasource, provisioning, 20 dashboards.
@@ -63,7 +63,7 @@ make install                              # binaire + service systemd daly-bms
 journalctl -u daly-bms -f
 ```
 
-Détails (toutes les cibles Makefile, workflow Pi5 + NanoPi, services systemd) :
+Détails (toutes les cibles Makefile, workflow Pi5 + GX, services systemd) :
 **[docs/deploiement-exploitation.md](./docs/deploiement-exploitation.md)**.
 
 ---
@@ -82,7 +82,7 @@ Détails (toutes les cibles Makefile, workflow Pi5 + NanoPi, services systemd) :
 
 ## 🔧 Matériel
 
-Raspberry Pi Compute Module 5 (4 Go RAM) + adaptateur USB/RS485 ; NanoPi sous Venus OS pour le bridge D-Bus.
+Raspberry Pi Compute Module 5 (4 Go RAM) + adaptateur USB/RS485 ; Victron Cerbo GX MK3 sous Venus OS pour le bridge D-Bus.
 Inventaire complet du bus RS485 et des services Victron : [docs/integration-materiel.md](./docs/integration-materiel.md)
 et [docs/ARCHITECTURE.md §7](./docs/ARCHITECTURE.md#7-inventaire-matériel-résumé).
 

@@ -89,7 +89,7 @@ Pi5 (192.168.1.141, pi5compute)
     └── publication MQTT → consommée par daly-bms-server (writes metrics-store)
 ```
 
-Voir [./mqtt-mosquitto.md] pour l'architecture détaillée du broker MQTT et du bridge NanoPi.
+Voir [./mqtt-mosquitto.md] pour l'architecture détaillée du broker MQTT et du bridge GX.
 Voir [./metriques-redb-architecture.md] pour le détail de metrics-store/redb.
 Voir [./deploiement-exploitation.md] pour le déploiement et la gestion systemd.
 
@@ -678,7 +678,7 @@ Les champs `ats_position` et `ats_state` restent à leur valeur par défaut (0) 
 Venus OS (Cerbo GX) publie les topics télémétriques `N/{portal_id}/...` en continu **tant qu'un client MQTT externe publie périodiquement sur `R/{portal_id}/keepalive`**. Sans ce signal, le GX cesse d'émettre après ~60 secondes, coupant toutes les données Venus OS reçues par energy-manager et daly-bms-server.
 
 **Comportement** :
-- Topic publié : `R/c0619ab9929a/keepalive` (payload vide `""`, **non retained**)
+- Topic publié : `R/d81d13b31a8b/keepalive` (payload vide `""`, **non retained**)
 - Fréquence : **30 s** (marge confortable avant le timeout de 60 s du GX)
 - Démarré au lancement d'energy-manager — aucune condition préalable
 - Journalisé en `DEBUG` uniquement (pas de pollution des logs en production)
@@ -686,26 +686,26 @@ Venus OS (Cerbo GX) publie les topics télémétriques `N/{portal_id}/...` en co
 **Configuration** : le `portal_id` est l'identifiant GX Victron visible dans VRM :
 ```toml
 [energy_manager.victron]
-portal_id = "c0619ab9929a"   # ID Cerbo GX — ne pas modifier sans màj VRM
+portal_id = "d81d13b31a8b"   # ID Cerbo GX — ne pas modifier sans màj VRM
 ```
 
 **Diagnostic** :
 ```bash
 # Vérifier que les topics N/ arrivent bien (signe que le keepalive fonctionne)
-mosquitto_sub -h 127.0.0.1 -p 1883 -t 'N/c0619ab9929a/#' -C 5 -v
+mosquitto_sub -h 127.0.0.1 -p 1883 -t 'N/d81d13b31a8b/#' -C 5 -v
 
 # Si rien n'arrive : vérifier que energy-manager tourne
 systemctl status energy-manager
 journalctl -u energy-manager --since "2 minutes ago" | grep -i keepalive
 
 # Forcer un keepalive manuel (test ou dépannage)
-mosquitto_pub -h 127.0.0.1 -p 1883 -t 'R/c0619ab9929a/keepalive' -m ''
+mosquitto_pub -h 127.0.0.1 -p 1883 -t 'R/d81d13b31a8b/keepalive' -m ''
 ```
 
 **Historique — suppression du conteneur Docker** : Avant mai 2026, ce keepalive était assuré par un conteneur Docker manuel `dalybms-venus-keepalive` (image `eclipse-mosquitto:2.0.18`, hors docker-compose) qui exécutait :
 ```sh
 while true; do
-  mosquitto_pub -h mosquitto -p 1883 -t 'R/c0619ab9929a/keepalive' -m '' -q 0
+  mosquitto_pub -h mosquitto -p 1883 -t 'R/d81d13b31a8b/keepalive' -m '' -q 0
   sleep 55
 done
 ```
@@ -753,7 +753,7 @@ Ce conteneur pointait sur le hostname Docker `mosquitto` (l'ancien broker conten
 
 ## 7. Topics MQTT — référence complète
 
-Le broker est Mosquitto natif systemd sur Pi5 (:1883). Voir [./mqtt-mosquitto.md] pour l'architecture détaillée du broker et du bridge NanoPi.
+Le broker est Mosquitto natif systemd sur Pi5 (:1883). Voir [./mqtt-mosquitto.md] pour l'architecture détaillée du broker et du bridge GX.
 
 ### 7.1 Topics souscrits (dynamiques)
 
@@ -780,7 +780,7 @@ N/{pid}/system/0/#
 ```
 
 Instances configurées dans `[energy_manager.victron]` :
-- `vebus_instance = 275`
+- `vebus_instance = 276`
 - `mppt1_instance = 273`
 - `mppt2_instance = 289`
 - `pvinverter_instance = 32`
@@ -1061,8 +1061,8 @@ keep_alive_secs      = 60
 reconnect_delay_secs = 5
 
 [energy_manager.victron]
-portal_id            = "c0619ab9929a"   # ID GX portal Victron (obligatoire)
-vebus_instance       = 275              # Instance VEBus
+portal_id            = "d81d13b31a8b"   # ID GX portal Victron (obligatoire)
+vebus_instance       = 276              # Instance VEBus
 mppt1_instance       = 273             # MPPT 1
 mppt2_instance       = 289             # MPPT 2
 pvinverter_instance  = 32
@@ -1402,7 +1402,7 @@ sudo systemctl edit energy-manager
 
 # Voir les messages MQTT entrants en temps réel
 mosquitto_sub -h 192.168.1.141 -t "santuario/#" -v
-mosquitto_sub -h 192.168.1.141 -t "N/c0619ab9929a/#" -v
+mosquitto_sub -h 192.168.1.141 -t "N/d81d13b31a8b/#" -v
 
 # WebSocket live events
 websocat ws://192.168.1.141:8081/live
@@ -1414,7 +1414,7 @@ curl -s http://192.168.1.141:8081/api/rules-status | python3 -m json.tool
 curl -s http://192.168.1.141:8081/health
 
 # Vérifier que le keepalive Venus OS fonctionne
-mosquitto_sub -h 127.0.0.1 -p 1883 -t 'N/c0619ab9929a/#' -C 5 -v
+mosquitto_sub -h 127.0.0.1 -p 1883 -t 'N/d81d13b31a8b/#' -C 5 -v
 ```
 
 ---
@@ -1428,7 +1428,7 @@ mosquitto_sub -h 127.0.0.1 -p 1883 -t 'N/c0619ab9929a/#' -C 5 -v
 | `energy-manager ne reçoit pas MQTT` | `portal_id` incorrect, Mosquitto inaccessible sur `mqtt.host` | Vérifier `portal_id` dans Config.toml ; vérifier `systemctl status mosquitto-broker` ; tester `mosquitto_sub -h 127.0.0.1 -p 1883 -t '#' -v` |
 | `LG ThinQ ne répond pas` | Bearer token expiré, API key invalide | Vérifier `LG_BEARER_TOKEN` et `LG_API_KEY` dans `/etc/daly-bms/.env` |
 | Dashboard affiche cumul brut (pvinv) | Baseline MQTT absente ou incorrecte | Vérifier `pvinv_baseline` retained MQTT : `mosquitto_sub -h 127.0.0.1 -t 'santuario/persist/pvinv_baseline' -C 1` |
-| Données Venus OS absentes (N/... silencieux) | Keepalive non reçu par le GX | Vérifier energy-manager actif ; forcer keepalive : `mosquitto_pub -h 127.0.0.1 -p 1883 -t 'R/c0619ab9929a/keepalive' -m ''` |
+| Données Venus OS absentes (N/... silencieux) | Keepalive non reçu par le GX | Vérifier energy-manager actif ; forcer keepalive : `mosquitto_pub -h 127.0.0.1 -p 1883 -t 'R/d81d13b31a8b/keepalive' -m ''` |
 | Mode PAC LG ne change pas | Cooldown (900 s) non expiré, ou irradiance/SOC non mis à jour | Vérifier `/api/rules-status` ; vérifier logs `journalctl -u energy-manager -f` |
 | DEYE ne se coupe pas malgré fréquence haute | Fréquence lue sur mauvais topic VEBus | Vérifier `vebus_instance` dans Config.toml et topic `N/{pid}/vebus/{vb}/Ac/Out/L1/F` |
 | `panic=abort` → redémarrage systemd | Comportement normal (supervision fail-fast) | Inspecter les logs avant l'arrêt pour identifier la cause |
@@ -1558,7 +1558,7 @@ Commits : 12+ commits incluant feat(state), feat(mqtt), feat(api), feat(visualiz
 ### Architecture historique (4 étapes Node-RED → Rust)
 
 ```
-ÉTAPE 1 : COLLECTE (NanoPi D-Bus)
+ÉTAPE 1 : COLLECTE (GX D-Bus)
   Victron Hardware D-Bus:
     com.victronenergy.system/Dc/Voltage          → 48.2V
     com.victronenergy.system/Dc/Current          → -12.4A
@@ -1641,7 +1641,7 @@ pub struct VenusMppt {
 ### Checklist générique d'ajout de métrique (adaptée à l'architecture Rust courante)
 
 ```
-1. Identifier la source (D-Bus NanoPi / Pi5 / RS485 / API externe)
+1. Identifier la source (D-Bus GX / Pi5 / RS485 / API externe)
 2. Ajouter la structure Rust (types.rs ou fichier dédié)
 3. Ajouter un module logic/ (ou étendre un existant)
 4. Brancher dans main.rs
@@ -1666,10 +1666,10 @@ pub struct VenusMppt {
 
 - [./ARCHITECTURE.md](./ARCHITECTURE.md) — Vue d'ensemble système + index de toute la documentation.
 - [./app-daly-bms-server.md](./app-daly-bms-server.md) — Serveur principal Pi5 (RS485, API REST, AppState, ring buffer). Consommateur des topics MQTT publiés par energy-manager.
-- [./mqtt-mosquitto.md](./mqtt-mosquitto.md) — Architecture MQTT : Mosquitto natif, topics détaillés, bridge NanoPi, anti-boucle.
+- [./mqtt-mosquitto.md](./mqtt-mosquitto.md) — Architecture MQTT : Mosquitto natif, topics détaillés, bridge GX, anti-boucle.
 - [./metriques-redb-architecture.md](./metriques-redb-architecture.md) — TSDB redb : moteur de stockage, tables, encodage, write path. Energy-manager écrit via POST HTTP vers daly-bms-server.
 - [./deploiement-exploitation.md](./deploiement-exploitation.md) — Déploiement Pi5 : `make build-energy-arm`, systemd, workflow complet, logs/rétention.
-- [./app-dbus-mqtt-venus.md](./app-dbus-mqtt-venus.md) — Bridge NanoPi : MQTT → D-Bus Venus OS. Source des topics `N/{portal_id}/...` consommés par energy-manager.
+- [./app-dbus-mqtt-venus.md](./app-dbus-mqtt-venus.md) — Bridge GX : MQTT → D-Bus Venus OS. Source des topics `N/{portal_id}/...` consommés par energy-manager.
 - `CLAUDE.md` §8 (problèmes courants energy-manager), §9 règle 16 (supervision fail-fast) — conservé comme référence projet.
 
 ---

@@ -4,7 +4,7 @@
 > Couvre : table maîtresse des problèmes courants, diagnostic port série et permissions,
 > diagnostic services systemd, test API/WebSocket, diagnostic réseau (`netdiag`),
 > procédure d'investigation Onduleur & SmartShunt, investigation memory-leak (§1–§16),
-> nettoyage disque builds cumulés, récupération Venus/NanoPi, et plafond du journal
+> nettoyage disque builds cumulés, récupération Venus/GX, et plafond du journal
 > systemd (§11).
 > Fait partie de l'[architecture documentaire](./ARCHITECTURE.md).
 > Dernière consolidation : 2026-06-07.
@@ -37,7 +37,7 @@
   - [6.11 Commandes de dépannage rapide](#611-commandes-de-depannage-rapide)
   - [6.12 Rapport à fournir si toujours bloqué](#612-rapport-a-fournir-si-toujours-bloque)
 - [7. Nettoyage disque — builds cumulés target/](#7-nettoyage-disque--builds-cumules-target)
-- [8. Récupération Venus / NanoPi](#8-recuperation-venus--nanopi)
+- [8. Récupération Venus / GX](#8-recuperation-venus--gx)
 - [9. Investigation memory-leak daly-bms-server (EN COURS → TERMINÉE)](#9-investigation-memory-leak-daly-bms-server-en-cours--terminee)
   - [§1 Symptôme](#1-symptome)
   - [§2 Hypothèses initiales testées et écartées](#2-hypotheses-initiales-testees-et-ecartees)
@@ -61,7 +61,7 @@
   - [§20 Phase G (2026-06-14) — bilan : ce qui N'A PAS corrigé la fuite](#20-phase-g-2026-06-14--bilan--ce-qui-na-pas-corrige-la-fuite)
 - [10. Pi5 injoignable après reboot — WiFi non remonté / IP fixe](#10-pi5-injoignable-apres-reboot--wifi-non-remonte--ip-fixe)
   - [10.1 Comprendre le tableau de symptômes](#101-comprendre-le-tableau-de-symptomes)
-  - [10.2 Localiser le Pi5 depuis le NanoPi](#102-localiser-le-pi5-depuis-le-nanopi-accessible)
+  - [10.2 Localiser le Pi5 depuis le GX](#102-localiser-le-pi5-depuis-le-gx-accessible)
   - [10.3 Reprendre la main sans écran — câble Ethernet](#103-reprendre-la-main-sans-ecran--cable-ethernet)
   - [10.4 Diagnostiquer le WiFi](#104-diagnostiquer-le-wifi-une-fois-connecte-en-filaire)
   - [10.5 Recréer le profil WiFi avec IP fixe](#105-recreer-le-profil-wifi-avec-ip-fixe-fiabilisation)
@@ -90,11 +90,11 @@ voir [`./integration-materiel.md`](./integration-materiel.md).
 | `deploy-pi5.sh` → `rustup: not found` | PATH root ≠ PATH user sous `sudo` | Corrigé : le script build via `as_user` (sous `$SUDO_USER`). Sinon : builder sans sudo (`make build-arm && make build-energy-arm`) puis `sudo bash scripts/deploy-pi5.sh --no-build`. Dashboards seuls : `sudo bash scripts/fix-grafana.sh`. |
 | Service BMS ne démarre pas | Binaire absent, config manquante, port série indisponible | `journalctl -u daly-bms -n 50` — vérifier le message d'erreur exact |
 | Config ignorée | Le service lit `/etc/daly-bms/config.toml`, pas `~/Daly-BMS-Rust/Config.toml` | `sudo cp Config.toml /etc/daly-bms/config.toml && sudo systemctl restart daly-bms` |
-| `scp: dest open Failure` (déploiement NanoPi) | `dbus-mqtt-venus` monopolise le binaire lors de la copie | `ssh root@192.168.1.120 "svc -d /service/dbus-mqtt-venus"` puis redéployer |
-| Venus symlink disparu (après mise à jour firmware) | Firmware Venus recrée `/service` à la mise à jour | `ssh root@192.168.1.120 "ln -sf /data/etc/sv/dbus-mqtt-venus /service/dbus-mqtt-venus"` |
+| `scp: dest open Failure` (déploiement GX) | `dbus-mqtt-venus` monopolise le binaire lors de la copie | `ssh root@192.168.1.120 "svc -d /service/dbus-mqtt-venus"` puis redéployer |
+| Venus symlink disparu (après mise à jour firmware) | Firmware Venus recrée `/service` à la mise à jour | `ssh root@192.168.1.120 "[ -e /service/dbus-mqtt-venus ] \|\| ln -s /data/etc/sv/dbus-mqtt-venus /service/dbus-mqtt-venus"` |
 | Disque racine Pi5 se remplit (`df -h /` > 45 %) | Builds Rust cumulés dans `target/` (aarch64 + armv7 + natif debug/release) | Voir §7 "Nettoyage disque". Ne **jamais** supprimer `~/.cargo/bin`, `/usr/local/bin/*`, ni `/mnt/nvme/.../metrics.redb`. |
-| `dbus-mqtt-venus` crash-loop sur NanoPi (`svstat` uptime=0, tous les services D-Bus absents) | Binaire armv7 mal compilé → **SIGILL** (exit 132). Cause : `target-cpu=native` dans le build armv7 (hôte aarch64 ≠ cible armv7). | Corrigé dans le Makefile. Diag : lancer le binaire à la main sur le NanoPi. Indice au build : warnings `'+lse' is not a recognized feature`. Le build armv7 n'utilise que `-C link-arg=-Wl,--as-needed` (jamais `target-cpu=native`). |
-| `install-venus.sh: Permission denied` (`make install-venus-v7`) | Bit `+x` manquant sur le script | `chmod +x nanoPi/install-venus.sh` ou `ARCH=armv7 bash nanoPi/install-venus.sh 192.168.1.120` |
+| `dbus-mqtt-venus` crash-loop sur le GX (`svstat` uptime=0, tous les services D-Bus absents) | Binaire mal compilé → **SIGILL** (exit 132). Cause : `target-cpu=native` sur le Pi5 (Cortex-A76) ≠ GX (Cortex-A53). | `make install-venus` (compile en `-C target-cpu=cortex-a53` dans `target/venus-a53`). Diag : lancer le binaire à la main sur le GX. |
+| `install-venus.sh: Permission denied` (`make install-venus`) | Bit `+x` manquant sur le script | `chmod +x nanoPi/install-venus.sh` ou `RELEASE_DIR=target/venus-a53/aarch64-unknown-linux-gnu/release bash nanoPi/install-venus.sh 192.168.1.120` |
 | Compteur grid/acload affiche L2/L3 fantômes à 0 W dans VRM | ET112 monophasé : `grid_service` n'expose que les phases présentes via `/Ac/NumberOfPhases` (dérivé du payload) | Si L2/L3 persistent → rafraîchir VRM (cache console). Comportement normal, pas un bug. |
 | ET112 "en attente de données" | Mauvaise adresse Modbus configurée | `sudo systemctl stop daly-bms && mbpoll -m rtu -a 1:15 -b 9600 -t 3:float -r 1 -c 1 /dev/ttyUSB0` (détail → [`./integration-materiel.md`](./integration-materiel.md)) |
 | Dashboard Grafana ET112 vide alors que les données existent | **Format du label `address`** : le backend écrit `address="0x07/0x08/0x09"` (hex, `redb_writes.rs::write_et112`). Les requêtes PromQL doivent utiliser `address="0x07"`, **jamais** `address="7"` (décimal → 0 série). | Vérif : `curl -s 'localhost:8080/api/v1/query?query=et112_power_w' \| jq '.data.result[].metric'` |
@@ -380,8 +380,8 @@ Exemple de structure d'un rapport `netdiag` :
 
 **Points d'attention lors de l'interprétation :**
 
-- Un débit élevé sur `192.168.1.120:1883` (NanoPi) = le bridge MQTT Pi5→NanoPi envoie
-  beaucoup. Normal si de nombreux capteurs publient. Anormal si la connexion NanoPi est tombée
+- Un débit élevé sur `192.168.1.120:1883` (GX) = le bridge MQTT Pi5→GX envoie
+  beaucoup. Normal si de nombreux capteurs publient. Anormal si la connexion GX est tombée
   (buffer qui se remplit).
 - Un grand nombre de connexions sur `:8080` = clients WebSocket multiples ou Grafana
   qui poll intensément. Normal si Grafana est ouvert sur plusieurs onglets.
@@ -707,29 +707,29 @@ cargo clean
 
 ---
 
-## 8. Récupération Venus / NanoPi
+## 8. Récupération Venus / GX
 
 **Crash-loop `dbus-mqtt-venus` (svstat uptime = 0) :**
 
 ```bash
-# Sur NanoPi
+# Sur GX
 svstat /service/dbus-mqtt-venus
-# Lancer le binaire manuellement pour voir l'erreur
-/usr/local/bin/dbus-mqtt-venus
+# Lancer le binaire manuellement pour voir l'erreur (service arrêté : svc -d)
+/data/daly-bms/dbus-mqtt-venus --config /data/daly-bms/config.toml
 ```
 
-Si le binaire produit `SIGILL` (exit 132) → binaire armv7 compilé avec `target-cpu=native`
-sur un hôte aarch64. Recompiler depuis le Pi5 :
+Si le binaire produit `SIGILL` (exit 132) → binaire compilé avec `target-cpu=native` sur le
+Pi5 (Cortex-A76), incompatible avec le Cortex-A53 du GX. Recompiler depuis le Pi5 :
 
 ```bash
-# Sur Pi5 — build armv7 SANS target-cpu=native
-make build-venus-v7 && make install-venus-v7
+# Sur Pi5 — build Cortex-A53 (jamais target-cpu=native)
+make install-venus
 ```
 
 **Venus symlink disparu après mise à jour firmware :**
 
 ```bash
-ssh root@192.168.1.120 "ln -sf /data/etc/sv/dbus-mqtt-venus /service/dbus-mqtt-venus"
+ssh root@192.168.1.120 "[ -e /service/dbus-mqtt-venus ] || ln -s /data/etc/sv/dbus-mqtt-venus /service/dbus-mqtt-venus"
 ```
 
 **`svc -d` / `svc -t` pour contrôle manuel :**
@@ -742,10 +742,10 @@ ssh root@192.168.1.120 "svc -d /service/dbus-mqtt-venus"
 ssh root@192.168.1.120 "svc -t /service/dbus-mqtt-venus"
 
 # Voir les logs
-ssh root@192.168.1.120 "tail -f /var/log/dbus-mqtt-venus/current"
+# dbus-mqtt-venus n'a pas de journal svlogd → logs : lancement manuel (docs/app-dbus-mqtt-venus.md §11.4)
 ```
 
-**Vérifier les services D-Bus actifs sur NanoPi :**
+**Vérifier les services D-Bus actifs sur GX :**
 
 ```bash
 ssh root@192.168.1.120 "dbus -y | grep victronenergy"
@@ -1754,12 +1754,12 @@ fichier stable → état redb stable → **RSS stable**.
 
 ## 10. Pi5 injoignable après reboot — WiFi non remonté / IP fixe
 
-> **Cas vécu 2026-06-20** : après une mise à jour de la partie Victron/NanoPi puis
+> **Cas vécu 2026-06-20** : après une mise à jour de la partie Victron/GX puis
 > reboot du Pi5, celui-ci semblait fonctionner (port RS485 qui clignote → OS démarré,
 > `daly-bms` actif) mais était **injoignable à son IP** `192.168.1.141`, et **VRM
 > affichait tous les appareils mais figés** (plus aucune donnée fraîche). Cause réelle :
 > le **profil WiFi NetworkManager avait disparu** → `wlan0` ne s'associait plus à la
-> box Starlink → Pi5 hors réseau → bridge MQTT Pi5→NanoPi muet → VRM gelé.
+> box Starlink → Pi5 hors réseau → bridge MQTT Pi5→GX muet → VRM gelé.
 
 ### 10.1 Comprendre le tableau de symptômes
 
@@ -1768,22 +1768,22 @@ passerelle `192.168.1.1`). La chaîne de données vers VRM est :
 
 ```
 daly-bms (Pi5) --RS485 (USB)--> publie MQTT --> Mosquitto local Pi5
-   --bridge "pi5-nanopi" (RÉSEAU)--> NanoPi:1883 --> dbus-mqtt-venus --> D-Bus --> VRM
+   --bridge "pi5-nanopi" (RÉSEAU)--> GX:1883 --> dbus-mqtt-venus --> D-Bus --> VRM
 ```
 
 | Symptôme | Ce qu'il prouve |
 |----------|-----------------|
 | RS485 clignote | `daly-bms` **tourne** et lit le bus (étape locale, USB — indépendante du réseau) |
 | Pi5 injoignable sur son IP | **Problème réseau Pi5** (interface non montée / WiFi non associé) |
-| VRM montre les appareils **mais figés** | Les services D-Bus existent (anciens), mais **plus aucun message MQTT n'arrive** au NanoPi → le bridge ne livre plus |
-| NanoPi OK en web + SSH | Le LAN/WiFi fonctionne ; `dbus-mqtt-venus` est vivant |
+| VRM montre les appareils **mais figés** | Les services D-Bus existent (anciens), mais **plus aucun message MQTT n'arrive** au GX → le bridge ne livre plus |
+| GX OK en web + SSH | Le LAN/WiFi fonctionne ; `dbus-mqtt-venus` est vivant |
 
 **Conclusion clé** : un Pi5 « vivant (RS485 clignote) mais injoignable » + un **VRM figé**
 pointent vers **un seul problème : le réseau du Pi5**. Pas un crash applicatif.
 
-### 10.2 Localiser le Pi5 depuis le NanoPi (accessible)
+### 10.2 Localiser le Pi5 depuis le GX (accessible)
 
-Le NanoPi est sur le même réseau et reste joignable → s'en servir pour sonder le Pi5.
+Le GX est sur le même réseau et reste joignable → s'en servir pour sonder le Pi5.
 Système minimal (BusyBox) : `arp` n'existe pas, utiliser `ip neigh`.
 
 ```bash
@@ -1811,7 +1811,7 @@ physique, mais **pas d'écran**. Le plus simple :
 1. Brancher un **câble Ethernet** entre le **port RJ45 intégré du Pi5** et un port LAN de
    la box Starlink (ou n'importe quel switch du réseau `192.168.1.x`). Raspberry Pi OS fait
    du **DHCP sur `eth0` par défaut**, même si le filaire n'est jamais utilisé en temps normal.
-2. Attendre ~1 min, puis retrouver l'IP filaire depuis le NanoPi :
+2. Attendre ~1 min, puis retrouver l'IP filaire depuis le GX :
    ```bash
    for i in $(seq 1 254); do ping -c1 -W1 192.168.1.$i >/dev/null 2>&1 && echo "192.168.1.$i UP"; done
    ```
@@ -1898,7 +1898,7 @@ ls -l /etc/NetworkManager/system-connections/StarTh.nmconnection   # profil pers
    ssh pi5compute@192.168.1.141
    nmcli device status     # wlan0 = connected, StarTh
    ```
-2. **Confirmer le WiFi seul** : débrancher l'Ethernet, puis depuis le NanoPi `ping -c2 192.168.1.141`.
+2. **Confirmer le WiFi seul** : débrancher l'Ethernet, puis depuis le GX `ping -c2 192.168.1.141`.
    S'il répond → le Pi5 tient sur le WiFi seul.
 3. **Anti-conflit d'IP** : une IP fixe côté Pi5 ne réserve rien côté box. Idéalement, ajouter
    une **réservation DHCP** dans l'app Starlink pour la MAC WiFi du Pi5 **`88:a2:9e:37:ed:bc`** →
@@ -2015,9 +2015,9 @@ sudo journalctl --vacuum-time=30d          # ou purge par âge
 
 ## Voir aussi
 
-- [`./deploiement-exploitation.md`](./deploiement-exploitation.md) — Procédures de déploiement normales (Pi5 + NanoPi, workflow, systemd).
+- [`./deploiement-exploitation.md`](./deploiement-exploitation.md) — Procédures de déploiement normales (Pi5 + GX, workflow, systemd).
 - [`./integration-materiel.md`](./integration-materiel.md) — Inventaire matériel RS485/D-Bus, ajout BMS Daly, ATS CHINT, ET112, PRALRAN — pour le détail device (registres, adresses Modbus).
-- [`./mqtt-mosquitto.md`](./mqtt-mosquitto.md) — Architecture MQTT, topics, bridge NanoPi, anti-boucle, validation config Mosquitto.
+- [`./mqtt-mosquitto.md`](./mqtt-mosquitto.md) — Architecture MQTT, topics, bridge GX, anti-boucle, validation config Mosquitto.
 - [`./metriques-redb-architecture.md`](./metriques-redb-architecture.md) — TSDB redb : moteur, tables, tiering, write path.
 - [`./grafana-dashboards.md`](./grafana-dashboards.md) — Grafana : installation, datasource, provisioning, format JSON correct.
 - [`./ARCHITECTURE.md`](./ARCHITECTURE.md) — Document maître : vue d'ensemble système et index de toute la documentation.

@@ -1329,7 +1329,7 @@ Grafana→redb direct est impossible ; le shim PromQL est la bonne approche
 
 ```
 RS485 (BMS Daly + ET112 + irradiance) ─┐ (lecture directe)
-Victron → NanoPi (dbus-mqtt-venus) ─────┼─► daly-bms-server (Rust) ─► metrics-store / redb
+Victron → GX (dbus-mqtt-venus) ─────┼─► daly-bms-server (Rust) ─► metrics-store / redb
 energy-manager ─────────────────────────┘ (MQTT)   │   (tiering raw→hourly→daily)
                                                     └─► API PromQL-compat :8080 ◄── Grafana (PromQL)
 ```

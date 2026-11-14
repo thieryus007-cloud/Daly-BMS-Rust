@@ -501,7 +501,7 @@ sudo bash scripts/deploy-pi5.sh --no-build
 > (préserve la config de production). Copie manuelle si besoin :
 > `sudo cp Config.toml /etc/daly-bms/config.toml`
 >
-> ⚠️ `deploy-pi5.sh` NE déploie PAS le NanoPi → `make install-venus-v7` séparément.
+> ⚠️ `deploy-pi5.sh` NE déploie PAS le GX → `make install-venus` séparément.
 
 ### 6.2 Via fix-grafana.sh (import API — contourne bug Grafana 11+)
 
@@ -1702,7 +1702,7 @@ sudo rm -rf /mnt/nvme/grafana/
 
 - [./metriques-promql-reference.md](./metriques-promql-reference.md) — Catalogue des métriques disponibles et syntaxe PromQL complète, requêtes des panels Grafana.
 - [./metriques-redb-architecture.md](./metriques-redb-architecture.md) — Architecture interne redb : moteur, tables, tiering, write path. À lire pour comprendre pourquoi certaines requêtes PromQL ne fonctionnent pas.
-- [./deploiement-exploitation.md](./deploiement-exploitation.md) — Workflow de déploiement complet Pi5 + NanoPi, scripts `deploy-pi5.sh`, maintenance.
+- [./deploiement-exploitation.md](./deploiement-exploitation.md) — Workflow de déploiement complet Pi5 + GX, scripts `deploy-pi5.sh`, maintenance.
 - [./app-daly-bms-server.md](./app-daly-bms-server.md) — Serveur principal : shim PromQL, écriture métriques (`redb_writes.rs`), endpoints `/api/v1/query`.
 - [./app-energy-manager.md](./app-energy-manager.md) — energy-manager : publication des métriques solaires/énergie consommées par Grafana.
 - [./alertes.md](./alertes.md) — AlertEngine natif Rust : règles, hysteresis, API alertes (complémentaire aux dashboards 17–20).

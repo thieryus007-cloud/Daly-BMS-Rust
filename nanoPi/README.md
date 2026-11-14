@@ -1,212 +1,143 @@
-# NanoPi — Configuration Venus OS (Cerbo GX)
+# GX Venus OS — Cerbo GX MK3 (bridge `dbus-mqtt-venus`)
 
-Fichiers à copier sur le NanoPi Venus OS pour les deux instances du driver
-[dbus-mqtt-battery](https://github.com/mr-manuel/venus-os_dbus-mqtt-battery).
+Le dossier s'appelle `nanoPi/` pour des raisons historiques ; il contient tout ce
+qui est déployé sur le **GX Victron** du système.
+
+| GX | Valeur |
+|---|---|
+| Modèle | Cerbo GX MK3 (S/N HQ2627EH6RK), machine Venus `am62xx` |
+| CPU / arch | Cortex-A53, **aarch64** |
+| Venus OS | v3.85 |
+| IP | `192.168.1.120` (eth0, fixe) — WiFi `192.168.1.122` |
+| Portal ID VRM | `d81d13b31a8b` |
+| SSH | `ssh root@192.168.1.120` (clé `pi5-nanopi-deploy` du Pi5 autorisée) |
 
 ---
 
 ## Architecture
 
 ```
-PC Windows (Rust RS485 natif)
-       │
-       ▼ MQTT publish (toutes les 1s, retain=true)
-FlashMQ — 192.168.1.120:1883 (broker intégré Venus OS)
-  santuario/bms/1/venus
-  santuario/bms/2/venus
-       │
-       ▼ subscribe (dbus-mqtt-battery)
-dbus-mqtt-battery-41  →  com.victronenergy.battery.mqtt_battery_141
-dbus-mqtt-battery-42  →  com.victronenergy.battery.mqtt_battery_142
-       │
-       ▼ D-Bus Venus OS
-  GUI / VRM Portal / systemcalc / hub4control
+Pi5 (192.168.1.141) — daly-bms-server / energy-manager
+   └── mosquitto-broker ── bridge pi5-nanopi-bridge ──► FlashMQ du GX (192.168.1.120:1883)
+                                                          │ santuario/#  (subscribe)
+                                                          ▼
+                                             dbus-mqtt-venus (runit)
+                                                          │
+                                                          ▼ D-Bus système Venus OS
+                                   com.victronenergy.battery.mqtt_1/2/3, switch.mqtt_1..6,
+                                   grid.mqtt_9, acload.mqtt_8, pvinverter.mqtt_7,
+                                   temperature.mqtt_1, meteo → GUI / VRM / systemcalc
 ```
 
-> `dbus-mqtt-battery` fonctionne en mode **MQTT → D-Bus** (abonnement MQTT,
-> création d'un service batterie virtuel sur le bus système Venus OS).
+En sens inverse, Venus publie `N/d81d13b31a8b/...` (lu par energy-manager via le
+bridge) et reçoit les commandes `W/` / keepalive `R/`.
 
 ---
 
-## Déploiement des configs (à faire depuis le NanoPi)
+## Fichiers de ce dossier
 
-```bash
-# BMS 1 (360Ah — adresse RS485 0x01)
-cat > /data/etc/dbus-mqtt-battery-41/config.ini << 'EOF'
-[DEFAULT]
-logging = WARNING
-device_name = MQTT Battery 360Ah
-device_instance = 141
-timeout = 0
+| Fichier | Rôle |
+|---|---|
+| `config-nanopi.toml` | Config de production de `dbus-mqtt-venus` → `/data/daly-bms/config.toml` sur le GX |
+| `install-venus.sh` | Déploiement complet (binaire, config si absente, service runit, `/data/rc.local`) |
+| `sv/dbus-mqtt-venus/run` | Script runit → `/data/etc/sv/dbus-mqtt-venus/run` |
+| `cleanup-dbus-serialbattery.sh` | Outil de nettoyage d'un ancien `dbus-serialbattery` (diagnostic + suppression interactive) |
 
-[MQTT]
-broker_address = 127.0.0.1
-broker_port = 1883
-topic = santuario/bms/1/venus
-EOF
-
-# BMS 2 (320Ah — adresse RS485 0x02)
-cat > /data/etc/dbus-mqtt-battery-42/config.ini << 'EOF'
-[DEFAULT]
-logging = WARNING
-device_name = MQTT Battery 320Ah
-device_instance = 142
-timeout = 0
-
-[MQTT]
-broker_address = 127.0.0.1
-broker_port = 1883
-topic = santuario/bms/2/venus
-EOF
-
-# Redémarrer les deux services
-svc -t /service/dbus-mqtt-battery-41
-svc -t /service/dbus-mqtt-battery-42
-
-# Vérifier qu'ils sont actifs (doit afficher "up X seconds")
-sleep 5
-svstat /service/dbus-mqtt-battery-41
-svstat /service/dbus-mqtt-battery-42
-```
-
-### Pourquoi `broker_address = 127.0.0.1` ?
-
-Le broker FlashMQ tourne **sur le NanoPi lui-même**. Utiliser `127.0.0.1` (loopback)
-est plus fiable que l'IP `192.168.1.120` au démarrage, car l'interface réseau
-peut ne pas être encore configurée quand les services démarrent.
-
-### Pourquoi `timeout = 0` ?
-
-Désactive la déconnexion automatique si aucune donnée reçue. Le service reste
-actif même si le PC Windows n'a pas encore envoyé de données (après un reboot).
-
----
-
-## Diagnostic — Étapes dans l'ordre
-
-### Étape 1 : Vérifier les services
-
-```bash
-svstat /service/dbus-mqtt-battery-41
-svstat /service/dbus-mqtt-battery-42
-# Résultat attendu : "up X seconds, normally up"
-# Si "down" ou redémarre souvent → voir Étape 2
-```
-
-### Étape 2 : Voir les logs du service
-
-```bash
-tail -50 /var/log/dbus-mqtt-battery-41/current
-# Messages attendus après connexion OK :
-#   "Connected to MQTT broker"
-#   "Subscribed to santuario/bms/1/venus"
-#   "Received data for battery 141"
-```
-
-### Étape 3 : Vérifier que FlashMQ reçoit les données
-
-```bash
-# Souscrire et attendre un message (doit arriver en < 2 secondes si Rust tourne)
-mosquitto_sub -h 127.0.0.1 -p 1883 -t "santuario/bms/1/venus" -C 1 -v
-# Si rien n'arrive → le PC Windows n'envoie pas encore
-# Si message reçu → FlashMQ OK, problème dans dbus-mqtt-battery
-```
-
-### Étape 4 : Vérifier la config déployée
-
-```bash
-cat /data/etc/dbus-mqtt-battery-41/config.ini
-# Doit afficher broker_address = 127.0.0.1 et timeout = 0
-```
-
-### Étape 5 : Vérifier le D-Bus (après que le service soit "up")
-
-```bash
-# Si le service est bien UP et a reçu des données :
-dbus -y com.victronenergy.battery.mqtt_battery_141 / GetValue
-# Doit retourner les données batterie, PAS une erreur NameHasNoOwner
-```
-
-### Étape 6 : Tester manuellement le script Python
-
-```bash
-cd /data/etc/dbus-mqtt-battery-41
-python dbus-mqtt-battery.py
-# Observer les messages : Connected / Subscribed / Received
-# Ctrl+C pour arrêter
-```
-
-### Erreur "NameHasNoOwner"
+## Implantation sur le GX
 
 ```
-dbus.exceptions.DBusException: org.freedesktop.DBus.Error.NameHasNoOwner:
-  Could not get owner of name 'com.victronenergy.battery.mqtt_battery_141'
-```
-
-**Cause** : Le service dbus-mqtt-battery n'est pas enregistré sur D-Bus.
-**Solution** :
-1. Vérifier que le service est "up" : `svstat /service/dbus-mqtt-battery-41`
-2. Vérifier les logs : `tail -30 /var/log/dbus-mqtt-battery-41/current`
-3. Déployer la config correcte (voir section Déploiement ci-dessus)
-4. Redémarrer : `svc -t /service/dbus-mqtt-battery-41`
-
----
-
-## Migration depuis CAN
-
-Lors du passage de `dbus-serialbattery.py can0` vers le flux MQTT du PC Windows,
-arrêter le service CAN sur le NanoPi :
-
-```bash
-# Arrêter sans désinstaller (récupère ~60 MB RAM + 6% CPU)
-svc -d /service/dbus-canbattery.can0
-
-# Vérifier l'état (doit afficher "down")
-svstat /service/dbus-canbattery.can0
+/data/daly-bms/dbus-mqtt-venus        binaire aarch64 Cortex-A53
+/data/daly-bms/config.toml            = nanoPi/config-nanopi.toml
+/data/etc/sv/dbus-mqtt-venus/run      service runit
+/service/dbus-mqtt-venus -> /data/etc/sv/dbus-mqtt-venus
+/data/rc.local                        recrée le lien /service au boot :
+    [ -e /service/dbus-mqtt-venus ] || ln -s /data/etc/sv/dbus-mqtt-venus /service/dbus-mqtt-venus
 ```
 
 ---
 
-## Structure sur le NanoPi
-
-```
-/data/etc/
-  dbus-mqtt-battery-41/
-    config.ini          ← broker=127.0.0.1, topic=santuario/bms/1/venus
-    dbus-mqtt-battery.py
-  dbus-mqtt-battery-42/
-    config.ini          ← broker=127.0.0.1, topic=santuario/bms/2/venus
-    dbus-mqtt-battery.py
-```
-
----
-
-## Topics MQTT publiés par le PC Windows
-
-```
-santuario/bms/1/venus   → dbus-mqtt-battery-41  (BMS-360Ah, adresse 0x01)
-santuario/bms/2/venus   → dbus-mqtt-battery-42  (BMS-320Ah, adresse 0x02)
-```
-
-Intervalle de publication : **1 seconde** (`publish_interval_sec = 1` dans Config.toml).
-Messages publiés avec **retain=true** → disponibles immédiatement après connexion.
-
----
-
-## Surveillance ressources NanoPi (BusyBox compatible)
+## Déploiement (depuis le Pi5, `~/Daly-BMS-Rust`)
 
 ```bash
-# Vue CPU + RAM temps réel
-top -b -n 1 | head -n 20
-
-# RAM disponible
-cat /proc/meminfo | grep -E "MemTotal|MemFree|MemAvailable"
+make install-venus     # build Cortex-A53 (target/venus-a53) + install-venus.sh 192.168.1.120
 ```
 
-### État du système
+> ⚠ Le binaire du GX est compilé avec `-C target-cpu=cortex-a53`, **jamais**
+> `target-cpu=native` : le Pi5 est un Cortex-A76, un binaire « native » plante en
+> SIGILL sur le Cortex-A53 du GX. `make install-venus` s'en charge (répertoire
+> cible séparé `target/venus-a53`, sans toucher au cache des binaires Pi5).
 
-| Process | RAM | CPU | Notes |
-|---|---|---|---|
-| `flashmq` | ~49 MB | 0% | Broker MQTT local (port 1883) |
-| `dbus-mqtt-battery-41/42` | ~42 MB x2 | 1% | Bridge MQTT → D-Bus |
-| `dbus-canbattery.can0` | ~60 MB | 0% | **STOPPÉ** — remplacé par MQTT |
+Config seule :
+
+```bash
+scp nanoPi/config-nanopi.toml root@192.168.1.120:/data/daly-bms/config.toml
+ssh root@192.168.1.120 "svc -t /service/dbus-mqtt-venus"
+```
+
+---
+
+## Diagnostic
+
+```bash
+ssh root@192.168.1.120 "svstat /service/dbus-mqtt-venus"          # up X seconds
+ssh root@192.168.1.120 "dbus -y | grep victronenergy | sort"        # services présents
+ssh root@192.168.1.120 "dbus -y com.victronenergy.battery.mqtt_1 /Soc GetValue"
+```
+
+Le service n'a pas de journal svlogd (pas de `log/run`). Pour voir les logs :
+
+```bash
+svc -d /service/dbus-mqtt-venus
+/data/daly-bms/dbus-mqtt-venus --config /data/daly-bms/config.toml   # Ctrl+C pour arrêter
+svc -u /service/dbus-mqtt-venus
+```
+
+Un service D-Bus `mqtt_*` n'apparaît qu'à la réception du premier message MQTT
+correspondant (`santuario/<type>/<n>/venus`) ; il passe `Connected=0` après
+`watchdog_sec` sans données.
+
+---
+
+## Instances VRM (D-Bus)
+
+| Service | Instance | Appareil |
+|---|---|---|
+| `vebus.ttyS4` | 276 | MultiPlus-II 48/5000/70-50 (port VE.Bus du Cerbo) |
+| `solarcharger.*` | 273 | SmartSolar MPPT VE.Can 250/100 « Sud » (HQ2506A3WX6) |
+| `solarcharger.*` | 288 | SmartSolar MPPT 150/70 « Toiture » (HQ2552DDAMU) |
+| `solarcharger.*` | 289 | SmartSolar MPPT 150/35 « Toit montagne » (HQ2506UHKWJ) |
+| `solarcharger.*` | 290 | SmartSolar MPPT 150/35 « T.Nord » (HQ2515R2HDA) |
+| `solarcharger.*` | 291 | SmartSolar MPPT 150/35 « T.Sud » (HQ2515APQM4) |
+| `solarcharger.*` | 292 | SmartSolar MPPT 150/35 « T.milieu » (HQ2515DGNY4) |
+| `battery.ttyS2` | 274 | SmartShunt 300A (HQ25134UYXJ) — moniteur batterie système |
+| `switch.HQ2518CFAPP` | 50 | GX IO extender 150 |
+| `acload.shelly_EC62608840A4_0/1` | 50 / 51 | Shelly Pro 2PM (Chauffe-eau / Éclairage) |
+| `battery.mqtt_1/2/3` | 151 / 152 / 153 | BMS Daly 360 / 320 / 620 Ah (dbus-mqtt-venus) |
+| `pvinverter.mqtt_7` | 32 | ET112 Micro-onduleurs (dbus-mqtt-venus) |
+| `acload.mqtt_8` / `grid.mqtt_9` | 30 / 31 | ET112 Maison / Réseau (dbus-mqtt-venus) |
+| `switch.mqtt_1..6` | 60–65 | ATS CHINT + Tongou 1–5 (dbus-mqtt-venus) |
+| `temperature.mqtt_1` | 20 | Température extérieure (dbus-mqtt-venus) |
+| `meteo` | 40 | Irradiance PRALRAN (dbus-mqtt-venus) |
+
+Les instances VE.Direct (MPPT, SmartShunt) sont mémorisées par numéro de série
+(`/Settings/Devices/vedirect_<serial>/ClassAndVrmInstance`) : elles suivent
+l'appareil quel que soit le port. L'instance VE.Bus dépend du **port** du GX.
+
+---
+
+## Remplacement du GX — points à reporter
+
+1. **Portal ID** : `Config.toml` (`[energy_manager.victron] portal_id`) **et**
+   `contrib/mosquitto/mosquitto.conf` (topics `N/` `R/` `W/` du bridge).
+2. **`vebus_instance`** dans `Config.toml` : relire
+   `dbus -y com.victronenergy.system /VebusInstance GetValue` sur le nouveau GX.
+3. **Réglages Venus** (`/data/conf/settings.xml`) : déposer le fichier de l'ancien
+   GX en `/data/conf/settings.xml.import` puis redémarrer. Si l'attribut racine
+   `unique-id` ne correspond pas au nouveau GX, `localsettings` applique
+   `cleanup_settings()` et **supprime** `/Settings/Devices` (instances VRM) et
+   `/Settings/Victron/Products` (noms des MPPT) : mettre `unique-id` = portal ID
+   du nouveau GX pour les conserver.
+4. **Architecture CPU** du nouveau GX (`uname -m`, `/proc/cpuinfo`) : adapter
+   `VENUS_ARM_RUSTFLAGS` dans le Makefile si ce n'est plus un Cortex-A53.
+5. Clé SSH du Pi5 dans `/data/home/root/.ssh/authorized_keys`, flows Node-RED,
+   puis `make install-venus`.

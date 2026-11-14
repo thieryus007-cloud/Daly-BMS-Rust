@@ -1,5 +1,5 @@
 /// Build a Victron N/ topic for reading.
-/// portal_id: e.g. "c0619ab9929a"
+/// portal_id: e.g. "d81d13b31a8b"
 pub fn n(portal_id: &str, path: &str) -> String {
     format!("N/{portal_id}/{path}")
 }

@@ -113,19 +113,21 @@ installations d'outils, pas du code projet) :
 > et les API `/api/v1/dashboards/*` + `/api/v1/history/energy` ont été retirées
 > (2026-06, axe « churn mémoire » — Grafana est l'unique outil d'historique).
 
-### NanoPi (`root@192.168.1.120`)
+### GX Cerbo GX MK3 (`root@192.168.1.120`, aarch64 Cortex-A53, portal `d81d13b31a8b`)
 
 | Quand | Commande |
 |-------|----------|
 | État service Venus | `svstat /service/dbus-mqtt-venus` |
 | Redémarrer Venus | `svc -t /service/dbus-mqtt-venus` |
-| Logs Venus | `tail -f /var/log/dbus-mqtt-venus/current` |
+| Logs Venus (pas de journal svlogd) | `svc -d /service/dbus-mqtt-venus && /data/daly-bms/dbus-mqtt-venus --config /data/daly-bms/config.toml` (Ctrl+C) puis `svc -u /service/dbus-mqtt-venus` |
 | Lister services Victron | `dbus -y \| grep victronenergy` |
 
 ### Build + déploiement Venus (depuis Pi5)
 ```bash
-make build-venus-v7 && make install-venus-v7
+make install-venus   # build Cortex-A53 (target/venus-a53) + nanoPi/install-venus.sh 192.168.1.120
 ```
+> Le binaire du GX est compilé en `-C target-cpu=cortex-a53`, **jamais** `native` (Pi5 = A76 → SIGILL sur le A53 du GX).
+> Détails, instances VRM et procédure de remplacement du GX : `nanoPi/README.md`.
 
 ### Grafana (Pi5, port 3000)
 
@@ -149,13 +151,13 @@ make build-venus-v7 && make install-venus-v7
 ##   binaire OU unité OU config) → validation. Flags : --dry-run (aperçu, aucune
 ##   écriture), --apply-config (pousser Config.toml du repo, avec backup),
 ##   --no-sync / --no-build / --no-validate.
-##   NanoPi (dbus-mqtt-venus) reste séparé : make build-venus-v7 && make install-venus-v7
+##   GX (dbus-mqtt-venus) reste séparé : make install-venus
 
 # Détail manuel (si besoin de cibler une seule étape) :
 3a. Config seule        : sudo cp Config.toml /etc/daly-bms/config.toml && sudo systemctl restart daly-bms
 3b. Code Rust/HTML      : make build-arm → stop → cp binaire → start
-3c. Venus code          : make build-venus-v7 && make install-venus-v7
-3d. Config NanoPi       : scp nanoPi/config-nanopi.toml root@192.168.1.120:/data/daly-bms/config.toml && ssh root@192.168.1.120 "svc -t /service/dbus-mqtt-venus"
+3c. Venus code          : make install-venus
+3d. Config GX           : scp nanoPi/config-nanopi.toml root@192.168.1.120:/data/daly-bms/config.toml && ssh root@192.168.1.120 "svc -t /service/dbus-mqtt-venus"
 3e. energy-manager code : make build-energy-arm → sudo systemctl stop energy-manager → sudo cp target/aarch64-unknown-linux-gnu/release/energy-manager /usr/local/bin/ → sudo systemctl start energy-manager
 3f. Config seule (energy): sudo cp Config.toml /etc/daly-bms/config.toml && sudo systemctl restart energy-manager
 3g. Grafana dashboards  : bash scripts/deploy-pi5.sh (ou manuellement : sudo cp contrib/grafana/dashboards/*.json /var/lib/grafana/dashboards/ && sudo systemctl restart grafana-server)
@@ -174,7 +176,7 @@ make build-venus-v7 && make install-venus-v7
 ```
 Pi5 (192.168.1.141, pi5compute)
   mosquitto-broker (systemd, :1883 + :9001 WS)
-    └── bridge unique pi5-nanopi → 192.168.1.120:1883
+    └── bridge unique pi5-nanopi → GX 192.168.1.120:1883
   daly-bms-server (systemd, :8080)
     ├── RS485 /dev/ttyUSB0 → 2 BMS + 3 ET112 + 1 PRALRAN
     ├── REST API + WebSocket :8080
@@ -191,7 +193,7 @@ Pi5 (192.168.1.141, pi5compute)
     ├── 22 dashboards provisionés dans /var/lib/grafana/dashboards/
     └── Données NVMe optionnel (/mnt/nvme/grafana)
 
-NanoPi (192.168.1.120, root)
+GX Cerbo GX MK3 (192.168.1.120, root — aarch64 Cortex-A53, Venus OS v3.85, portal d81d13b31a8b)
   dbus-mqtt-venus (runit /service/dbus-mqtt-venus)
     └── MQTT subscribe → D-Bus Victron (com.victronenergy.*)
 ```
@@ -203,13 +205,13 @@ NanoPi (192.168.1.120, root)
 | Machine | IP | User | Lien |
 |---------|----|------|------|
 | Pi5 | 192.168.1.141 | pi5compute | WiFi `StarTh` (Starlink) — IP **fixe** via profil NetworkManager |
-| NanoPi | 192.168.1.120 | root | WiFi `StarTh` |
+| GX Cerbo GX MK3 | 192.168.1.120 | root | **Ethernet** `eth0` (IP fixe) — WiFi `StarTh` 192.168.1.122 aussi actif |
 
 SSH Pi5 config (`~/.ssh/config`): clé `~/.ssh/id_nanopi` → `Host nanopi` + `Host 192.168.1.120` (les deux entrées nécessaires).
 
 **Accès Claude Code (Mac Mini → Pi5)** : clé dédiée `~/.ssh/id_pi5_claude` (sans passphrase, hors trousseau macOS) déclarée dans `~/.ssh/config` du Mac Mini (`Host pi5` / `192.168.1.141`, `IdentitiesOnly yes`). Ne pas utiliser la clé personnelle `id_ed25519` pour l'automatisation : elle est liée au trousseau macOS → une commande non-interactive reste bloquée indéfiniment sur le prompt d'autorisation GUI (jamais validable en headless).
 
-**Tous les appareils sont en WiFi sur la box Starlink (SSID `StarTh`, WPA2, passerelle `192.168.1.1`).** Le Pi5 n'a **aucun service réseau dépendant du WiFi pour booter** : `daly-bms` lit le RS485 (USB) même sans réseau → un Pi5 « vivant mais injoignable » est presque toujours un problème WiFi, pas un crash.
+**Tous les appareils sont en WiFi sur la box Starlink (SSID `StarTh`, WPA2, passerelle `192.168.1.1`), sauf le GX (Ethernet `eth0`).** Le Pi5 n'a **aucun service réseau dépendant du WiFi pour booter** : `daly-bms` lit le RS485 (USB) même sans réseau → un Pi5 « vivant mais injoignable » est presque toujours un problème WiFi, pas un crash.
 
 **IP fixe Pi5 (NetworkManager)** : l'adresse `192.168.1.141` est figée dans le profil WiFi `StarTh` (`ipv4.method manual`), pas via bail DHCP. MAC WiFi du Pi5 : `88:a2:9e:37:ed:bc` (pour réservation DHCP côté Starlink). Le profil vit dans `/etc/NetworkManager/system-connections/StarTh.nmconnection`.
 
@@ -242,7 +244,7 @@ SSH Pi5 config (`~/.ssh/config`): clé `~/.ssh/id_nanopi` → `Host nanopi` + `H
 
 ```
 Config.toml                              ← config Pi5 production (daly-bms + energy-manager)
-nanoPi/config-nanopi.toml               ← config NanoPi production
+nanoPi/config-nanopi.toml               ← config GX production (dbus-mqtt-venus)
 crates/daly-bms-server/src/             ← serveur principal RS485/API
 crates/energy-manager/src/              ← gestionnaire énergie (remplace Node-RED)
   config.rs                             ← chargement [energy_manager] depuis Config.toml
@@ -264,7 +266,7 @@ crates/energy-manager/src/              ← gestionnaire énergie (remplace Node
                                           `rust-rule-engine`/`.grl` (retiré 2026-06 :
                                           no-loop renvoyait des résultats faux ; cf.
                                           docs/app-energy-manager.md §4)
-crates/dbus-mqtt-venus/src/             ← bridge MQTT→D-Bus NanoPi
+crates/dbus-mqtt-venus/src/             ← bridge MQTT→D-Bus du GX
 contrib/daly-bms.service                ← unité systemd daly-bms-server
 contrib/energy-manager.service          ← unité systemd energy-manager
 contrib/journald/daly-bms.conf          ← drop-in journald (plafond journal : SystemMaxUse=200M)
@@ -283,7 +285,7 @@ scripts/deploy-pi5.sh                   ← SCRIPT DE DÉPLOIEMENT UNIQUE Pi5 : 
                                           (ne redémarre que ce qui a changé) + validation.
                                           Flags : --dry-run, --apply-config, --no-sync/--no-build/--no-validate.
                                           ⚠ PRÉSERVE Config.toml par défaut (--apply-config pour pousser le repo + backup).
-                                          ⚠ NE déploie PAS le NanoPi → `make install-venus-v7` séparément.
+                                          ⚠ NE déploie PAS le GX → `make install-venus` séparément.
 ```
 
 **IMPORTANT** : Le service lit `/etc/daly-bms/config.toml`, PAS `~/Daly-BMS-Rust/Config.toml`.
@@ -325,8 +327,13 @@ com.victronenergy.switch.mqtt_4           Tongou Switch3 (inst. 63)
 com.victronenergy.switch.mqtt_5           Tongou Switch4 (inst. 64)
 com.victronenergy.switch.mqtt_6           Tongou Switch5 / tongou_3ACC34 (inst. 65)
 com.victronenergy.meteo                   Irradiance PRALRAN + TodaysYield (inst. 40)
-com.victronenergy.pvinverter.cgwacs_ttyUSB0_mb2   Onduleur PV Victron direct
 ```
+
+Services Victron natifs du GX (Cerbo GX MK3) : `vebus.ttyS4` (MultiPlus-II, inst. **276**),
+`solarcharger.*` 273 (250/100 Sud) + 288 (150/70 Toiture) + 289–292 (150/35 Toit montagne,
+T.Nord, T.Sud, T.milieu), `battery.ttyS2` 274 (SmartShunt 300A, moniteur batterie système),
+`switch.HQ2518CFAPP` 50 (GX IO extender 150), `acload.shelly_EC62608840A4_0/1` 50/51.
+Tableau complet : `nanoPi/README.md`.
 
 > **Switches Tongou** : **tous du MÊME modèle** — disjoncteurs/switchs intelligents
 > **flashés Tasmota** qui **mesurent TOUT** (tension, courant, **puissance W**, **énergie
@@ -336,7 +343,7 @@ com.victronenergy.pvinverter.cgwacs_ttyUSB0_mb2   Onduleur PV Victron direct
 > d'un appareil (ex. clim Toshiba multi‑split sur l'unité extérieure), poser un Tongou
 > sur son alim suffit — pas de capteur additionnel. Cf. `docs/integration-toshiba-shorai-esphome.md` §7.
 
-Diagnostic rapide (NanoPi) :
+Diagnostic rapide (GX) :
 ```bash
 ssh root@192.168.1.120 "dbus -y | grep victronenergy"
 ```
@@ -365,7 +372,7 @@ en fallback ; cf. docs/diagnostic-depannage.md §17).
 Pour les tableaux de bord type **Dashboard Studio** qui lient « 1 topic = 1 valeur
 numérique » **sans extraction JSON** (le champ VALUE est une formule numérique, pas
 un JSON path). Publiés **en plus** des payloads `.../venus` (JSON), qui restent
-inchangés. Restent **locaux** au broker Pi5 (pas dans le bridge NanoPi).
+inchangés. Restent **locaux** au broker Pi5 (pas dans le bridge vers le GX).
 
 | Source | Topic scalaire | Code |
 |--------|----------------|------|
@@ -471,11 +478,11 @@ Dashboard SSR (Askama) : `/dashboard`, `/dashboard/bms/:id`,
 | Service BMS ne démarre pas | `journalctl -u daly-bms -n 50` |
 | Config ignorée | Copier vers `/etc/daly-bms/config.toml` |
 | `scp: dest open Failure` | `ssh root@192.168.1.120 "svc -d /service/dbus-mqtt-venus"` puis redéployer |
-| Venus symlink disparu (màj firmware) | `ssh root@192.168.1.120 "ln -sf /data/etc/sv/dbus-mqtt-venus /service/dbus-mqtt-venus"` |
+| Venus symlink disparu (màj firmware) | `ssh root@192.168.1.120 "[ -e /service/dbus-mqtt-venus ] \|\| ln -s /data/etc/sv/dbus-mqtt-venus /service/dbus-mqtt-venus"` (pas `ln -sf` : sur un lien existant il crée un lien récursif dans le dossier du service) |
 | Journal systemd qui grossit (`journalctl --disk-usage`) | **Comportement normal** (journald grossit jusqu'au plafond puis rotationne). Plafond explicite borné à 200M via `contrib/journald/daly-bms.conf` (déployé par `deploy-pi5.sh`). Bruit réduit à la source : `info!→debug!` sur les boucles irradiance (30 s) et water_heater (5 min) — 2026-06. Détail → docs/diagnostic-depannage.md §11. Purge manuelle : `sudo journalctl --vacuum-size=200M`. |
 | Disque racine Pi5 se remplit (`df -h /` > 45 %) | Builds Rust cumulés dans `target/` (aarch64 + armv7 + natif debug/release). Les binaires prod sont dans `/usr/local/bin` → `target/` est jetable. Voir « Nettoyer disque (build) » §0. Ne **jamais** supprimer `~/.cargo/bin`, `/usr/local/bin/*`, ni `/mnt/nvme/.../metrics.redb`. |
-| `dbus-mqtt-venus` crash-loop sur NanoPi (`svstat` uptime=0, tous les services D-Bus absents) | Binaire armv7 mal compilé → **SIGILL** (exit 132). Cause : `target-cpu=native` dans le build armv7 (hôte aarch64 ≠ cible armv7). Corrigé dans le Makefile. Diag : lancer le binaire à la main sur le NanoPi. Indice au build : warnings `'+lse' is not a recognized feature`. |
-| `install-venus.sh: Permission denied` (`make install-venus-v7`) | Bit +x manquant → `chmod +x nanoPi/install-venus.sh` ou déployer via `ARCH=armv7 bash nanoPi/install-venus.sh 192.168.1.120`. |
+| `dbus-mqtt-venus` crash-loop sur le GX (`svstat` uptime=0, tous les services D-Bus absents) | Binaire mal compilé → **SIGILL** (exit 132). Cause : `target-cpu=native` (Pi5 Cortex-A76 ≠ GX Cortex-A53). `make build-venus-arm` / `make install-venus` compilent en `cortex-a53` dans `target/venus-a53`. Diag : lancer le binaire à la main sur le GX. |
+| `install-venus.sh: Permission denied` (`make install-venus`) | Bit +x manquant → `chmod +x nanoPi/install-venus.sh` ou déployer via `RELEASE_DIR=target/venus-a53/aarch64-unknown-linux-gnu/release bash nanoPi/install-venus.sh 192.168.1.120`. |
 | Compteur grid/acload affiche L2/L3 fantômes à 0 W dans VRM | ET112 monophasé : `grid_service` n'expose que les phases présentes via `/Ac/NumberOfPhases` (dérivé du payload). Si L2/L3 persistent → rafraîchir VRM (cache console). |
 | ET112 "en attente de données" | Mauvaise adresse Modbus → `sudo systemctl stop daly-bms && mbpoll -m rtu -a 1:15 -b 9600 -t 3:float -r 1 -c 1 /dev/ttyUSB0` |
 | Dashboard Grafana ET112 vide alors que les données existent | **Format du label `address`** : le backend écrit `address="0x07/0x08/0x09"` (hex, `redb_writes.rs::write_et112`). Les requêtes PromQL doivent utiliser `address="0x07"`, **jamais** `address="7"` (décimal → 0 série). Vérif : `curl -s 'localhost:8080/api/v1/query?query=et112_power_w' \| jq '.data.result[].metric'`. |
@@ -502,11 +509,12 @@ Dashboard SSR (Askama) : `/dashboard`, `/dashboard/bms/:id`,
 
 1. Lire ce fichier avant toute action.
 2. `git branch` avant tout push — vérifier la branche.
-3. Ne jamais déployer `daly-bms-server` sur NanoPi (uniquement `dbus-mqtt-venus`).
+3. Ne jamais déployer `daly-bms-server` sur le GX (uniquement `dbus-mqtt-venus`).
 4. `sudo cp Config.toml /etc/daly-bms/config.toml` après toute modif config.
 5. Arrêter `dbus-mqtt-venus` avant copie du binaire.
-6. NanoPi = **armv7**, Pi5 = **aarch64** — ne pas confondre les binaires. **Jamais** `target-cpu=native` pour le build armv7 (l'hôte est aarch64 → SIGILL sur le NanoPi). Le Makefile build armv7 n'utilise que `-C link-arg=-Wl,--as-needed`.
-7. SSH vers NanoPi : `ssh root@192.168.1.120` (pas l'alias `nanopi`).
+6. GX Cerbo GX MK3 = **aarch64 Cortex-A53**, Pi5 = **aarch64 Cortex-A76** — même cible Rust mais CPU différents : **jamais** `target-cpu=native` pour `dbus-mqtt-venus` (SIGILL sur le A53). Le Makefile le compile en `-C target-cpu=cortex-a53` dans `target/venus-a53` (`make install-venus`). `make install-venus-v7` (armv7) est volontairement bloqué.
+7. SSH vers le GX : `ssh root@192.168.1.120` (pas l'alias `nanopi`).
+7b. **Portal ID du GX `d81d13b31a8b`** codé à 2 endroits : `Config.toml` (`[energy_manager.victron] portal_id`) et `contrib/mosquitto/mosquitto.conf` (topics `N/` `R/` `W/` du bridge). `vebus_instance` (276) dépend du port VE.Bus du GX. Remplacement de GX : `nanoPi/README.md` § Remplacement.
 8. Templates Askama → `make build-arm` + redéploiement après tout changement HTML.
 9. **CLAUDE.md = mémoire projet** : toute info découverte → ajouter ici + commit.
 10. Nom exact D-Bus onduleur Victron direct : `cgwacs_ttyUSB0_mb2` (pas `rs485`).
@@ -529,8 +537,8 @@ Dashboard SSR (Askama) : `/dashboard`, `/dashboard/bms/:id`,
 | **Vue d'ensemble système + index de toute la doc** | `docs/ARCHITECTURE.md` |
 | Serveur principal (RS485, protocole Daly, API REST/WS, dashboard SSR) | `docs/app-daly-bms-server.md` |
 | energy-manager (modules `logic/`, décisions Rust pur `rules.rs`, modifier/ajouter/retirer) | `docs/app-energy-manager.md` |
-| Bridge Venus OS + ajouter un device D-Bus + déploiement armv7 | `docs/app-dbus-mqtt-venus.md` |
-| Déployer (Pi5 + NanoPi), procédures détaillées, restauration git | `docs/deploiement-exploitation.md` |
+| Bridge Venus OS + ajouter un device D-Bus + déploiement GX (aarch64 Cortex-A53) | `docs/app-dbus-mqtt-venus.md` |
+| Déployer (Pi5 + GX), procédures détaillées, restauration git | `docs/deploiement-exploitation.md` |
 | Architecture redb (schéma, tiering) + historique migration VM→redb | `docs/metriques-redb-architecture.md` |
 | Catalogue des métriques + requêtes & conformité PromQL | `docs/metriques-promql-reference.md` |
 | Grafana — 22 dashboards (liste, datasource, provisioning) | `docs/grafana-dashboards.md` |

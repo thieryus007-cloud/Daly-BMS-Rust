@@ -9,7 +9,7 @@
 
 - [1. Vue d'ensemble du bus RS485](#1-vue-densemble-du-bus-rs485)
 - [2. Inventaire RS485 — table de référence](#2-inventaire-rs485--table-de-reference)
-- [3. Services D-Bus production (NanoPi)](#3-services-d-bus-production-nanopi)
+- [3. Services D-Bus production (GX)](#3-services-d-bus-production-gx)
   - [3.1 Liste complète des services nominaux](#31-liste-complete-des-services-nominaux)
   - [3.2 Diagnostic rapide D-Bus](#32-diagnostic-rapide-d-bus)
 - [4. Topics MQTT (préfixe `santuario/`)](#4-topics-mqtt-prefixe-santuario)
@@ -25,7 +25,7 @@
   - [6.0 Choisir les identifiants](#60-choisir-les-identifiants)
   - [6.1 Matériel — régler l'adresse du BMS](#61-materiel--regler-ladresse-du-bms)
   - [6.2 Pi5 — daly-bms-server](#62-pi5--daly-bms-server)
-  - [6.3 NanoPi / Venus OS — dbus-mqtt-venus](#63-nanopi--venus-os--dbus-mqtt-venus)
+  - [6.3 GX / Venus OS — dbus-mqtt-venus](#63-gx--venus-os--dbus-mqtt-venus)
   - [6.4 Bridge Mosquitto — rien à faire](#64-bridge-mosquitto--rien-a-faire)
   - [6.5 Récapitulatif des fichiers](#65-recapitulatif-des-fichiers)
   - [6.6 Checklist finale](#66-checklist-finale)
@@ -86,11 +86,11 @@ daly-bms-server (Pi5 :8080)
                 │
                 │ MQTT bridge pi5-nanopi
                 ▼
-dbus-mqtt-venus (NanoPi 192.168.1.120)
+dbus-mqtt-venus (GX 192.168.1.120)
   └── MQTT subscribe → D-Bus com.victronenergy.*
 ```
 
-Le Pi5 est le **maître** de tous les capteurs RS485. Le NanoPi reste dédié à Venus OS et n'héberge que `dbus-mqtt-venus`. Voir [./app-daly-bms-server.md] pour le détail du serveur RS485/API et [./app-dbus-mqtt-venus.md] pour le bridge D-Bus.
+Le Pi5 est le **maître** de tous les capteurs RS485. Le GX reste dédié à Venus OS et n'héberge que `dbus-mqtt-venus`. Voir [./app-daly-bms-server.md] pour le détail du serveur RS485/API et [./app-dbus-mqtt-venus.md] pour le bridge D-Bus.
 
 ---
 
@@ -144,7 +144,7 @@ stable tant que le port USB physique ne change pas.)
 
 ---
 
-## 3. Services D-Bus production (NanoPi)
+## 3. Services D-Bus production (GX)
 
 ### 3.1 Liste complète des services nominaux
 
@@ -170,13 +170,13 @@ com.victronenergy.pvinverter.cgwacs_ttyUSB0_mb2   Onduleur PV Victron direct
 
 ### 3.2 Diagnostic rapide D-Bus
 
-Depuis le Pi5 (SSH vers le NanoPi) :
+Depuis le Pi5 (SSH vers le GX) :
 
 ```bash
 ssh root@192.168.1.120 "dbus -y | grep victronenergy"
 ```
 
-Depuis le NanoPi directement :
+Depuis le GX directement :
 
 ```bash
 # Lister tous les services Victron actifs
@@ -195,7 +195,7 @@ dbus -y com.victronenergy.switch.mqtt_1 /Connected GetValue
 
 ## 4. Topics MQTT (préfixe `santuario/`)
 
-Tous les topics utilisent le préfixe `santuario/`. Le bridge Mosquitto `pi5-nanopi` relaie les topics `santuario/#` du Pi5 vers le NanoPi.
+Tous les topics utilisent le préfixe `santuario/`. Le bridge Mosquitto `pi5-nanopi` relaie les topics `santuario/#` du Pi5 vers le GX.
 
 | Topic MQTT complet (santuario/…) | Source (Pi5) | Service D-Bus cible |
 |-----------------------------------|--------------|---------------------|
@@ -432,7 +432,7 @@ timeout 5 mosquitto_sub -h 127.0.0.1 -t 'santuario/bms/3/venus' -v
 curl -s http://localhost:8080/api/v1/monitor/rs485-health | jq
 ```
 
-### 6.3 NanoPi / Venus OS — dbus-mqtt-venus
+### 6.3 GX / Venus OS — dbus-mqtt-venus
 
 #### 6.3.1 Éditer `nanoPi/config-nanopi.toml` (dépôt)
 
@@ -449,9 +449,9 @@ max_charge_a    = 200.0
 max_discharge_a = 120.0
 ```
 
-#### 6.3.2 Déployer la config sur le NanoPi
+#### 6.3.2 Déployer la config sur le GX
 
-> **Pas de recompilation** : seul le fichier de config change. (Si tu modifies du code Rust un jour → `make install-venus-v7`, et **jamais** `target-cpu=native` pour l'armv7, cf. CLAUDE.md §8 SIGILL.)
+> **Pas de recompilation** : seul le fichier de config change. (Si tu modifies du code Rust un jour → `make install-venus`, et **jamais** `target-cpu=native` pour le GX Cortex-A53, cf. CLAUDE.md §8 SIGILL.)
 
 ```bash
 # Depuis le Pi5, après make sync :
@@ -459,7 +459,7 @@ scp nanoPi/config-nanopi.toml root@192.168.1.120:/data/daly-bms/config.toml
 ssh root@192.168.1.120 'svc -t /service/dbus-mqtt-venus'
 ```
 
-#### 6.3.3 Vérifier côté NanoPi
+#### 6.3.3 Vérifier côté GX
 
 ```bash
 # Le nouveau service D-Bus batterie doit apparaître
@@ -479,7 +479,7 @@ La règle egress couvre déjà **tous** les index BMS :
 topic santuario/bms/# out 1 "" ""
 ```
 
-`santuario/bms/3/venus` est donc automatiquement bridgé Pi5 → NanoPi. Aucune modification de `contrib/mosquitto/mosquitto.conf`.
+`santuario/bms/3/venus` est donc automatiquement bridgé Pi5 → GX. Aucune modification de `contrib/mosquitto/mosquitto.conf`.
 
 ### 6.5 Récapitulatif des fichiers
 
@@ -509,7 +509,7 @@ topic santuario/bms/# out 1 "" ""
 sudo cp /etc/daly-bms/config.toml.bak-<date> /etc/daly-bms/config.toml   # si backup
 #   ou retirer "0x03" de [serial].addresses + le bloc [[bms]], puis :
 sudo systemctl restart daly-bms
-# NanoPi (retirer le bloc [[bms]] 0x03, redéployer)
+# GX (retirer le bloc [[bms]] 0x03, redéployer)
 scp nanoPi/config-nanopi.toml root@192.168.1.120:/data/daly-bms/config.toml
 ssh root@192.168.1.120 'svc -t /service/dbus-mqtt-venus'
 ```
@@ -528,9 +528,9 @@ ssh root@192.168.1.120 'mosquitto_pub -h localhost -t santuario/bms/3/venus -r -
 | Oublier `"0x03"` dans `[serial].addresses` | BMS jamais interrogé (aucune donnée, mais pas d'erreur visible) | Ajouter à la liste de scan |
 | `device_instance` dupliqué (141/142/143) | Conflit D-Bus / batterie fantôme dans VRM | Utiliser **153** |
 | Copier `Config.toml` via `deploy-pi5.sh` | Ne s'applique PAS (préservation prod) | `sudo cp` manuel |
-| Recompiler « par précaution » | Inutile + risque (armv7 SIGILL si `target-cpu=native`) | Config-only, pas de build |
+| Recompiler « par précaution » | Inutile + risque (SIGILL sur le GX si `target-cpu=native`) | Config-only, pas de build |
 | Adresse Modbus du BMS pas réglée à 3 | Pas de réponse / collision avec un autre device | Régler via app Daly avant câblage |
-| `mqtt_index`/`device_instance` différents entre Pi5 et NanoPi | Topic publié ≠ topic attendu → batterie absente de VRM | Garder **identiques** des deux côtés |
+| `mqtt_index`/`device_instance` différents entre Pi5 et GX | Topic publié ≠ topic attendu → batterie absente de VRM | Garder **identiques** des deux côtés |
 
 ---
 
@@ -565,10 +565,10 @@ ssh root@192.168.1.120 'mosquitto_pub -h localhost -t santuario/bms/3/venus -r -
 │    ├── Dashboard SSR  /dashboard/ats  (schéma unifilaire SVG)       │
 │    └── MQTT publish   santuario/switch/1/venus  (retain=true)       │
 └──────────────────┬──────────────────────────────────────────────────┘
-                   │ MQTT → broker NanoPi 192.168.1.120:1883
+                   │ MQTT → broker GX 192.168.1.120:1883
                    ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│  dbus-mqtt-venus (NanoPi)                                           │
+│  dbus-mqtt-venus (GX)                                               │
 │                                                                     │
 │  com.victronenergy.switch.mqtt_1  (device_instance = 60)           │
 │    ├── /Position   : 0 = AC1/Réseau, 1 = AC2/Onduleur              │
@@ -580,7 +580,7 @@ ssh root@192.168.1.120 'mosquitto_pub -h localhost -t santuario/bms/3/venus -r -
                    │ D-Bus Venus OS
                    ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│  Victron GX (NanoPi) → Venus OS GUI + VRM Portal                   │
+│  Victron GX (GX) → Venus OS GUI + VRM Portal                       │
 │  Affichage : "ATS CHINT NXZB" dans liste des équipements           │
 │  Position source visible dans l'énergie (AC1 / AC2)                │
 └─────────────────────────────────────────────────────────────────────┘
@@ -783,7 +783,7 @@ curl -X POST http://192.168.1.141:8080/api/v1/ats/force_double
 
 Pour l'inventaire complet des endpoints ATS → [./app-daly-bms-server.md].
 
-#### Venus OS GUI (NanoPi)
+#### Venus OS GUI (GX)
 
 L'ATS apparaît sous le nom **"ATS CHINT NXZB"** dans la liste des équipements.
 
@@ -810,7 +810,7 @@ journalctl -u daly-bms --since "5 minutes ago" | grep -i "ATS\|0x06"
 curl -s http://192.168.1.141:8080/api/v1/ats/status | python3 -m json.tool
 ```
 
-#### Vérification MQTT (Pi5 ou NanoPi)
+#### Vérification MQTT (Pi5 ou GX)
 
 ```bash
 # Voir le payload ATS publié
@@ -820,7 +820,7 @@ mosquitto_sub -h 192.168.1.120 -p 1883 -t 'santuario/switch/1/venus' -v
 # santuario/switch/1/venus {"Position":0,"State":1,"ProductName":"ATS CHINT","CustomName":"ATS CHINT NXZB"}
 ```
 
-#### Vérification D-Bus Venus OS (NanoPi)
+#### Vérification D-Bus Venus OS (GX)
 
 ```bash
 ssh root@192.168.1.120
@@ -908,10 +908,10 @@ curl -X POST http://192.168.1.141:8080/api/v1/ats/remote_off
 **Causes** :
 
 1. **MQTT non publié** — vérifier `santuario/switch/1/venus` sur le broker
-2. **dbus-mqtt-venus ne tourne pas** — `svstat /service/dbus-mqtt-venus` sur NanoPi
-3. **`[[switches]]` absent de config-nanopi.toml** — vérifier le fichier sur NanoPi
+2. **dbus-mqtt-venus ne tourne pas** — `svstat /service/dbus-mqtt-venus` sur GX
+3. **`[[switches]]` absent de config-nanopi.toml** — vérifier le fichier sur GX
 
-**Vérification config NanoPi** :
+**Vérification config GX** :
 
 ```bash
 ssh root@192.168.1.120 "cat /data/daly-bms/config.toml" | grep -A 5 switches
@@ -1007,7 +1007,7 @@ curl -s http://192.168.1.141:8080/api/v1/ats/status | python3 -c \
 - [ ] Tester API : `curl http://192.168.1.141:8080/api/v1/ats/status`
 - [ ] Tester dashboard : `http://192.168.1.141:8080/dashboard/ats`
 
-#### Sur NanoPi
+#### Sur GX
 
 - [ ] `[[switches]]` présent dans `/data/daly-bms/config.toml` (mqtt_index=1, device_instance=60)
 - [ ] `svc -t /service/dbus-mqtt-venus` pour redémarrer le bridge
@@ -1058,7 +1058,7 @@ INFO daly_bms_server::bridges::mqtt: ATS CHINT publié → santuario/switch/1/ve
 
 ### 8.3 Monophasé — phases L2/L3 fantômes
 
-Les ET112 sont des compteurs **monophasés**. Le service `grid_service` sur le NanoPi n'expose que les phases présentes via `/Ac/NumberOfPhases` (dérivé du payload). Si L2/L3 persistent à 0 W dans VRM → rafraîchir VRM (cache console).
+Les ET112 sont des compteurs **monophasés**. Le service `grid_service` sur le GX n'expose que les phases présentes via `/Ac/NumberOfPhases` (dérivé du payload). Si L2/L3 persistent à 0 W dans VRM → rafraîchir VRM (cache console).
 
 ### 8.4 Diagnostic mbpoll
 
@@ -1163,12 +1163,12 @@ Au départ (avant l'implémentation de l'architecture energy-manager), le systè
 - Le dashboard affichait "En attente de données" pour ces appareils
 - Aucune intégration de D-Bus Victron vers l'API web
 
-La solution implémentée a créé une architecture complète en 4 étapes : NanoPi D-Bus → flows energy-manager → MQTT → daly-bms-server AppState → REST API + WebSocket → dashboard.
+La solution implémentée a créé une architecture complète en 4 étapes : GX D-Bus → flows energy-manager → MQTT → daly-bms-server AppState → REST API + WebSocket → dashboard.
 
 ### 11.2 Flux de données — ancienne architecture
 
 ```
-NanoPi D-Bus (Victron)
+GX D-Bus (Victron)
     ↓ energy-manager flows (ancienne version JSON)
 MQTT Topics (santuario/*)
     ↓ daly-bms-server
@@ -1299,7 +1299,7 @@ Ce guide générique reste valable pour comprendre l'architecture bout-en-bout, 
 
 ```
 □ ÉTAPE 1: Identifier la source
-  - D'où vient la donnée? (D-Bus NanoPi / Pi5 / RS485 / API externe)
+  - D'où vient la donnée? (D-Bus GX / Pi5 / RS485 / API externe)
   - Quel est le chemin exact? (dbus path / /sys path / topic MQTT)
   - Quelle est la fréquence de mise à jour?
 
@@ -1310,7 +1310,7 @@ Ce guide générique reste valable pour comprendre l'architecture bout-en-bout, 
 
 □ ÉTAPE 3: Ajouter la source de données
   - Si RS485 → ajouter module dans daly-bms-server (poll_loop, Modbus RTU)
-  - Si NanoPi D-Bus → ajouter module dans energy-manager (logic/)
+  - Si GX D-Bus → ajouter module dans energy-manager (logic/)
   - Si Pi5 → ajouter tokio::spawn() polling loop dans main.rs
   - Si MQTT → ajouter handler dans bridges/mqtt.rs
   - Si API externe → ajouter HTTP client dans http_clients/
@@ -1329,7 +1329,7 @@ Ce guide générique reste valable pour comprendre l'architecture bout-en-bout, 
   - Ajouter le fetch dans fetchAll() (templates visualization.html)
   - Ajouter le nœud / widget dans le template SSR correspondant
 
-□ ÉTAPE 7: Si besoin D-Bus NanoPi → étendre dbus-mqtt-venus
+□ ÉTAPE 7: Si besoin D-Bus GX → étendre dbus-mqtt-venus
   - Ajouter le service dans crates/dbus-mqtt-venus/src/
   - Ajouter le bloc de config dans nanoPi/config-nanopi.toml
   - Voir ./app-dbus-mqtt-venus.md pour les détails
@@ -1453,7 +1453,7 @@ pub async fn get_my_device(State(state): State<AppState>) -> impl IntoResponse {
 
 ### 11.6 Procédures détaillées d'intégration
 
-#### Scénario : ajouter une métrique depuis le NanoPi D-Bus
+#### Scénario : ajouter une métrique depuis le GX D-Bus
 
 **Étape 1 — Vérifier que la métrique existe sur D-Bus** :
 
@@ -1652,10 +1652,10 @@ tokio::spawn(async move {
 ## Voir aussi
 
 - [./app-daly-bms-server.md] — Serveur principal Pi5 : RS485, protocole Daly, API REST/WS, détail des endpoints ATS/ET112/BMS.
-- [./app-dbus-mqtt-venus.md] — Bridge NanoPi : intégration device MQTT → D-Bus Venus OS (zbus), déploiement armv7, services D-Bus par type.
+- [./app-dbus-mqtt-venus.md] — Bridge du GX : intégration device MQTT → D-Bus Venus OS (zbus), déploiement Cortex-A53, services D-Bus par type.
 - [./metriques-promql-reference.md] — Catalogue complet des métriques, conventions de labels (address hex), requêtes PromQL.
-- [./mqtt-mosquitto.md] — Architecture MQTT : Mosquitto natif, topics, bridge NanoPi, anti-boucle.
-- [./deploiement-exploitation.md] — Workflow complet Pi5 + NanoPi, procédures systemd.
+- [./mqtt-mosquitto.md] — Architecture MQTT : Mosquitto natif, topics, bridge GX, anti-boucle.
+- [./deploiement-exploitation.md] — Workflow complet Pi5 + GX, procédures systemd.
 - [./ARCHITECTURE.md] — Vue d'ensemble système, index de toute la documentation.
 - [`app-energy-manager.md`](./app-energy-manager.md) — Modifier/ajouter/retirer une fonctionnalité dans energy-manager Rust actuel.
 

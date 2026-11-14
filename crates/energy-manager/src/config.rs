@@ -101,9 +101,9 @@ impl Default for ApiConfig {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct VictronConfig {
-    /// Victron GX portal ID (e.g. "c0619ab9929a")
+    /// Victron GX portal ID (e.g. "d81d13b31a8b")
     pub portal_id: String,
-    /// VEBus device instance (e.g. 275)
+    /// VEBus device instance (e.g. 276 — derived from the GX VE.Bus port, Cerbo GX MK3 ttyS4)
     #[serde(default = "default_vebus_instance")]
     pub vebus_instance: u32,
     /// MPPT 1 device instance (e.g. 273)
@@ -134,7 +134,7 @@ pub struct VictronConfig {
     pub smartshunt_instance: u32,
 }
 
-fn default_vebus_instance() -> u32 { 275 }
+fn default_vebus_instance() -> u32 { 276 }
 fn default_mppt1_instance() -> u32 { 273 }
 fn default_mppt2_instance() -> u32 { 289 }
 fn default_pvinv_instance() -> u32 { 32 }

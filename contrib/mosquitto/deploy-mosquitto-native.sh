@@ -263,12 +263,12 @@ log "État des bridges (5s d'écoute)"
 timeout 5 mosquitto_sub -h 127.0.0.1 -t '$SYS/broker/bridge/+/state' -v 2>/dev/null \
     | sed 's/^/      /' || true
 
-log "Trafic NanoPi -> Pi5 (sample 3s sur N/c0619ab9929a/#)"
-NPI_COUNT=$(timeout 3 mosquitto_sub -h 127.0.0.1 -t 'N/c0619ab9929a/#' -v 2>/dev/null | wc -l || true)
+log "Trafic GX -> Pi5 (sample 3s sur N/d81d13b31a8b/#)"
+NPI_COUNT=$(timeout 3 mosquitto_sub -h 127.0.0.1 -t 'N/d81d13b31a8b/#' -v 2>/dev/null | wc -l || true)
 if [ "${NPI_COUNT:-0}" -gt 0 ]; then
-    ok "Bridge INGRESS reçoit du NanoPi (${NPI_COUNT} msg/3s)"
+    ok "Bridge INGRESS reçoit du GX (${NPI_COUNT} msg/3s)"
 else
-    warn "Aucun message NanoPi reçu en 3s — bridge peut-être encore en cours de connexion"
+    warn "Aucun message du GX reçu en 3s — bridge peut-être encore en cours de connexion"
 fi
 
 # =============================================================================

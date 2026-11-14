@@ -140,7 +140,7 @@ pub struct MpptYieldBody {
     pub pvinv_power_w:   Option<f32>,
     /// Puissance solaire totale en W = dc_pv_power_w + pvinv_power_w.
     pub solar_total_w:   Option<f32>,
-    /// Puissance maison en W = N/c0619ab9929a/system/0/Ac/ConsumptionOnOutput/L1/Power.
+    /// Puissance maison en W = N/d81d13b31a8b/system/0/Ac/ConsumptionOnOutput/L1/Power.
     pub house_power_w:   Option<f32>,
 }
 

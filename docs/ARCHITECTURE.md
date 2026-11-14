@@ -35,13 +35,13 @@ transverse**. Tous les documents vivent dans `docs/`.
 |---|---|---|
 | [app-daly-bms-server.md](./app-daly-bms-server.md) | Pi5 (:8080) | Serveur principal : bus RS485, protocole Daly UART, `AppState`/ring buffer, bridges, **API REST/WebSocket complète**, dashboard SSR (Askama + ECharts), Tasmota/Shelly. |
 | [app-energy-manager.md](./app-energy-manager.md) | Pi5 (:8081) | Automatisation énergie (remplace Node-RED) : 12 modules `logic/`, décisions métier en **Rust pur** (`rules.rs`), clients HTTP Open-Meteo + LG ThinQ, MQTT, WebSocket live, persistance. |
-| [app-dbus-mqtt-venus.md](./app-dbus-mqtt-venus.md) | NanoPi (armv7) | Bridge MQTT → D-Bus Venus OS (zbus pur Rust) : services `battery`/`pvinverter`/`heatpump`/`temperature`/`switch`/`meteo`/`grid`/`platform`, intégration d'un nouveau device, déploiement armv7. |
+| [app-dbus-mqtt-venus.md](./app-dbus-mqtt-venus.md) | GX Cerbo GX MK3 (aarch64 Cortex-A53) | Bridge MQTT → D-Bus Venus OS (zbus pur Rust) : services `battery`/`pvinverter`/`heatpump`/`temperature`/`switch`/`meteo`/`grid`/`platform`, intégration d'un nouveau device, déploiement sur le GX (Cortex-A53). |
 
 ### Domaines transverses
 
 | Document | Contenu |
 |---|---|
-| [deploiement-exploitation.md](./deploiement-exploitation.md) | Build (cibles Makefile), workflow de déploiement Pi5 + NanoPi, services systemd, logs/rétention, restauration git, conventions Git. |
+| [deploiement-exploitation.md](./deploiement-exploitation.md) | Build (cibles Makefile), workflow de déploiement Pi5 + GX, services systemd, logs/rétention, restauration git, conventions Git. |
 | [metriques-redb-architecture.md](./metriques-redb-architecture.md) | Moteur TSDB **redb** : schéma, encodage, write/read path, tiering & rétention. Annexe historique : migration VictoriaMetrics → redb. |
 | [metriques-promql-reference.md](./metriques-promql-reference.md) | **Catalogue des métriques** (labels hex), requêtes PromQL par appareil, roadmap d'implémentation, audit de conformité PromQL. |
 | [grafana-dashboards.md](./grafana-dashboards.md) | Grafana : installation, datasource (UID `daly-metrics`), provisioning, **22 dashboards**, monitoring PV. |
@@ -57,7 +57,7 @@ transverse**. Tous les documents vivent dans `docs/`.
 ### Hors `docs/`
 
 - [`CLAUDE.md`](../CLAUDE.md) (racine) — mémoire projet : commandes rapides, inventaire RS485/D-Bus, règles de travail. Chargé à chaque session.
-- [`nanoPi/README.md`](../nanoPi/README.md) — README de composant pour la configuration Venus OS du NanoPi.
+- [`nanoPi/README.md`](../nanoPi/README.md) — README de composant pour la configuration Venus OS du GX.
 - [`firmware/toshiba-suzumi-rs/README.md`](../firmware/toshiba-suzumi-rs/README.md) — crate détaché : firmware ESP32 (protocole SUZUMI). Composant **A**.
 - [`bridge/aqara-fp2-mqtt/README.md`](../bridge/aqara-fp2-mqtt/README.md) — pont FP2 → MQTT présence (aiohomekit). Composant **C**.
 - [`bridge/mqtt-homekit-occupancy/README.md`](../bridge/mqtt-homekit-occupancy/README.md) — pont MQTT → HomeKit (HAP-python). Composant **D**.
@@ -98,7 +98,7 @@ transverse**. Tous les documents vivent dans `docs/`.
                                  │ bridge unique pi5-nanopi
                                  ▼
 ┌────────────────────────────────────────────────────────────────────┐
-│                  NanoPi  (Venus OS — D-Bus bridge)                 │
+│                  GX  (Venus OS — D-Bus bridge)                     │
 │   dbus-mqtt-venus  (binaire unique, zbus pur Rust, ~5–8 Mo RAM)    │
 │      souscrit santuario/{bms,pvinverter,heatpump,heat,switch,…}    │
 │      enregistre com.victronenergy.{battery,pvinverter,heatpump,    │
@@ -110,8 +110,11 @@ transverse**. Tous les documents vivent dans `docs/`.
 ```
 
 > **Pi5 = master** : tous les capteurs RS485 et les API cloud y sont rattachés.
-> Le **NanoPi** est dédié à Venus OS et n'héberge que `dbus-mqtt-venus`.
-> `energy-manager` a été migré du NanoPi vers le Pi5 pour consolider l'infrastructure.
+> Le **GX** — Victron **Cerbo GX MK3** (Venus OS v3.85, aarch64 Cortex-A53, `192.168.1.120`,
+> portal VRM `d81d13b31a8b`) — est dédié à Venus OS et n'héberge que `dbus-mqtt-venus`.
+> Le dossier du dépôt s'appelle `nanoPi/` et le bridge Mosquitto `pi5-nanopi-bridge` pour des
+> raisons historiques ; détails, instances VRM et remplacement du GX : [`nanoPi/README.md`](../nanoPi/README.md).
+> `energy-manager` a été migré du GX vers le Pi5 pour consolider l'infrastructure.
 
 Détails : [intégration matériel](./integration-materiel.md) · [MQTT](./mqtt-mosquitto.md) · [bridge Venus](./app-dbus-mqtt-venus.md).
 
@@ -126,13 +129,13 @@ Détails : [intégration matériel](./integration-materiel.md) · [MQTT](./mqtt-
 | **Mosquitto** | Pi5 | 1883 / 9001 | Broker MQTT natif systemd, bridge `pi5-nanopi` | [mqtt-mosquitto.md](./mqtt-mosquitto.md) |
 | **metrics-store (redb)** | Pi5 | (embarqué :8080) | TSDB pure-Rust, tiering raw 30 j / hourly 365 j / daily 5 ans | [metriques-redb-architecture.md](./metriques-redb-architecture.md) |
 | **grafana-server** | Pi5 | 3000 | Visualisation (datasource PromQL → :8080), 22 dashboards | [grafana-dashboards.md](./grafana-dashboards.md) |
-| **dbus-mqtt-venus** | NanoPi | — | Bridge MQTT → D-Bus Venus OS (zbus) | [app-dbus-mqtt-venus.md](./app-dbus-mqtt-venus.md) |
+| **dbus-mqtt-venus** | GX | — | Bridge MQTT → D-Bus Venus OS (zbus) | [app-dbus-mqtt-venus.md](./app-dbus-mqtt-venus.md) |
 
 ---
 
 ## 4. Flux MQTT par domaine
 
-Préfixe commun : **`santuario/`**. Le bridge Mosquitto `pi5-nanopi` relaie ces topics vers le NanoPi.
+Préfixe commun : **`santuario/`**. Le bridge Mosquitto `pi5-nanopi` relaie ces topics vers le GX.
 
 | Topic MQTT | Source (Pi5) | Cible D-Bus Venus |
 |---|---|---|
@@ -176,7 +179,7 @@ Détails par appareil : [app-daly-bms-server.md](./app-daly-bms-server.md) · [i
 | `daly-bms-server` | Pi5 | Binaire principal : API Axum (REST + WS) + Dashboard SSR + bridges (MQTT, redb, AlertEngine) |
 | `energy-manager` | Pi5 | Binaire automatisation énergie : décisions en Rust pur (`logic/<module>/rules.rs`) + clients HTTP |
 | `metrics-store` | Pi5 | Lib TSDB redb (embarquée dans daly-bms-server) + shim PromQL |
-| `dbus-mqtt-venus` | NanoPi (armv7) | Binaire MQTT → D-Bus Venus OS (zbus pur Rust) |
+| `dbus-mqtt-venus` | GX Cerbo GX MK3 (aarch64 Cortex-A53) | Binaire MQTT → D-Bus Venus OS (zbus pur Rust) |
 
 Structure du dépôt et arborescence `src/` détaillées dans chaque document d'application.
 
@@ -196,6 +199,10 @@ Bus `/dev/ttyUSB0` (RS485), instances Venus OS :
 | 0x08 | ET112 Maison | `acload.mqtt_8` | `grid/8/venus` | 30 |
 | 0x09 | ET112 Réseau | `grid.mqtt_9` | `grid/9/venus` | 31 |
 
+Appareils Victron du GX (instances VRM) : MultiPlus-II `vebus` 276, MPPT 273 / 288–292,
+SmartShunt 274, GX IO extender 50, Shelly Pro 2PM 50/51 — tableau complet dans
+[`nanoPi/README.md`](../nanoPi/README.md).
+
 Inventaire complet (switchs Tongou, ATS, températures, onduleur Victron direct) et procédures :
 [integration-materiel.md](./integration-materiel.md). Référence canonique : [`CLAUDE.md` §5](../CLAUDE.md).
 
@@ -214,7 +221,7 @@ Inventaire complet (switchs Tongou, ATS, températures, onduleur Victron direct)
 | OS Raspberry Pi OS Lite | ~150 MB | ~200 MB |
 | **TOTAL** | **~413 MB** | **~765 MB** |
 
-### NanoPi (Venus OS)
+### GX (Venus OS)
 
 | Service | RAM | Notes |
 |---|---|---|
@@ -230,7 +237,7 @@ Inventaire complet (switchs Tongou, ATS, températures, onduleur Victron direct)
 - **Phase 1 — Infrastructure & Intégration** ✅ Mosquitto natif, auto-détection série, dashboard SSR, Venus OS (MQTT → D-Bus).
 - **Phase 2 — Production RPi5** ✅ BMS confirmés en base, rotation logs + rétention redb. ⏳ validation écritures (MOS/SOC/reset) sur hardware, tests 24 h.
 - **Phase 3 — Venus OS natif Rust** ✅ `dbus-mqtt-venus` (zbus), services Victron, watchdog MQTT, keepalive D-Bus.
-- **Phase 4 — Migration & Consolidation** ✅ renommage crate, migration energy-manager NanoPi → Pi5. ⏳ nettoyage NanoPi, validation 24 h.
+- **Phase 4 — Migration & Consolidation** ✅ renommage crate, migration energy-manager GX → Pi5. ⏳ nettoyage GX, validation 24 h.
 - **Phase 5 — Irradiance & Météo RS485** ✅ PRALRAN intégré.
 - **Phase 6 — PAC Chauffe-eau LG** ✅ LG ThinQ.
 - **Phase 7 — Climatisation LG** 🔜 à étudier.

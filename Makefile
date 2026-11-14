@@ -3,7 +3,7 @@
 # =============================================================================
 # Usage :
 # make build → compiler en release (x86_64)
-# make build-arm → compiler pour aarch64 (Raspberry Pi CM5 / NanoPi) [OPTIMISÉ]
+# make build-arm → compiler pour aarch64 (Raspberry Pi CM5) [OPTIMISÉ]
 # make build-arm-debug → compiler avec symboles pour profiling (perf/flamegraph)
 # make run → lancer le serveur en dev
 # make test → lancer les tests unitaires
@@ -30,6 +30,16 @@ MUSL_RELEASE_DIR := target/$(TARGET_MUSL)/release
 ARM_RUSTFLAGS := -C target-cpu=native -C link-arg=-Wl,--as-needed
 ARM_RUSTFLAGS_DEBUG := $(ARM_RUSTFLAGS) -C force-frame-pointers=yes -C debuginfo=2
 ARM_RUSTFLAGS_MUSL := -C target-cpu=native -C link-arg=-Wl,--strip-all -C link-arg=-Wl,--as-needed
+
+# =============================================================================
+# Flags dbus-mqtt-venus pour le GX (Cerbo GX MK3 = aarch64 Cortex-A53)
+# =============================================================================
+# JAMAIS target-cpu=native ici : l'hôte de build (Pi5, Cortex-A76) émettrait des
+# instructions ARMv8.2 → SIGILL sur le Cortex-A53 du GX. Répertoire cible séparé
+# pour ne pas invalider le cache des binaires Pi5 (RUSTFLAGS différents).
+VENUS_ARM_RUSTFLAGS := -C target-cpu=cortex-a53 -C link-arg=-Wl,--as-needed
+VENUS_ARM_TARGET_DIR := target/venus-a53
+VENUS_ARM_RELEASE_DIR := $(VENUS_ARM_TARGET_DIR)/$(TARGET_ARM)/release
 
 # Linkers cross-compilation
 CROSS_LINKER_GNU := aarch64-linux-gnu-gcc
@@ -137,13 +147,13 @@ build-venus:
 	$(CARGO) build --release --bin $(VENUS_BIN)
 	@echo "✓ Binaire Venus : $(RELEASE_DIR)/$(VENUS_BIN)"
 
+# dbus-mqtt-venus pour le GX Cerbo GX MK3 (aarch64 Cortex-A53) — cible PRODUCTION
 build-venus-arm: check-arm-deps
+	CARGO_TARGET_DIR=$(VENUS_ARM_TARGET_DIR) \
 	CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=$(CROSS_LINKER_GNU) \
-	RUSTFLAGS="$(ARM_RUSTFLAGS)" \
-	$(CARGO) build --release --target $(TARGET_ARM) --bin $(VENUS_BIN) --bin $(BINARY)
-	@echo "✓ Binaires ARM Venus OS (optimisés Pi5) :"
-	@echo "  $(ARM_RELEASE_DIR)/$(BINARY)"
-	@echo "  $(ARM_RELEASE_DIR)/$(VENUS_BIN)"
+	RUSTFLAGS="$(VENUS_ARM_RUSTFLAGS)" \
+	$(CARGO) build --release --target $(TARGET_ARM) --bin $(VENUS_BIN)
+	@echo "✓ Binaire Venus OS aarch64 Cortex-A53 (GX Cerbo MK3) : $(VENUS_ARM_RELEASE_DIR)/$(VENUS_BIN)"
 
 build-arm-v7: check-armv7-deps
 	CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER=$(CROSS_LINKER_ARMV7) \
@@ -159,14 +169,16 @@ build-venus-armv7 build-venus-v7: check-armv7-deps
 	@echo "  $(ARMV7_RELEASE_DIR)/$(BINARY)"
 	@echo "  $(ARMV7_RELEASE_DIR)/$(VENUS_BIN)"
 
-# Déploiement sur Venus OS (remplacer GX_IP par l'IP de votre GX)
+# Déploiement de dbus-mqtt-venus sur le GX (Cerbo GX MK3, aarch64 Cortex-A53)
 GX_IP ?= 192.168.1.120
 install-venus: build-venus-arm
-	./nanoPi/install-venus.sh $(GX_IP)
+	RELEASE_DIR=$(VENUS_ARM_RELEASE_DIR) ./nanoPi/install-venus.sh $(GX_IP)
 
-# Déploiement sur Venus OS armv7l (NanoPi 32-bit)
-install-venus-v7: build-venus-armv7
-	ARCH=armv7 ./nanoPi/install-venus.sh $(GX_IP)
+# Le GX à $(GX_IP) est aarch64 : un binaire armv7 n'y démarrerait pas.
+# Refus explicite plutôt qu'un déploiement qui casse le bridge D-Bus.
+install-venus-v7:
+	@echo "✗ install-venus-v7 retiré : le GX ($(GX_IP)) est un Cerbo GX MK3 aarch64 → make install-venus"
+	@exit 1
 
 build-energy:
 	$(CARGO) build --release --bin $(ENERGY_BIN)
@@ -425,7 +437,7 @@ help:
 	@echo "  make build-arm       Cross-compiler pour aarch64 [OPTIMISÉ Pi5] ⭐"
 	@echo "  make build-arm-debug Compiler avec symboles pour profiling"
 	@echo "  make build-arm-musl  Compiler binaire statique portable (musl)"
-	@echo "  make build-arm-v7    Compiler pour ARMv7 (NanoPi 32-bit)"
+	@echo "  make build-arm-v7    Compiler pour ARMv7 (Venus OS 32-bit, aucun GX en production)"
 	@echo "  make build-all       Compiler tous les binaires"
 	@echo ""
 	@echo " Développement :"
@@ -443,8 +455,7 @@ help:
 	@echo "  make install-z8run   Installer z8run (build + service systemd, sur Pi5)"
 	@echo "  make deploy          Déployer sur pi5compute@192.168.1.141 [gnu]"
 	@echo "  make deploy-musl     Déployer binaire statique portable [musl]"
-	@echo "  make install-venus   Déployer dbus-mqtt-venus sur GX (ARM64)"
-	@echo "  make install-venus-v7 Déployer sur NanoPi (armv7)"
+	@echo "  make install-venus   Déployer dbus-mqtt-venus sur le GX Cerbo MK3 (aarch64 Cortex-A53)"
 	@echo ""
 	@echo " Grafana — Dashboards :"
 	@echo "  make grafana-install          Installer Grafana OSS sur Pi5"

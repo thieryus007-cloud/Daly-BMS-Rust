@@ -932,7 +932,7 @@ Trames **étendues** (`OduStatus=0xE5`, `IduStatus=0xE4`), longueur 22 ou 24.
    - LWT (Last Will Testament) pour signaler la déconnexion.
    - **Préfixe** : rester dans l'espace **local non bridgé** `santuario/toshiba/<zone>/…`
      (cf. `docs/integration-toshiba-shorai-esphome.md` §5 — **ne PAS bridger vers le
-     NanoPi** ; valider avec `verify-no-loop.sh`).
+     GX** ; valider avec `verify-no-loop.sh`).
    - **Topic d'état** (publish) : `santuario/toshiba/<zone>/state` — JSON structuré.
    - **Topic de commande** (subscribe) : `santuario/toshiba/<zone>/command`.
    - **Disponibilité** : `santuario/toshiba/<zone>/status` — `online` / `offline`.
@@ -1523,7 +1523,7 @@ Alternatives : provisionner en **NVS** (persistant, modifiable sans reflash), ou
 
 > Plage **`.31–.37`** choisie car le scope **`.130–.137`** est **déjà partiellement occupé**.
 > Dernier octet = suffixe du nom (`Shorai-31` → `.31`). Vérifier que `.31–.37` est **hors
-> plage DHCP** et libre côté box ; adresses prises connues : `141`=Pi5, `120`=NanoPi.
+> plage DHCP** et libre côté box ; adresses prises connues : `141`=Pi5, `120`=GX.
 > Côté Pi5, `[energy_manager.toshiba_ac].zones` liste ces noms (souscription réelle par
 > wildcard `santuario/toshiba/+/state`).
 

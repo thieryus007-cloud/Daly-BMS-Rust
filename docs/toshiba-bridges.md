@@ -32,7 +32,7 @@ jamais sur les ESP32 contraints. Le firmware ESP32 reste **Rust + MQTT**, léger
 
 ## 2. Contrat MQTT (figé)
 
-Préfixe **local** `santuario/toshiba/…` — **non** relayé par le bridge NanoPi (règle #11).
+Préfixe **local** `santuario/toshiba/…` — **non** relayé par le bridge GX (règle #11).
 
 | Topic | Sens | Payload | Producteur → Consommateur(s) |
 |-------|------|---------|------------------------------|
