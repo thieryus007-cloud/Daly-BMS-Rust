@@ -141,3 +141,12 @@ l'appareil quel que soit le port. L'instance VE.Bus dépend du **port** du GX.
    `VENUS_ARM_RUSTFLAGS` dans le Makefile si ce n'est plus un Cortex-A53.
 5. Clé SSH du Pi5 dans `/data/home/root/.ssh/authorized_keys`, flows Node-RED,
    puis `make install-venus`.
+6. **VRM** : *Ajouter une installation → Remplacer le GX* (portal ID du nouveau GX,
+   installation d'origine) pour garder l'historique, **puis redémarrer le nouveau GX**
+   (étape finale obligatoire du manuel VRM). Sans ce redémarrage : pas de pictogrammes
+   ni de mise à jour firmware / Remote VEConfigure dans la liste des appareils VRM, et
+   onglet VRM de VictronConnect vide. Supprimer ensuite l'installation « orpheline ».
+7. `/Settings/Vrmlogger/HttpsEnabled` doit valoir **1** (défaut) : à 0, le jeton
+   d'authentification VRM part en clair (HTTP) et n'est jamais généré s'il manque.
+8. Clients MQTT du LAN qui utilisent le portal ID (Home Assistant, tableaux de bord) :
+   reporter le nouveau portal ID.
