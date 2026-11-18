@@ -4,7 +4,7 @@ mod rules;
 use chrono::{DateTime, Utc};
 use serde_json::json;
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 use tokio::time::{interval, sleep, Duration};
 use tracing::{debug, error, info, warn};
 use crate::bus::AppBus;
@@ -23,9 +23,46 @@ pub async fn spawn(
     let keepalive_secs = wh_cfg.read().await.keepalive_secs;
     crate::supervise::spawn_critical(keepalive_task(keepalive_secs, bus.clone(), state.clone()));
     if let Some(lg_client) = lg {
-        crate::supervise::spawn_critical(control_task(wh_cfg, lg_client, bus, state));
+        let window = Arc::new(Mutex::new(PowerWindow::default()));
+        crate::supervise::spawn_critical(battery_sampler_task(window.clone(), state.clone()));
+        crate::supervise::spawn_critical(control_task(wh_cfg, lg_client, bus, state, window));
     } else {
         info!("Water heater auto-control disabled (no LG ThinQ client)");
+    }
+}
+
+/// Échantillons de puissance batterie (SmartShunt, W, < 0 = décharge) accumulés entre
+/// deux cycles de contrôle → moyenne du cycle pour la règle « décharge batterie ».
+#[derive(Default)]
+struct PowerWindow {
+    sum_w: f64,
+    n: u32,
+}
+
+const BATTERY_SAMPLE_SECS: u64 = 10;
+/// Au-delà, la dernière mesure SmartShunt est périmée : elle n'est pas échantillonnée.
+const BATTERY_SAMPLE_MAX_AGE_SECS: i64 = 30;
+
+/// Puissance batterie SmartShunt si la mesure est fraîche.
+fn fresh_battery_power(s: &EnergyState, now: DateTime<Utc>) -> Option<f64> {
+    let fresh = s
+        .shunt_last_seen_ts
+        .is_some_and(|t| (now - t).num_seconds() <= BATTERY_SAMPLE_MAX_AGE_SECS);
+    if fresh { s.battery_power_w } else { None }
+}
+
+/// Échantillonne la puissance batterie toutes les 10 s : la décision porte sur la moyenne
+/// du cycle, un pic bref (nuage, démarrage du compresseur) ne déclenche pas le blocage.
+async fn battery_sampler_task(window: Arc<Mutex<PowerWindow>>, state: Arc<RwLock<EnergyState>>) {
+    let mut ticker = interval(Duration::from_secs(BATTERY_SAMPLE_SECS));
+    loop {
+        ticker.tick().await;
+        let sample = fresh_battery_power(&*state.read().await, Utc::now());
+        if let Some(p) = sample {
+            let mut w = window.lock().await;
+            w.sum_w += p;
+            w.n += 1;
+        }
     }
 }
 
@@ -131,6 +168,7 @@ async fn control_task(
     lg: Arc<LgThinqClient>,
     bus: AppBus,
     state: Arc<RwLock<EnergyState>>,
+    window: Arc<Mutex<PowerWindow>>,
 ) {
     let mut last_change: Option<DateTime<Utc>> = None;
     let mut consecutive_fails: u32 = 0;
@@ -143,8 +181,8 @@ async fn control_task(
         let now = Utc::now();
 
         // Snapshot des seuils courants : un clone par tick (toutes les 5 min) →
-        // coût négligeable. Modifier les seuils nécessite un redémarrage du service
-        // (comme toute la config : `sudo cp Config.toml … && systemctl restart`).
+        // coût négligeable. Rechargeables à chaud (POST /api/v1/em/rules/reload) :
+        // la nouvelle valeur s'applique au tick suivant.
         let cfg = wh_cfg.read().await.clone();
 
         // Read actual state from LG ThinQ before deciding
@@ -191,6 +229,19 @@ async fn control_task(
             );
         }
 
+        // Puissance batterie moyenne du cycle écoulé (fenêtre vidée à chaque tick) ; repli
+        // sur la mesure fraîche instantanée s'il n'y a aucun échantillon (démarrage).
+        let battery_avg_w = {
+            let mut w = window.lock().await;
+            let avg = (w.n > 0).then(|| w.sum_w / f64::from(w.n));
+            *w = PowerWindow::default();
+            avg
+        };
+        let battery_avg_w = match battery_avg_w {
+            Some(v) => Some(v),
+            None => fresh_battery_power(&*state.read().await, now),
+        };
+
         // Read energy conditions — skip evaluation if MQTT data not yet available
         let (ac_ignore_opt, soc_opt, irradiance) = {
             let s = state.read().await;
@@ -210,6 +261,15 @@ async fn control_task(
             );
             continue;
         }
+
+        let Some(battery_avg_w) = battery_avg_w else {
+            warn!(
+                "Water heater: puissance batterie SmartShunt indisponible ou périmée (> {}s) — \
+                 évaluation sautée, mode actuel conservé",
+                BATTERY_SAMPLE_MAX_AGE_SECS
+            );
+            continue;
+        };
 
         let ac_ignore = ac_ignore_opt.unwrap_or(0);
         let soc       = soc_opt.unwrap_or(0.0);
@@ -234,19 +294,8 @@ async fn control_task(
             ac_ignore, grid_connected, soc, cfg.soc_min_pct, soc_low, irradiance_low
         );
 
-        let target_mode_str = rules::evaluate(grid_connected, soc_low, irradiance_low, temp_max_reached);
-        // Démoté info!→debug! (2026-06) : la décision est ré-évaluée à chaque tick
-        // (toutes les 5 min) → 288 lignes/jour même sans changement. Le SEND réel
-        // (changement de mode effectif) reste en info! plus bas.
-        debug!("Water heater: decision → target_mode={target_mode_str} (grid_connected={}, soc={:.1}%, irradiance_low={}, temp_max_reached={})",
-            grid_connected, soc, irradiance_low, temp_max_reached);
-
-        let target_mode = match target_mode_str {
-            "HEAT_PUMP" => WaterHeaterMode::HeatPump,
-            _ => WaterHeaterMode::Vacation,
-        };
-
-        // Use actual LG state (from readback) as the reference for comparison
+        // Use actual LG state (from readback) as the reference for comparison — also needed
+        // by the TURBO hysteresis (already in TURBO → stay while SOC ≥ turbo_soc_exit_pct).
         let actual_mode = lg_snapshot
             .as_ref()
             .map(|s| s.mode)
@@ -254,6 +303,28 @@ async fn control_task(
                 warn!("Water heater: LG readback failed, using cached state for comparison");
                 state.try_read().map(|s| s.water_heater_mode).unwrap_or(WaterHeaterMode::Vacation)
             });
+
+        let battery_full = rules::turbo_wanted(
+            soc,
+            actual_mode == WaterHeaterMode::Turbo,
+            cfg.turbo_soc_enter_pct,
+            cfg.turbo_soc_exit_pct,
+        );
+        let battery_discharging = rules::battery_discharging(battery_avg_w, cfg.discharge_block_w);
+        let target_mode_str = rules::evaluate(
+            grid_connected, soc_low, irradiance_low, temp_max_reached, battery_discharging, battery_full,
+        );
+        // Démoté info!→debug! (2026-06) : la décision est ré-évaluée à chaque tick
+        // (toutes les 5 min) → 288 lignes/jour même sans changement. Le SEND réel
+        // (changement de mode effectif) reste en info! plus bas.
+        debug!("Water heater: decision → target_mode={target_mode_str} (grid_connected={}, soc={:.1}%, irradiance_low={}, temp_max_reached={}, battery_avg={:.0}W, battery_discharging={}, battery_full={})",
+            grid_connected, soc, irradiance_low, temp_max_reached, battery_avg_w, battery_discharging, battery_full);
+
+        let target_mode = match target_mode_str {
+            "HEAT_PUMP" => WaterHeaterMode::HeatPump,
+            "TURBO"     => WaterHeaterMode::Turbo,
+            _ => WaterHeaterMode::Vacation,
+        };
 
         debug!(
             "Water heater: target={:?}, actual (LG)={:?}, should_send={}",
@@ -284,8 +355,8 @@ async fn control_task(
         }
 
         info!(
-            "Water heater: SEND {:?} (actual={:?}, soc={:.1}%, grid={}, irradiance_low={})",
-            target_mode, actual_mode, soc, grid_connected, irradiance_low
+            "Water heater: SEND {:?} (actual={:?}, soc={:.1}%, grid={}, irradiance_low={}, battery_avg={:.0}W, battery_discharging={}, battery_full={})",
+            target_mode, actual_mode, soc, grid_connected, irradiance_low, battery_avg_w, battery_discharging, battery_full
         );
 
         if let Err(e) = lg.set_mode(target_mode).await {
@@ -314,7 +385,8 @@ async fn control_task(
         let delay_secs = cfg.temp_set_delay_secs;
         let target_temp = match target_mode {
             WaterHeaterMode::HeatPump => cfg.heat_pump_target_c,
-            _ => cfg.vacation_target_c,
+            WaterHeaterMode::Turbo    => cfg.turbo_target_c,
+            WaterHeaterMode::Vacation => cfg.vacation_target_c,
         };
 
         let lg2 = lg.clone();

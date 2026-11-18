@@ -6,6 +6,7 @@
 ///   GET  /api/water-heater           — current water heater state (JSON)
 ///   POST /api/water-heater/mode      — set mode ("HEAT_PUMP" | "VACATION" | "TURBO")
 ///   GET  /api/rules-status           — aggregated decision status for monitor.html
+///   POST /api/v1/em/rules/reload     — recharge à chaud les seuils {"name":"water_heater"}
 use axum::{
     extract::{
         ws::{Message, WebSocket, WebSocketUpgrade},
@@ -57,6 +58,7 @@ pub async fn serve(
         .route("/api/water-heater",             get(wh_status_handler))
         .route("/api/water-heater/mode",        post(wh_set_mode_handler))
         .route("/api/rules-status",             get(rules_status_handler))
+        .route("/api/v1/em/rules/reload",       post(rules_reload_handler))
         .with_state(srv)
         .layer(cors);
 
@@ -119,6 +121,81 @@ async fn wh_set_mode_handler(
         s.water_heater_mode = mode;
     }
     (StatusCode::OK, "ok").into_response()
+}
+
+// ---------------------------------------------------------------------------
+// Rules reload — rechargement à chaud des seuils (sans redémarrage)
+// ---------------------------------------------------------------------------
+
+/// Clés lues une seule fois au démarrage : les modifier exige un redémarrage du service.
+const RESTART_ONLY_KEYS: [&str; 2] = ["keepalive_secs", "vm_url"];
+
+#[derive(Deserialize, Default)]
+struct ReloadRequest {
+    #[serde(default)]
+    name: Option<String>,
+}
+
+/// Différences `clé: ancien → nouveau` entre deux sections de config sérialisées.
+fn config_changes(old: &serde_json::Value, new: &serde_json::Value) -> Vec<String> {
+    let (Some(o), Some(n)) = (old.as_object(), new.as_object()) else {
+        return Vec::new();
+    };
+    n.iter()
+        .filter(|(k, v)| o.get(*k) != Some(*v))
+        .map(|(k, v)| format!("{k}: {} → {v}", o.get(k).map_or("∅".to_string(), |x| x.to_string())))
+        .collect()
+}
+
+/// POST /api/v1/em/rules/reload — relit et valide le fichier de config, puis remplace
+/// la section `[energy_manager.water_heater]` en mémoire. Le control_task en prend un
+/// clone à chaque tick → appliqué au prochain cycle (≤ 5 min). Config invalide → 422,
+/// la config en service est conservée.
+async fn rules_reload_handler(State(srv): State<ServerState>, body: axum::body::Bytes) -> Response {
+    let req: ReloadRequest = if body.iter().all(|b| b.is_ascii_whitespace()) {
+        ReloadRequest::default()
+    } else {
+        match serde_json::from_slice(&body) {
+            Ok(r) => r,
+            Err(e) => return (StatusCode::BAD_REQUEST, format!("JSON invalide : {e}")).into_response(),
+        }
+    };
+    let name = req.name.as_deref().unwrap_or("water_heater");
+    if name != "water_heater" {
+        return (
+            StatusCode::BAD_REQUEST,
+            format!("rechargement non supporté pour « {name} » (disponible : water_heater)"),
+        )
+            .into_response();
+    }
+
+    let loaded = match tokio::task::spawn_blocking(crate::config::load).await {
+        Ok(Ok(cfg)) => cfg,
+        Ok(Err(e)) => {
+            return (StatusCode::UNPROCESSABLE_ENTITY, format!("config refusée, ancienne conservée : {e:#}"))
+                .into_response()
+        }
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, format!("lecture config : {e}")).into_response(),
+    };
+    let new = loaded.water_heater;
+    let old = srv.wh_cfg.read().await.clone();
+    let as_json = |c: &WaterHeaterConfig| serde_json::to_value(c).unwrap_or(serde_json::Value::Null);
+    let changes = config_changes(&as_json(&old), &as_json(&new));
+    let restart_required: Vec<&str> = RESTART_ONLY_KEYS
+        .into_iter()
+        .filter(|k| changes.iter().any(|c| c.starts_with(&format!("{k}:"))))
+        .collect();
+    *srv.wh_cfg.write().await = new;
+    info!("Rules reload water_heater : {} changement(s) {:?}", changes.len(), changes);
+
+    Json(serde_json::json!({
+        "status": "ok",
+        "name": "water_heater",
+        "changes": changes,
+        "applied": "au prochain cycle de contrôle (≤ 5 min)",
+        "restart_required": restart_required,
+    }))
+    .into_response()
 }
 
 // ---------------------------------------------------------------------------
@@ -284,5 +361,24 @@ async fn handle_socket(mut socket: WebSocket, tx: broadcast::Sender<LiveEvent>) 
             }
             Err(_) => break,
         }
+    }
+}
+
+#[cfg(test)]
+mod reload_tests {
+    use super::config_changes;
+    use serde_json::json;
+
+    #[test]
+    fn lists_only_changed_keys() {
+        let old = json!({"turbo_soc_enter_pct": 98.0, "turbo_target_c": 60.0, "keepalive_secs": 25});
+        let new = json!({"turbo_soc_enter_pct": 97.0, "turbo_target_c": 60.0, "keepalive_secs": 25});
+        assert_eq!(config_changes(&old, &new), vec!["turbo_soc_enter_pct: 98.0 → 97.0".to_string()]);
+    }
+
+    #[test]
+    fn identical_config_has_no_change() {
+        let c = json!({"discharge_block_w": 100.0});
+        assert!(config_changes(&c, &c).is_empty());
     }
 }

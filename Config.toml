@@ -644,8 +644,13 @@ keepalive_secs        = 25            # s — keepalive Venus OS watchdog
 irradiance_min_wm2    = 300         # W/m² — irradiance min pour activer HEAT_PUMP
 temp_max_c            = 60.0          # °C — seuil « cuve à température cible » : si la temp. actuelle reste ≥…
 temp_max_hold_secs    = 600           # s — …pendant ≥ 10 min → on force VACATION (inutile de chauffer plus)
-# ⮑ Ces seuils sont rechargeables À CHAUD : éditer puis POST /api/v1/em/rules/reload {"name":"water_heater"}
-#    (aucun recompile, aucun redémarrage). Détail : docs/app-energy-manager.md §13.2
+turbo_soc_enter_pct   = 98.0          # % — batterie pleine : SOC > seuil → TURBO à la place de HEAT_PUMP
+turbo_soc_exit_pct    = 95.0          # % — une fois en TURBO, maintien tant que SOC ≥ seuil (hystérésis)
+turbo_target_c        = 60.0          # °C cible en TURBO
+discharge_block_w     = 100.0         # W — batterie en décharge (moyenne SmartShunt sur 5 min < −seuil) → VACATION
+# ⮑ Rechargement À CHAUD (sans redémarrage) : `sudo cp Config.toml /etc/daly-bms/config.toml` puis
+#    `curl -s -X POST http://127.0.0.1:8081/api/v1/em/rules/reload -d '{"name":"water_heater"}'`
+#    → appliqué au prochain cycle (≤ 5 min). Redémarrage requis seulement pour keepalive_secs et vm_url.
 vm_url                = "http://127.0.0.1:8080"  # daly-bms-server → metrics-store redb (POST /api/v1/import/prometheus)
 
 # --- Production solaire ---

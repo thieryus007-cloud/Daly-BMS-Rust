@@ -461,34 +461,50 @@ Canaux : `[energy_manager.victron] shelly_deye_channels = [0, 1]` (un canal par 
 
 **Fichier** : `logic/water_heater.rs`
 
-**Rôle** : Piloter la PAC LG ThinQ (modes `HEAT_PUMP` / `VACATION`) selon les conditions énergétiques.
+**Rôle** : Piloter la PAC LG ThinQ (modes `HEAT_PUMP` / `TURBO` / `VACATION`) selon les conditions énergétiques.
 
 **Deux tâches Tokio** : keepalive (toutes les 25 s) + control task (toutes les 5 min).
 
 **Entrées règle** :
 - `grid_connected` ← `ac_ignore==0` (réseau connecté)
 - `soc_pct` ← EnergyState
-- `irradiance_low` ← `irradiance_wm2 < 300 W/m²`
+- `irradiance_low` ← `irradiance_wm2 < 300 W/m²` (solaire **disponible** insuffisant)
+- `battery_discharging` ← puissance SmartShunt **moyenne du cycle de 5 min** (échantillon toutes
+  les 10 s, mesure fraîche ≤ 30 s) < −`discharge_block_w` (100 W) : le solaire ne couvre pas la
+  consommation, chauffe-eau compris. La puissance MPPT n'est pas utilisable pour ce critère :
+  batterie pleine, elle est bridée à la consommation. Aucune mesure → évaluation sautée.
 
-**Logique de décision** (`rules.rs::evaluate`, fonction pure) :
+**Logique de décision** (`rules.rs`, fonctions pures) :
 ```rust
-fn evaluate(grid_connected: bool, soc_low: bool, irradiance_low: bool, temp_max_reached: bool) -> &str {
-    // Toute condition active force VACATION ; HEAT_PUMP exige les 4 claires.
-    if grid_connected || soc_low || irradiance_low || temp_max_reached { "VACATION" }
+fn evaluate(grid_connected, soc_low, irradiance_low, temp_max_reached,
+            battery_discharging, battery_full: bool) -> &str {
+    // Toute condition active force VACATION ; sinon TURBO si batterie pleine, HEAT_PUMP sinon.
+    if grid_connected || soc_low || irradiance_low || temp_max_reached || battery_discharging { "VACATION" }
+    else if battery_full { "TURBO" }
     else { "HEAT_PUMP" }
+}
+// Batterie pleine avec hystérésis (currently_turbo = mode LG relu == TURBO)
+fn turbo_wanted(soc, currently_turbo, enter=98, exit=95) -> bool {
+    soc > enter || (currently_turbo && soc >= exit)
 }
 ```
 
-**Logique condensée** : `HEAT_PUMP` requiert **les 4 conditions simultanément** :
+**Logique condensée** : `HEAT_PUMP` / `TURBO` requièrent **les 5 conditions simultanément** :
 ```
-HEAT_PUMP exige les 4 SIMULTANÉMENT :
+Les 5 SIMULTANÉMENT :
 ✓ grid_connected == false (ac_ignore=1)
 ✓ soc_pct ≥ 90
 ✓ irradiance_wm2 ≥ 300 W/m²
 ✓ temp_max_reached == false (cuve PAS encore à température cible)
+✓ batterie pas en décharge (moyenne SmartShunt du cycle ≥ −100 W)
 
-Sinon → VACATION
+  → TURBO (cible 60 °C) si SOC > 98 %, ou déjà en TURBO et SOC ≥ 95 %
+  → HEAT_PUMP (cible 60 °C) sinon
+Sinon → VACATION (cible 45 °C)
 ```
+TURBO ne fait que remplacer HEAT_PUMP : jamais sur réseau, jamais la nuit / sous
+300 W/m², jamais cuve chaude, jamais batterie en décharge. Un passage manuel en TURBO (app LG) est conservé tant
+que les conditions ci-dessus le permettent ; sinon le tick suivant le corrige.
 
 **Condition « cuve à température cible »** : la température actuelle de la cuve
 est lue régulièrement (poller LG ThinQ + control_task 5 min) et stockée dans
@@ -501,7 +517,7 @@ continuer à chauffer). Le suivi est réarmé dès que la température redescend
 **Flux de contrôle** (toutes les 5 min) :
 1. `lg.get_state()` → actual_mode, temp, target_temp
 2. Vérifier données MQTT (ac_ignore, soc) — skip si absent
-3. `rules::evaluate(...)` → target_mode
+3. `rules::turbo_wanted(...)` (hystérésis sur le mode LG relu) puis `rules::evaluate(...)` → target_mode
 4. Si target != actual **ET** cooldown (900 s) expiré :
 5. `lg.set_mode(target_mode)` ← synchrone
 6. Sleep 15 s (dans une tâche Tokio séparée **non-bloquante**)
@@ -515,7 +531,13 @@ continuer à chauffer). Le suivi est réarmé dès que la température redescend
 - Métriques redb via metrics-store (toutes les 5 min)
 - WebSocket live `"water_heater_venus"`
 
-**Config** : `irradiance_min_wm2=300`, `mode_change_min_secs=900`, `heat_pump_target_c=60`, `vacation_target_c=45`, `temp_set_delay_secs=15`, `keepalive_secs=25`, `temp_max_c=60`, `temp_max_hold_secs=600`
+**Config** : `irradiance_min_wm2=300`, `mode_change_min_secs=900`, `heat_pump_target_c=60`, `vacation_target_c=45`, `temp_set_delay_secs=15`, `keepalive_secs=25`, `temp_max_c=60`, `temp_max_hold_secs=600`, `turbo_soc_enter_pct=98`, `turbo_soc_exit_pct=95`, `turbo_target_c=60`, `discharge_block_w=100`
+
+**Rechargement à chaud** : après modification de `/etc/daly-bms/config.toml`,
+`curl -s -X POST http://127.0.0.1:8081/api/v1/em/rules/reload -d '{"name":"water_heater"}'`
+relit et valide le fichier, remplace la section en mémoire et renvoie les valeurs modifiées
+(`changes`). Appliqué au prochain cycle (≤ 5 min). Config invalide → HTTP 422, config en
+service conservée. `keepalive_secs` et `vm_url` exigent un redémarrage (`restart_required`).
 
 ---
 

@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 // ---------------------------------------------------------------------------
@@ -356,7 +356,7 @@ impl Default for DeyeConfig {
 // ---------------------------------------------------------------------------
 
 #[allow(dead_code)]
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct WaterHeaterConfig {
     /// Kept for TOML compatibility — no longer used in rule evaluation
     #[serde(default = "default_solar_min_w")]
@@ -393,6 +393,19 @@ pub struct WaterHeaterConfig {
     /// Durée de maintien à `temp_max_c` avant de forcer VACATION (secondes). Défaut : 600 (10 min).
     #[serde(default = "default_temp_max_hold_secs")]
     pub temp_max_hold_secs: u64,
+    /// Batterie pleine : SOC au-dessus duquel TURBO remplace HEAT_PUMP (%). Défaut : 98.
+    #[serde(default = "default_turbo_soc_enter_pct")]
+    pub turbo_soc_enter_pct: f64,
+    /// Hystérésis : une fois en TURBO, maintien tant que SOC ≥ ce seuil (%). Défaut : 95.
+    #[serde(default = "default_turbo_soc_exit_pct")]
+    pub turbo_soc_exit_pct: f64,
+    /// Target temperature in TURBO mode (°C). Défaut : 60.
+    #[serde(default = "default_turbo_target_c")]
+    pub turbo_target_c: f64,
+    /// Décharge batterie : puissance SmartShunt moyenne du cycle de contrôle (5 min) sous
+    /// `-discharge_block_w` → VACATION (HEAT_PUMP/TURBO interdits). Tolérance en W. Défaut : 100.
+    #[serde(default = "default_discharge_block_w")]
+    pub discharge_block_w: f64,
     /// URL d'écriture des métriques chauffe-eau (daly-bms-server → redb,
     /// endpoint POST /api/v1/import/prometheus). Défaut : http://127.0.0.1:8080
     #[serde(default = "default_wh_vm_url")]
@@ -410,6 +423,10 @@ fn default_irradiance_min_wm2() -> f64 { 300.0 }
 fn default_soc_min_pct() -> f64 { 90.0 }
 fn default_temp_max_c() -> f64 { 60.0 }
 fn default_temp_max_hold_secs() -> u64 { 600 }
+fn default_turbo_soc_enter_pct() -> f64 { 98.0 }
+fn default_turbo_soc_exit_pct() -> f64 { 95.0 }
+fn default_turbo_target_c() -> f64 { 60.0 }
+fn default_discharge_block_w() -> f64 { 100.0 }
 fn default_wh_vm_url() -> String { "http://127.0.0.1:8080".into() }
 
 impl Default for WaterHeaterConfig {
@@ -426,6 +443,10 @@ impl Default for WaterHeaterConfig {
             soc_min_pct: default_soc_min_pct(),
             temp_max_c: default_temp_max_c(),
             temp_max_hold_secs: default_temp_max_hold_secs(),
+            turbo_soc_enter_pct: default_turbo_soc_enter_pct(),
+            turbo_soc_exit_pct: default_turbo_soc_exit_pct(),
+            turbo_target_c: default_turbo_target_c(),
+            discharge_block_w: default_discharge_block_w(),
             vm_url: default_wh_vm_url(),
         }
     }
@@ -590,6 +611,14 @@ impl EnergyManagerConfig {
                 "config invalide : `energy_manager.lg_thinq.poll_interval_secs` doit être > 0"
             );
         }
+        anyhow::ensure!(
+            self.water_heater.turbo_soc_exit_pct <= self.water_heater.turbo_soc_enter_pct,
+            "config invalide : `water_heater.turbo_soc_exit_pct` doit être ≤ `turbo_soc_enter_pct`"
+        );
+        anyhow::ensure!(
+            self.water_heater.discharge_block_w >= 0.0,
+            "config invalide : `water_heater.discharge_block_w` doit être ≥ 0 (tolérance en W)"
+        );
         if self.toshiba_ac.enabled {
             anyhow::ensure!(
                 self.toshiba_ac.stale_after_secs > 0,
