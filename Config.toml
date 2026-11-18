@@ -634,8 +634,8 @@ input_max_age_secs         = 90       # s — anti-blocage relais sur télémét
 
 # --- Chauffe-eau LG ThinQ ---
 [energy_manager.water_heater]
-solar_min_w           = 1000        # W — production min pour HEAT_PUMP
-debounce_secs         = 300           # s — 5 min avant changement de mode
+solar_min_w           = 1000        # W — conservé pour compatibilité, non utilisé par la décision
+debounce_secs         = 300           # s — conservé pour compatibilité, non utilisé par la décision
 mode_change_min_secs  = 900           # s — 15 min entre deux changements
 heat_pump_target_c    = 60.0          # °C cible en HEAT_PUMP
 vacation_target_c     = 45.0          # °C cible en VACATION
@@ -647,9 +647,10 @@ temp_max_hold_secs    = 600           # s — …pendant ≥ 10 min → on force
 turbo_soc_enter_pct   = 98.0          # % — batterie pleine : SOC > seuil → TURBO à la place de HEAT_PUMP
 turbo_soc_exit_pct    = 95.0          # % — une fois en TURBO, maintien tant que SOC ≥ seuil (hystérésis)
 turbo_target_c        = 60.0          # °C cible en TURBO
-discharge_block_w     = 50.0          # W — batterie en décharge (moyenne SmartShunt < −seuil) → VACATION ; vérifié sur
-                                      #     le cycle de 5 min ET sur la dernière minute (coupure rapide toutes les 30 s)
-discharge_lockout_secs = 1800         # s — après une coupure rapide, HEAT_PUMP/TURBO interdits 30 min
+discharge_block_w     = 50.0          # W — batterie en décharge (moyenne SmartShunt < −seuil) → un cran de moins :
+                                      #     TURBO → HEAT_PUMP, HEAT_PUMP → VACATION ; vérifié sur la dernière minute
+                                      #     (coupure rapide toutes les 30 s) ET sur le cycle de 5 min
+discharge_lockout_secs = 1800         # s — après une descente, mode quitté interdit 30 min (TURBO, ou HEAT_PUMP+TURBO)
 # ⮑ Rechargement À CHAUD (sans redémarrage) : `sudo cp Config.toml /etc/daly-bms/config.toml` puis
 #    `curl -s -X POST http://127.0.0.1:8081/api/v1/em/rules/reload -d '{"name":"water_heater"}'`
 #    → appliqué au prochain cycle (≤ 5 min). Redémarrage requis seulement pour keepalive_secs et vm_url.

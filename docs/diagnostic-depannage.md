@@ -1990,8 +1990,10 @@ sudo journalctl --vacuum-size=200M
 En complément du plafond, les `info!` bavards par-tick ont été démotés en
 `debug!` (2026-06), **sans rien changer au comportement** : les valeurs partent
 déjà dans `bus.emit_live` + metrics-store (irradiance) et les transitions
-réelles restent en `info!` (water_heater : seul le `SEND` d'un changement de
-mode + le passage VACATION forcé loguent encore au niveau info).
+réelles restent en `info!` (water_heater : le `SEND` d'un changement de mode,
+le passage VACATION forcé et la descente pour décharge au cycle loguent au niveau
+info ; la coupure rapide `COUPURE RAPIDE Turbo → HeatPump` / `HeatPump → Vacation`
+au niveau warn).
 
 - `irradiance/mod.rs` : `Irradiance HTTP poll: N W/m²` → `debug!` (gain ~2 880 lignes/jour).
 - `water_heater/mod.rs` : dumps d'état par tick (get_state, irradiance, soc,

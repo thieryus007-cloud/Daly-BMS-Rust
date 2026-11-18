@@ -402,12 +402,14 @@ pub struct WaterHeaterConfig {
     /// Target temperature in TURBO mode (°C). Défaut : 60.
     #[serde(default = "default_turbo_target_c")]
     pub turbo_target_c: f64,
-    /// Décharge batterie : puissance SmartShunt moyenne sous `-discharge_block_w` → VACATION
-    /// (HEAT_PUMP/TURBO interdits) — sur le cycle de 5 min, et sur la dernière minute pour la
-    /// coupure rapide (toutes les 30 s, sans cooldown). Tolérance en W. Défaut : 50.
+    /// Décharge batterie : puissance SmartShunt moyenne sous `-discharge_block_w` → un cran de
+    /// moins (TURBO → HEAT_PUMP, HEAT_PUMP → VACATION) — sur le cycle de 5 min, et sur la
+    /// dernière minute pour la coupure rapide (toutes les 30 s, sans cooldown). En VACATION,
+    /// empêche le démarrage. Tolérance en W. Défaut : 50.
     #[serde(default = "default_discharge_block_w")]
     pub discharge_block_w: f64,
-    /// Après une coupure rapide, HEAT_PUMP/TURBO interdits pendant ce délai (s). Défaut : 1800.
+    /// Après une descente pour décharge, le mode quitté reste interdit pendant ce délai (s) :
+    /// TURBO après TURBO → HEAT_PUMP, HEAT_PUMP et TURBO après HEAT_PUMP → VACATION. Défaut : 1800.
     #[serde(default = "default_discharge_lockout_secs")]
     pub discharge_lockout_secs: u64,
     /// URL d'écriture des métriques chauffe-eau (daly-bms-server → redb,

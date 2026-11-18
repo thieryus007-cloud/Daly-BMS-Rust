@@ -27,7 +27,7 @@ use tracing::info;
 
 use crate::config::WaterHeaterConfig;
 use crate::http_clients::lg_thinq::LgThinqClient;
-use crate::types::{EnergyState, LiveEvent, WaterHeaterMode};
+use crate::types::{EnergyState, LiveEvent, WaterHeaterMode, WaterHeaterRuleStatus};
 use chrono::{DateTime, Utc};
 
 #[derive(Clone)]
@@ -220,6 +220,14 @@ struct WaterHeaterCard {
     /// Vrai quand la cuve tient `temp_max_c` depuis ≥ `temp_max_hold_secs`
     /// → la règle force VACATION.
     temp_max_reached: bool,
+    /// Seuils de la règle en service (config rechargeable à chaud).
+    soc_min_pct:         f64,
+    irradiance_min_wm2:  f64,
+    turbo_soc_enter_pct: f64,
+    turbo_soc_exit_pct:  f64,
+    discharge_block_w:   f64,
+    /// Dernière décision du control_task : cible, raison, batterie (cycle / minute), verrou.
+    rule:                WaterHeaterRuleStatus,
 }
 
 #[derive(Serialize)]
@@ -298,6 +306,12 @@ async fn rules_status_handler(State(srv): State<ServerState>) -> Response {
             temp_max_hold_secs: wh_cfg.temp_max_hold_secs,
             temp_max_since: s.water_heater_temp_max_since,
             temp_max_reached,
+            soc_min_pct:         wh_cfg.soc_min_pct,
+            irradiance_min_wm2:  wh_cfg.irradiance_min_wm2,
+            turbo_soc_enter_pct: wh_cfg.turbo_soc_enter_pct,
+            turbo_soc_exit_pct:  wh_cfg.turbo_soc_exit_pct,
+            discharge_block_w:   wh_cfg.discharge_block_w,
+            rule:                s.water_heater_rule.clone(),
         },
         charge_current: ChargeCurrent {
             current_a:    s.last_charge_current_a,

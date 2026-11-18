@@ -161,6 +161,8 @@ pub struct EnergyState {
     /// seuil `temp_max_c`. None tant qu'elle est en-dessous. Sert à forcer le
     /// passage en VACATION après `temp_max_hold_secs` (cible 60°C atteinte).
     pub water_heater_temp_max_since: Option<DateTime<Utc>>,
+    /// Dernière décision de la règle chauffe-eau (exposée par /api/rules-status).
+    pub water_heater_rule: WaterHeaterRuleStatus,
 
     // --- DEYE relay (Shelly) ---
     pub deye_on: bool,
@@ -283,6 +285,27 @@ pub struct ToshibaAcSnapshot {
     pub self_clean: bool,
     /// Horodatage de la dernière trame reçue (liveness — audit 2026-06 §18).
     pub last_update: Option<DateTime<Utc>>,
+}
+
+/// Dernière décision de la règle chauffe-eau (control_task : cycle 5 min et coupure rapide
+/// 30 s) — affichée par monitor.html via /api/rules-status.
+#[derive(Debug, Default, Clone, Serialize)]
+pub struct WaterHeaterRuleStatus {
+    /// Mode cible de la dernière évaluation (HEAT_PUMP / TURBO / VACATION).
+    pub target: Option<String>,
+    /// Raison de cette cible (« batterie pleine », « batterie en décharge »…).
+    pub reason: Option<String>,
+    /// Horodatage de cette évaluation.
+    pub decided_ts: Option<DateTime<Utc>>,
+    /// Puissance batterie moyenne du dernier cycle évalué (W, < 0 = décharge).
+    pub battery_cycle_avg_w: Option<f64>,
+    /// Puissance batterie moyenne de la dernière minute (W), rafraîchie toutes les 30 s.
+    /// None : minute incomplète (démarrage, changement de mode récent, mesure périmée).
+    pub battery_minute_avg_w: Option<f64>,
+    /// Verrou après une descente pour décharge : mode maximal autorisé…
+    pub lock_ceiling: Option<String>,
+    /// …jusqu'à cette échéance.
+    pub lock_until: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

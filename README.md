@@ -14,7 +14,7 @@ Stack **100 % Rust** — remplacement total de l'ancienne stack Python/FastAPI *
 
 - **Workspace multi-crates** : `rs485-bus`, `daly-bms-core`, `daly-bms-server`, `energy-manager`, `metrics-store`, `dbus-mqtt-venus`.
 - **daly-bms-server** (Pi5, :8080) : polling RS485 (BMS Daly + ET112 + PRALRAN + ATS), API REST/WebSocket, dashboard SSR, AlertEngine, metrics-store redb.
-- **energy-manager** (Pi5, :8081) : automatisation énergie (solaire, DEYE, chauffe-eau LG, charge, météo) via `rust-rule-engine`.
+- **energy-manager** (Pi5, :8081) : automatisation énergie (solaire, DEYE, chauffe-eau LG, charge, météo) ; règles de décision en Rust pur (`logic/*/rules.rs`).
 - **dbus-mqtt-venus** (GX Cerbo GX MK3) : bridge MQTT → D-Bus Venus OS en zbus pur Rust (~5–8 Mo RAM).
 - **Observabilité** : redb (tiering raw 30 j / hourly 365 j / daily 5 ans) + 20 dashboards Grafana.
 

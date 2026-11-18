@@ -459,54 +459,74 @@ Canaux : `[energy_manager.victron] shelly_deye_channels = [0, 1]` (un canal par 
 
 ### 4.4 WATER_HEATER
 
-**Fichier** : `logic/water_heater.rs`
+**Fichiers** : `logic/water_heater/mod.rs` (tâches, mesure batterie, envoi LG) +
+`logic/water_heater/rules.rs` (décision, fonctions pures testées).
 
-**Rôle** : Piloter la PAC LG ThinQ (modes `HEAT_PUMP` / `TURBO` / `VACATION`) selon les conditions énergétiques.
+**Rôle** : Piloter la PAC LG ThinQ (modes `HEAT_PUMP` / `TURBO` / `VACATION`) avec le seul
+surplus solaire — **aucune énergie batterie pour le chauffe-eau**.
 
-**Deux tâches Tokio** : keepalive (toutes les 25 s) + control task (toutes les 5 min).
+**Tâches Tokio** : keepalive Venus (25 s) ; échantillonnage batterie SmartShunt (10 s) ;
+control task = cycle de décision (5 min) + coupure rapide (30 s).
 
-**Entrées règle** :
-- `grid_connected` ← `ac_ignore==0` (réseau connecté)
-- `soc_pct` ← EnergyState
-- `irradiance_low` ← `irradiance_wm2 < 300 W/m²` (solaire **disponible** insuffisant)
-- `battery_discharging` ← puissance SmartShunt **moyenne du cycle de 5 min** (échantillon toutes
-  les 10 s, mesure fraîche ≤ 30 s) < −`discharge_block_w` (50 W), ou verrouillage actif après une
-  coupure rapide : le solaire ne couvre pas la consommation, chauffe-eau compris. La puissance MPPT n'est pas utilisable pour ce critère :
-  batterie pleine, elle est bridée à la consommation. Moins de 6 échantillons frais (1 min) sur
-  le cycle → évaluation sautée, mode conservé (cas du premier cycle après un redémarrage) :
-  jamais de décision sur une mesure instantanée.
+**Entrées de la décision** :
+- `grid_connected` ← `ac_ignore == 0` (réseau connecté)
+- `soc_low` ← `soc_pct < soc_min_pct` (90 %)
+- `irradiance_low` ← `irradiance_wm2 < irradiance_min_wm2` (300 W/m²) : solaire **disponible**
+  insuffisant ; irradiance pas encore reçue → considérée faible
+- `temp_max_reached` ← cuve ≥ `temp_max_c` (60 °C) tenue `temp_max_hold_secs` (10 min)
+- `battery_full` ← `turbo_wanted` : SOC > `turbo_soc_enter_pct` (98 %), ou déjà en TURBO et
+  SOC ≥ `turbo_soc_exit_pct` (95 %) — hystérésis sur le mode LG relu
+- `battery_discharging` ← puissance SmartShunt moyenne < −`discharge_block_w` (50 W) : le
+  solaire ne couvre pas la consommation, chauffe-eau compris. Échantillon toutes les 10 s,
+  mesure fraîche ≤ 30 s ; moyenne du **cycle** (5 min) pour la décision, de la **dernière
+  minute** pour la coupure rapide ; jamais de décision sur une mesure instantanée. La
+  puissance MPPT n'est pas utilisable pour ce critère : batterie pleine, elle est bridée à la
+  consommation.
+- `current` ← mode LG relu avant la décision
+- `ceiling` ← verrou actif après une descente pour décharge (voir plus bas)
 
-**Logique de décision** (`rules.rs`, fonctions pures) :
-```rust
-fn evaluate(grid_connected, soc_low, irradiance_low, temp_max_reached,
-            battery_discharging, battery_full: bool) -> &str {
-    // Toute condition active force VACATION ; sinon TURBO si batterie pleine, HEAT_PUMP sinon.
-    if grid_connected || soc_low || irradiance_low || temp_max_reached || battery_discharging { "VACATION" }
-    else if battery_full { "TURBO" }
-    else { "HEAT_PUMP" }
-}
-// Batterie pleine avec hystérésis (currently_turbo = mode LG relu == TURBO)
-fn turbo_wanted(soc, currently_turbo, enter=98, exit=95) -> bool {
-    soc > enter || (currently_turbo && soc >= exit)
-}
+**Décision du cycle** (`rules::evaluate`, toutes les 5 min) :
 ```
-
-**Logique condensée** : `HEAT_PUMP` / `TURBO` requièrent **les 5 conditions simultanément** :
+1. réseau connecté, SOC < 90 %, irradiance < 300 W/m² ou cuve à 60 °C tenue 10 min
+                                              → VACATION (cible 45 °C)
+2. batterie en décharge (moyenne du cycle < −50 W) → un cran sous le mode actuel :
+       TURBO → HEAT_PUMP,  HEAT_PUMP → VACATION,  VACATION reste VACATION
+3. batterie pleine (SOC > 98 %, maintien ≥ 95 % une fois en TURBO)
+                                              → TURBO (cible 60 °C)
+4. sinon                                      → HEAT_PUMP (cible 60 °C)
+puis plafonné par le verrou de décharge s'il est actif.
 ```
-Les 5 SIMULTANÉMENT :
-✓ grid_connected == false (ac_ignore=1)
-✓ soc_pct ≥ 90
-✓ irradiance_wm2 ≥ 300 W/m²
-✓ temp_max_reached == false (cuve PAS encore à température cible)
-✓ batterie pas en décharge (moyenne SmartShunt du cycle ≥ −100 W)
+TURBO ne fait que remplacer HEAT_PUMP : jamais sur réseau, la nuit, cuve chaude, batterie en
+décharge ni sous verrou. En VACATION, une batterie en décharge (consommation de la maison)
+empêche le démarrage. Un passage manuel (app LG) est conservé tant que la règle le permet ;
+sinon le cycle suivant le corrige (la coupure rapide s'applique aussi à un TURBO/HEAT_PUMP manuel).
 
-  → TURBO (cible 60 °C) si SOC > 98 %, ou déjà en TURBO et SOC ≥ 95 %
-  → HEAT_PUMP (cible 60 °C) sinon
-Sinon → VACATION (cible 45 °C)
-```
-TURBO ne fait que remplacer HEAT_PUMP : jamais sur réseau, jamais la nuit / sous
-300 W/m², jamais cuve chaude, jamais batterie en décharge. Un passage manuel en TURBO (app LG) est conservé tant
-que les conditions ci-dessus le permettent ; sinon le tick suivant le corrige.
+**Coupure rapide** (`rules::fast_cut`, toutes les 30 s) : chauffe-eau en TURBO ou HEAT_PUMP
+et moyenne batterie de la **dernière minute** < −`discharge_block_w` → **un cran de moins,
+immédiatement** (TURBO → HEAT_PUMP, HEAT_PUMP → VACATION), sans attendre la fin du cycle ni
+`mode_change_min_secs`. Le TURBO coupé laisse la HEAT_PUMP chauffer avec le solaire
+disponible ; si elle fait elle aussi décharger, une seconde coupure la passe en VACATION
+(au plus tôt 80 s après la première : 20 s d'attente + 1 min de mesure). Minute incomplète ou
+mesure périmée → pas de coupure. Échec d'envoi → nouvel essai après 120 s.
+
+**Verrou après une descente pour décharge** (`discharge_lockout_secs`, 1800 s), posé par la
+coupure rapide comme par le cycle :
+
+| Descente | Interdit pendant 30 min |
+|---|---|
+| TURBO → HEAT_PUMP | TURBO |
+| HEAT_PUMP → VACATION | HEAT_PUMP et TURBO |
+
+Il évite les cycles courts du compresseur quand le solaire est tout juste suffisant. À
+l'échéance, le cycle réessaie le mode quitté si les conditions le permettent. Le verrou est
+tenu en mémoire : un redémarrage du service l'efface.
+
+**Mesure batterie après un changement de mode** : chaque envoi de mode remet à zéro la
+moyenne du cycle et la minute glissante, puis ignore les 2 échantillons suivants (20 s, le
+temps que le LG applique le mode — l'arrêt de la résistance du TURBO se voit sur la batterie
+en 10 à 15 s). La HEAT_PUMP est ainsi jugée sur sa seule consommation, pas sur celle du TURBO
+qui la précédait. Moins de 6 échantillons frais (1 min) sur un cycle → évaluation sautée, mode
+conservé (démarrage du service, changement de mode récent, mesure périmée).
 
 **Condition « cuve à température cible »** : la température actuelle de la cuve
 est lue régulièrement (poller LG ThinQ + control_task 5 min) et stockée dans
@@ -516,33 +536,39 @@ est lue régulièrement (poller LG ThinQ + control_task 5 min) et stockée dans
 `temp_max_reached` passe à `true` → la PAC bascule en `VACATION` (inutile de
 continuer à chauffer). Le suivi est réarmé dès que la température redescend.
 
-**Coupure rapide — aucune énergie batterie pour le chauffe-eau** (toutes les 30 s) : chauffe-eau
-en HEAT_PUMP/TURBO et batterie en décharge sur la **dernière minute** (moyenne < −`discharge_block_w`)
-→ `VACATION` immédiatement, **sans attendre** la fin du cycle ni `mode_change_min_secs`
-(`rules::fast_cut`). HEAT_PUMP/TURBO restent ensuite interdits `discharge_lockout_secs` (1800 s)
-pour éviter les cycles courts du compresseur quand le solaire est tout juste suffisant. Minute
-incomplète ou mesure périmée → pas de coupure. Échec d'envoi → nouvel essai après 120 s.
-Limite : une chauffe déclenchée par le LG lui-même (programme horaire, anti-légionellose) alors
-qu'il reste en VACATION n'est pas visible dans le mode et n'est pas coupée.
+**Limites** :
+- Une chauffe déclenchée par le LG lui-même (programme horaire, anti-légionellose) alors qu'il
+  reste en VACATION n'est pas visible dans le mode et n'est pas coupée.
+- Tant que le solaire ne couvre pas le TURBO, celui-ci est réessayé à chaque fin de verrou
+  (environ toutes les 32 min) : à chaque essai, environ 1 min de décharge (quelques centaines
+  de W) avant la coupure vers HEAT_PUMP.
 
-**Flux de contrôle** (toutes les 5 min) :
-1. `lg.get_state()` → actual_mode, temp, target_temp
-2. Vérifier données MQTT (ac_ignore, soc) — skip si absent
-3. `rules::turbo_wanted(...)` (hystérésis sur le mode LG relu) puis `rules::evaluate(...)` → target_mode
-4. Si target != actual **ET** cooldown (900 s) expiré :
-5. `lg.set_mode(target_mode)` ← synchrone
-6. Sleep 15 s (dans une tâche Tokio séparée **non-bloquante**)
-7. `lg.set_target_temp(...)` dans la tâche séparée
+**Flux du cycle** (toutes les 5 min) :
+1. `lg.get_state()` → mode actuel, température, consigne
+2. Suivi « cuve à température cible »
+3. Moyenne batterie du cycle — moins de 6 échantillons → cycle sauté
+4. Données MQTT (ac_ignore, soc) — cycle sauté si absentes
+5. `rules::turbo_wanted(...)` puis `rules::evaluate(...)` → cible + raison (publiées dans
+   `/api/rules-status`)
+6. Si cible ≠ mode actuel **et** `mode_change_min_secs` (900 s) écoulé depuis le dernier
+   changement : `lg.set_mode(cible)` (synchrone), remise à zéro de la mesure batterie, puis
+   consigne après `temp_set_delay_secs` (15 s) dans une tâche Tokio séparée **non bloquante**
+7. Descente pour décharge → verrou
 
-> ⚠️ Les étapes 6-7 s'exécutent en **arrière-plan** via `tokio::spawn` — la boucle principale continue.
+> Le délai de 15 min entre deux changements ne s'applique qu'au cycle ; la coupure rapide
+> passe outre (un changement par la coupure rapide relance aussi ce délai).
 
 **Sorties** :
 - API LG ThinQ POST `/control` (mode + temp)
 - MQTT retained `santuario/heatpump/1/venus` (keepalive toutes les 25 s)
 - Métriques redb via metrics-store (toutes les 5 min)
 - WebSocket live `"water_heater_venus"`
+- `/api/rules-status` → `water_heater.rule` : cible et raison de la dernière décision,
+  batterie (moyenne du cycle, moyenne de la dernière minute rafraîchie toutes les 30 s), verrou
+  (mode maximal + échéance). La carte « Gestion Chauffe-eau » de `monitor.html` affiche cette
+  décision telle quelle (elle ne recalcule pas la règle).
 
-**Config** : `irradiance_min_wm2=300`, `mode_change_min_secs=900`, `heat_pump_target_c=60`, `vacation_target_c=45`, `temp_set_delay_secs=15`, `keepalive_secs=25`, `temp_max_c=60`, `temp_max_hold_secs=600`, `turbo_soc_enter_pct=98`, `turbo_soc_exit_pct=95`, `turbo_target_c=60`, `discharge_block_w=50`, `discharge_lockout_secs=1800`
+**Config** : `soc_min_pct=90`, `irradiance_min_wm2=300`, `mode_change_min_secs=900`, `heat_pump_target_c=60`, `vacation_target_c=45`, `temp_set_delay_secs=15`, `keepalive_secs=25`, `temp_max_c=60`, `temp_max_hold_secs=600`, `turbo_soc_enter_pct=98`, `turbo_soc_exit_pct=95`, `turbo_target_c=60`, `discharge_block_w=50`, `discharge_lockout_secs=1800`
 
 **Rechargement à chaud** : après modification de `/etc/daly-bms/config.toml`,
 `curl -s -X POST http://127.0.0.1:8081/api/v1/em/rules/reload -d '{"name":"water_heater"}'`
@@ -991,6 +1017,7 @@ websocat ws://192.168.1.141:8081/live
 | `/api/water-heater` | GET | État PAC LG ThinQ (JSON) |
 | `/api/water-heater/mode` | POST | Set mode PAC — body: `{"mode": "HEAT_PUMP"|"VACATION"|"TURBO"}` |
 | `/api/rules-status` | GET | Snapshot agrégé des décisions (cartes du dashboard monitor, JSON) |
+| `/api/v1/em/rules/reload` | POST | Recharge à chaud la section chauffe-eau — body optionnel `{"name":"water_heater"}` (voir §4.4) |
 
 ### 10.2 Payload /api/rules-status
 
@@ -1003,7 +1030,25 @@ websocat ws://192.168.1.141:8081/live
     "last_read_ts": null,
     "last_change_ts": null,
     "send_count": 0,
-    "lg_enabled": false
+    "lg_enabled": false,
+    "temp_max_c": 60.0,
+    "temp_max_hold_secs": 600,
+    "temp_max_since": null,
+    "temp_max_reached": false,
+    "soc_min_pct": 90.0,
+    "irradiance_min_wm2": 300.0,
+    "turbo_soc_enter_pct": 98.0,
+    "turbo_soc_exit_pct": 95.0,
+    "discharge_block_w": 50.0,
+    "rule": {
+      "target": "HEAT_PUMP",
+      "reason": "coupure rapide : batterie en décharge sur la dernière minute",
+      "decided_ts": "2026-11-18T13:07:36Z",
+      "battery_cycle_avg_w": 7.0,
+      "battery_minute_avg_w": 120.0,
+      "lock_ceiling": "HEAT_PUMP",
+      "lock_until": "2026-11-18T13:37:36Z"
+    }
   },
   "charge_current": {
     "current_a": null,
@@ -1108,18 +1153,23 @@ mppt_full_states           = [4, 5, 6]  # Codes State « batterie pleine » (4=A
 input_max_age_secs         = 90     # Garde de fraîcheur freq + MPPT (topic muet au-delà → entrée ignorée)
 
 [energy_manager.water_heater]
-solar_min_w            = 2000.0   # Production min pour HEAT_PUMP (non utilisé par la décision)
-debounce_secs          = 300      # Délai de stabilisation (5 min)
-mode_change_min_secs   = 900      # Intervalle minimal entre changements de mode (15 min)
+solar_min_w            = 1000     # Conservé pour compatibilité, non utilisé par la décision
+debounce_secs          = 300      # Conservé pour compatibilité, non utilisé par la décision
+mode_change_min_secs   = 900      # Intervalle minimal entre changements de mode du cycle (15 min)
 heat_pump_target_c     = 60.0     # Température cible mode HEAT_PUMP
 vacation_target_c      = 45.0     # Température cible mode VACATION
-soc_min_pct            = 90.0     # SOC minimum pour activer HEAT_PUMP
-irradiance_min_wm2     = 300      # Irradiance minimale pour HEAT_PUMP
+soc_min_pct            = 90.0     # SOC minimum pour HEAT_PUMP/TURBO
+irradiance_min_wm2     = 300      # Irradiance minimale pour HEAT_PUMP/TURBO
 temp_max_c             = 60.0     # Seuil « cuve à température cible »
 temp_max_hold_secs     = 600      # Maintien ≥ ce seuil → VACATION (10 min)
+turbo_soc_enter_pct    = 98.0     # Batterie pleine : SOC > seuil → TURBO à la place de HEAT_PUMP
+turbo_soc_exit_pct     = 95.0     # Une fois en TURBO, maintien tant que SOC ≥ seuil (hystérésis)
+turbo_target_c         = 60.0     # Température cible mode TURBO
+discharge_block_w      = 50.0     # Batterie < −seuil (W) → un cran de moins (TURBO → HEAT_PUMP → VACATION)
+discharge_lockout_secs = 1800     # Après une descente, mode quitté interdit 30 min
 temp_set_delay_secs    = 15       # Délai entre set_mode et set_target_temp
-keepalive_secs         = 25       # Fréquence keepalive MQTT PAC
-vm_url                 = "http://127.0.0.1:8080"  # URL daly-bms-server → metrics-store redb
+keepalive_secs         = 25       # Fréquence keepalive MQTT PAC (redémarrage requis)
+vm_url                 = "http://127.0.0.1:8080"  # URL daly-bms-server → metrics-store redb (redémarrage requis)
 
 [energy_manager.charge_current]
 offgrid_max_a          = 70.0    # Courant max en mode hors-réseau (A)
@@ -1161,26 +1211,27 @@ LG_API_KEY=<API key LG>
 
 ## 13. Guide : modifier une fonctionnalité existante
 
-### 13.1 Changer un seuil ou délai (config, restart)
+### 13.1 Changer un seuil ou délai (config)
 
 Tous les seuils/délais métier sont exposés dans `Config.toml` (voir §12) — aucune
-recompilation, mais un **redémarrage** du service est requis (la config est lue au
-démarrage) :
+recompilation. La config est lue au démarrage ; **seule la section
+`[energy_manager.water_heater]` se recharge à chaud** (sauf `keepalive_secs` et `vm_url`) :
 
 ```bash
-# 1. Éditer Config.toml (localement)
-# 2. Copier sur Pi5 + redémarrer
+# 1. Éditer Config.toml (localement), puis copier sur le Pi5
 sudo cp Config.toml /etc/daly-bms/config.toml
+# 2a. Seuils chauffe-eau : à chaud, appliqués au prochain cycle (≤ 5 min)
+curl -s -X POST http://127.0.0.1:8081/api/v1/em/rules/reload -d '{"name":"water_heater"}'
+# 2b. Autres sections, ou keepalive_secs / vm_url : redémarrage
 sudo systemctl restart energy-manager
-# 3. Vérifier (ex. seuil chauffe-eau pris en compte)
-curl -s http://192.168.1.141:8081/api/rules-status | python3 -m json.tool | grep temp_max
+# 3. Vérifier (ex. seuils chauffe-eau en service)
+curl -s http://192.168.1.141:8081/api/rules-status | python3 -m json.tool | grep -E "temp_max|turbo|discharge"
 ```
 
-> ℹ️ **Plus de hot-reload.** L'ancien endpoint `POST /api/v1/em/rules/reload` (qui
-> rechargeait les `.grl` sur disque **et**, au passage, les seuils chauffe-eau) a été
-> retiré avec `rust-rule-engine`. Tout changement de seuil passe désormais par un
-> `systemctl restart` — modèle d'exploitation déjà documenté partout
-> (`cp Config.toml … && systemctl restart`).
+Le rechargement relit et valide tout le fichier, mais ne remplace que la section
+`water_heater` ; il répond la liste des valeurs modifiées (`changes`) et celles qui exigent
+un redémarrage (`restart_required`). Config invalide → HTTP 422, config en service
+conservée ; autre `name` → HTTP 400.
 
 ### 13.2 Changer une règle de décision (recompilation requise)
 
@@ -1376,7 +1427,7 @@ Couverture des tests :
 | `irradiance` | 2 | plage 0–2000 W/m² valide / hors plage |
 | `smartshunt` | 4 | capture baseline chargée/déchargée (nouveau jour, absente) |
 | `solar_power` | 4 | nouveau jour, baseline absente |
-| `water_heater` | 3 | toutes conditions OK → HEAT_PUMP, toute condition active → VACATION |
+| `water_heater` | 12 | HEAT_PUMP / TURBO / bloqueurs → VACATION, descente d'un cran sur décharge, plafond du verrou, hystérésis TURBO, coupure rapide TURBO → HEAT_PUMP → VACATION, tolérance de décharge, fenêtre de mesure batterie (minute glissante, mesure périmée, remise à zéro au changement de mode) |
 
 **Ajouter un test** — dans le `rules.rs` concerné, dans `#[cfg(test)] mod tests` :
 

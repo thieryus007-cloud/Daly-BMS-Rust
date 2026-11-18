@@ -469,13 +469,17 @@ async function fetchRulesStatus() {
     safe(fetch('/api/v1/shelly').then(r => r.ok ? r.json() : null)),
   ]);
 
+  // ── Seuils de la règle chauffe-eau : config en service de l'energy-manager
+  const socMin = emR?.water_heater?.soc_min_pct ?? 90;
+  const irrMin = emR?.water_heater?.irradiance_min_wm2 ?? 300;
+
   // ── SOC — SmartShunt Victron (valeur exacte utilisée par l'energy-manager) ─
   const emSoc  = emR?.soc_pct ?? null;
-  const socOk  = emSoc != null && emSoc >= 90;
+  const socOk  = emSoc != null && emSoc >= socMin;
 
-  // ── Irradiance — valeur directe du capteur PRALRAN (daly-bms-server)
-  const irr   = irrR?.irradiance_wm2 ?? null;
-  const irrOk = irr != null && irr >= 300;
+  // ── Irradiance — valeur vue par l'energy-manager (repli : capteur PRALRAN via daly-bms-server)
+  const irr   = emR?.irradiance_wm2 ?? irrR?.irradiance_wm2 ?? null;
+  const irrOk = irr != null && irr >= irrMin;
 
   // ── Grid / AC IN — valeur vue par l'energy-manager (VEBus IgnoreAcIn1) ───
   const emAcIgnore = emR?.ac_ignore ?? null;          // 0=grid, 1=off-grid (i64)
@@ -492,16 +496,18 @@ async function fetchRulesStatus() {
   try {
     const wh = emR?.water_heater ?? null;
     const whMode = wh?.mode ?? '—';
-    const modeOk = whMode === 'HEAT_PUMP';
+    // HEAT_PUMP vert, TURBO orange, VACATION / inconnu gris
+    const MODE_COLORS = { HEAT_PUMP: ['#14532d', '#4ade80'], TURBO: ['#431407', '#fb923c'] };
+    const modeColors = MODE_COLORS[whMode] ?? null;
 
     const badge = document.getElementById('rules-mode-badge');
     if (badge) {
       badge.textContent = whMode;
-      badge.style.background = modeOk ? '#14532d' : '#1c1917';
-      badge.style.color      = modeOk ? '#4ade80' : '#78716c';
+      badge.style.background = modeColors ? modeColors[0] : '#1c1917';
+      badge.style.color      = modeColors ? modeColors[1] : '#78716c';
     }
     const modeEl = document.getElementById('wh-mode-val');
-    if (modeEl) { modeEl.textContent = whMode; modeEl.style.color = modeOk ? '#4ade80' : '#f87171'; }
+    if (modeEl) { modeEl.textContent = whMode; modeEl.style.color = modeColors ? modeColors[1] : '#f87171'; }
     const tempEl = document.getElementById('wh-temp-val');
     if (tempEl) tempEl.textContent = wh?.current_temp_c != null ? wh.current_temp_c.toFixed(1) + ' °C' : '—';
     const tgtEl = document.getElementById('wh-target-val');
@@ -531,23 +537,53 @@ async function fetchRulesStatus() {
       }
     }
 
+    // ── Batterie : aucune énergie batterie pour le chauffe-eau. Décharge sur la dernière
+    //    minute (vérifiée toutes les 30 s) ou sur le cycle de 5 min → un cran de moins.
+    const rule    = wh?.rule ?? {};
+    const blockW  = wh?.discharge_block_w ?? 50;
+    const minuteW = rule.battery_minute_avg_w ?? null;
+    const cycleW  = rule.battery_cycle_avg_w ?? null;
+    const batW    = minuteW ?? cycleW;
+    const batOk   = batW != null && batW >= -blockW;
+    const fmtW    = w => w != null ? `${w >= 0 ? '+' : ''}${w.toFixed(0)} W` : '—';
+
+    // ── Batterie pleine → TURBO à la place de HEAT_PUMP (hystérésis sur le mode LG)
+    const tEnter = wh?.turbo_soc_enter_pct ?? 98;
+    const tExit  = wh?.turbo_soc_exit_pct ?? 95;
+    const full   = emSoc != null && (emSoc > tEnter || (whMode === 'TURBO' && emSoc >= tExit));
+
+    // ── Verrou après une descente pour décharge
+    const lockUntil = rule.lock_until ? new Date(rule.lock_until) : null;
+    const lockOn    = lockUntil != null && lockUntil > new Date();
+    const lockTxt   = rule.lock_ceiling === 'HEAT_PUMP' ? 'TURBO interdit' : 'HEAT_PUMP/TURBO interdits';
+
     const grid = document.getElementById('rule-grid');
     if (grid) {
       grid.innerHTML = [
-        ruleRow('SOC ≥ 90 % (SmartShunt)',           socOk,    emSoc  != null ? `${emSoc.toFixed(1)} %`   : '—', null),
-        ruleRow('Irradiance ≥ 300 W/m²',           irrOk,    irr    != null ? `${irr.toFixed(0)} W/m²` : '—', null),
+        ruleRow(`SOC ≥ ${socMin} % (SmartShunt)`,    socOk,    emSoc  != null ? `${emSoc.toFixed(1)} %`   : '—', null),
+        ruleRow(`Irradiance ≥ ${irrMin} W/m²`,       irrOk,    irr    != null ? `${irr.toFixed(0)} W/m²` : '—', null),
         ruleRow('Grid déconnecté (AC IN Ignored)', gridOffOk, acIgnore != null ? (acIgnore ? 'ACTIF' : 'Normal') : '—', null),
         ruleRow(`Temp < ${tMaxC} °C tenue < ${tHoldMin} min`, tempOk, tempVal, tempDetail),
+        ruleRow(`Batterie pas en décharge (≥ −${blockW} W)`, batOk,
+                minuteW != null ? fmtW(minuteW) + ' (1 min)' : 'mesure…', `cycle 5 min : ${fmtW(cycleW)}`),
+        statusRow(`Batterie pleine → TURBO (SOC > ${tEnter} %, maintien ≥ ${tExit} %)`,
+                  full ? 'oui' : 'non', full ? '#fb923c' : '#64748b', null),
+        lockOn ? statusRow('Verrou après coupure pour décharge', lockTxt, '#f59e0b',
+                           `jusqu'à ${lockUntil.toLocaleTimeString('fr-FR')}`) : '',
       ].join('');
     }
 
-    const allOk = socOk && irrOk && gridOffOk && !tMaxReached;
+    // ── Décision : celle de l'energy-manager (cycle 5 min ou coupure rapide), jamais
+    //    recalculée ici — la page ne peut pas diverger de la règle réelle.
     const dec = document.getElementById('rules-decision');
     if (dec) {
-      let reason = '';
-      if (tMaxReached) reason = ' (cuve à température cible)';
-      dec.textContent = allOk ? 'Cible calculée : HEAT_PUMP' : 'Cible calculée : VACATION' + reason;
-      dec.style.color = allOk ? '#4ade80' : '#94a3b8';
+      if (rule.target) {
+        dec.textContent = `Cible energy-manager : ${rule.target} — ${rule.reason ?? ''} (${fmtTs(rule.decided_ts)})`;
+        dec.style.color = (MODE_COLORS[rule.target] ?? [null, '#94a3b8'])[1];
+      } else {
+        dec.textContent = 'Cible energy-manager : en attente du premier cycle (≤ 5 min)';
+        dec.style.color = '#94a3b8';
+      }
     }
   } catch(e) { console.warn('fetchRulesStatus/wh:', e); }
 
