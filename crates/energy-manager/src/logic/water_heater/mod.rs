@@ -42,6 +42,8 @@ struct PowerWindow {
 const BATTERY_SAMPLE_SECS: u64 = 10;
 /// Au-delà, la dernière mesure SmartShunt est périmée : elle n'est pas échantillonnée.
 const BATTERY_SAMPLE_MAX_AGE_SECS: i64 = 30;
+/// Échantillons minimum (1 min) pour décider sur la moyenne batterie du cycle.
+const BATTERY_MIN_SAMPLES: u32 = 6;
 
 /// Puissance batterie SmartShunt si la mesure est fraîche.
 fn fresh_battery_power(s: &EnergyState, now: DateTime<Utc>) -> Option<f64> {
@@ -229,17 +231,15 @@ async fn control_task(
             );
         }
 
-        // Puissance batterie moyenne du cycle écoulé (fenêtre vidée à chaque tick) ; repli
-        // sur la mesure fraîche instantanée s'il n'y a aucun échantillon (démarrage).
+        // Puissance batterie moyenne du cycle écoulé (fenêtre vidée à chaque tick). Jamais de
+        // décision sur une mesure instantanée : batterie pleine, la régulation des MPPT donne
+        // des creux brefs (−189 W relevés au démarrage le 18/11) qui forceraient VACATION
+        // pour toute la durée du cooldown. Moins de BATTERY_MIN_SAMPLES → cycle sauté.
         let battery_avg_w = {
             let mut w = window.lock().await;
-            let avg = (w.n > 0).then(|| w.sum_w / f64::from(w.n));
+            let avg = (w.n >= BATTERY_MIN_SAMPLES).then(|| w.sum_w / f64::from(w.n));
             *w = PowerWindow::default();
             avg
-        };
-        let battery_avg_w = match battery_avg_w {
-            Some(v) => Some(v),
-            None => fresh_battery_power(&*state.read().await, now),
         };
 
         // Read energy conditions — skip evaluation if MQTT data not yet available
@@ -264,9 +264,9 @@ async fn control_task(
 
         let Some(battery_avg_w) = battery_avg_w else {
             warn!(
-                "Water heater: puissance batterie SmartShunt indisponible ou périmée (> {}s) — \
-                 évaluation sautée, mode actuel conservé",
-                BATTERY_SAMPLE_MAX_AGE_SECS
+                "Water heater: moins de {} échantillons SmartShunt frais sur le cycle (démarrage du \
+                 service, ou mesure périmée > {}s) — évaluation sautée, mode actuel conservé",
+                BATTERY_MIN_SAMPLES, BATTERY_SAMPLE_MAX_AGE_SECS
             );
             continue;
         };

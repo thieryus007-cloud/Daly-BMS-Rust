@@ -472,7 +472,9 @@ Canaux : `[energy_manager.victron] shelly_deye_channels = [0, 1]` (un canal par 
 - `battery_discharging` ← puissance SmartShunt **moyenne du cycle de 5 min** (échantillon toutes
   les 10 s, mesure fraîche ≤ 30 s) < −`discharge_block_w` (100 W) : le solaire ne couvre pas la
   consommation, chauffe-eau compris. La puissance MPPT n'est pas utilisable pour ce critère :
-  batterie pleine, elle est bridée à la consommation. Aucune mesure → évaluation sautée.
+  batterie pleine, elle est bridée à la consommation. Moins de 6 échantillons frais (1 min) sur
+  le cycle → évaluation sautée, mode conservé (cas du premier cycle après un redémarrage) :
+  jamais de décision sur une mesure instantanée.
 
 **Logique de décision** (`rules.rs`, fonctions pures) :
 ```rust
