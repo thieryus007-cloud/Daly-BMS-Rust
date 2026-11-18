@@ -3,9 +3,10 @@
 mod rules;
 use chrono::{DateTime, Utc};
 use serde_json::json;
+use std::collections::VecDeque;
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
-use tokio::time::{interval, sleep, Duration};
+use tokio::time::{interval, sleep, Duration, MissedTickBehavior};
 use tracing::{debug, error, info, warn};
 use crate::bus::AppBus;
 use crate::config::WaterHeaterConfig;
@@ -31,13 +32,51 @@ pub async fn spawn(
     }
 }
 
-/// Échantillons de puissance batterie (SmartShunt, W, < 0 = décharge) accumulés entre
-/// deux cycles de contrôle → moyenne du cycle pour la règle « décharge batterie ».
+/// Échantillons de puissance batterie (SmartShunt, W, < 0 = décharge) : cumul du cycle de
+/// contrôle (règle « décharge batterie » à 5 min) + dernière minute (coupure rapide).
 #[derive(Default)]
 struct PowerWindow {
     sum_w: f64,
     n: u32,
+    /// Derniers échantillons frais (≤ BATTERY_MIN_SAMPLES, soit 1 min).
+    recent: VecDeque<f64>,
 }
+
+impl PowerWindow {
+    fn push(&mut self, p: f64) {
+        self.sum_w += p;
+        self.n += 1;
+        self.recent.push_back(p);
+        while self.recent.len() > BATTERY_MIN_SAMPLES as usize {
+            self.recent.pop_front();
+        }
+    }
+
+    /// Mesure absente ou périmée : la dernière minute n'est plus continue → vidée, pour
+    /// qu'une valeur ancienne ne puisse pas déclencher une coupure.
+    fn clear_recent(&mut self) {
+        self.recent.clear();
+    }
+
+    /// Moyenne de la dernière minute (None tant qu'elle n'est pas complète).
+    fn recent_avg(&self) -> Option<f64> {
+        (self.recent.len() >= BATTERY_MIN_SAMPLES as usize)
+            .then(|| self.recent.iter().sum::<f64>() / self.recent.len() as f64)
+    }
+
+    /// Moyenne du cycle écoulé (None sous BATTERY_MIN_SAMPLES), puis remise à zéro du cumul.
+    fn take_cycle_avg(&mut self) -> Option<f64> {
+        let avg = (self.n >= BATTERY_MIN_SAMPLES).then(|| self.sum_w / f64::from(self.n));
+        self.sum_w = 0.0;
+        self.n = 0;
+        avg
+    }
+}
+
+/// Période de la coupure rapide (vérification de la dernière minute de batterie).
+const FAST_GUARD_SECS: u64 = 30;
+/// Après un échec d'envoi par la coupure rapide, délai avant nouvel essai (API LG).
+const FAST_GUARD_RETRY_SECS: i64 = 120;
 
 const BATTERY_SAMPLE_SECS: u64 = 10;
 /// Au-delà, la dernière mesure SmartShunt est périmée : elle n'est pas échantillonnée.
@@ -60,10 +99,10 @@ async fn battery_sampler_task(window: Arc<Mutex<PowerWindow>>, state: Arc<RwLock
     loop {
         ticker.tick().await;
         let sample = fresh_battery_power(&*state.read().await, Utc::now());
-        if let Some(p) = sample {
-            let mut w = window.lock().await;
-            w.sum_w += p;
-            w.n += 1;
+        let mut w = window.lock().await;
+        match sample {
+            Some(p) => w.push(p),
+            None => w.clear_recent(),
         }
     }
 }
@@ -165,6 +204,94 @@ async fn write_wh_metrics(vm_url: &str, mode: WaterHeaterMode, temp: Option<f64>
     }
 }
 
+/// Envoie le mode au LG puis, après `temp_set_delay_secs`, la consigne associée ; met à jour
+/// l'état partagé et Venus. Commun au cycle de contrôle et à la coupure rapide.
+/// Retourne `false` si l'envoi du mode a échoué (rien n'est modifié).
+async fn apply_mode(
+    lg: &Arc<LgThinqClient>,
+    bus: &AppBus,
+    state: &Arc<RwLock<EnergyState>>,
+    cfg: &WaterHeaterConfig,
+    target_mode: WaterHeaterMode,
+    now: DateTime<Utc>,
+) -> bool {
+    if let Err(e) = lg.set_mode(target_mode).await {
+        error!("LG set_mode error: {e}");
+        return false;
+    }
+    {
+        let mut s = state.write().await;
+        s.water_heater_mode = target_mode;
+        s.water_heater_last_change = Some(now);
+        s.water_heater_send_count += 1;
+    }
+    publish_to_venus(bus, state).await;
+
+    let delay_secs = cfg.temp_set_delay_secs;
+    let target_temp = match target_mode {
+        WaterHeaterMode::HeatPump => cfg.heat_pump_target_c,
+        WaterHeaterMode::Turbo    => cfg.turbo_target_c,
+        WaterHeaterMode::Vacation => cfg.vacation_target_c,
+    };
+    let lg2 = lg.clone();
+    let bus2 = bus.clone();
+    let state2 = state.clone();
+    tokio::spawn(async move {
+        sleep(Duration::from_secs(delay_secs)).await;
+        if let Err(e) = lg2.set_target_temp(target_temp).await {
+            error!("LG set_target_temp error: {e}");
+            return;
+        }
+        {
+            let mut s = state2.write().await;
+            s.water_heater_target_c = Some(target_temp);
+        }
+        publish_to_venus(&bus2, &state2).await;
+    });
+    true
+}
+
+/// Coupure rapide « aucune énergie batterie pour le chauffe-eau » (toutes les 30 s) :
+/// chauffe-eau en HEAT_PUMP/TURBO et batterie en décharge sur la dernière minute →
+/// VACATION immédiatement, sans attendre la fin du cycle ni le délai entre changements.
+/// HEAT_PUMP/TURBO restent ensuite interdits `discharge_lockout_secs` (pas de cycles
+/// courts du compresseur quand le solaire est tout juste suffisant).
+#[allow(clippy::too_many_arguments)]
+async fn fast_discharge_cut(
+    wh_cfg: &Arc<RwLock<WaterHeaterConfig>>,
+    lg: &Arc<LgThinqClient>,
+    bus: &AppBus,
+    state: &Arc<RwLock<EnergyState>>,
+    window: &Arc<Mutex<PowerWindow>>,
+    last_change: &mut Option<DateTime<Utc>>,
+    lockout_until: &mut Option<DateTime<Utc>>,
+    retry_after: &mut Option<DateTime<Utc>>,
+) {
+    let now = Utc::now();
+    if retry_after.is_some_and(|t| now < t) {
+        return;
+    }
+    let mode = state.read().await.water_heater_mode;
+    let heating = matches!(mode, WaterHeaterMode::HeatPump | WaterHeaterMode::Turbo);
+    let recent = window.lock().await.recent_avg();
+    let cfg = wh_cfg.read().await.clone();
+    if !rules::fast_cut(heating, recent, cfg.discharge_block_w) {
+        return;
+    }
+    warn!(
+        "Water heater: COUPURE RAPIDE {:?} → Vacation — batterie {:.0} W en moyenne sur la dernière minute \
+         (seuil −{:.0} W) ; HEAT_PUMP/TURBO bloqués {} s",
+        mode, recent.unwrap_or(0.0), cfg.discharge_block_w, cfg.discharge_lockout_secs
+    );
+    if apply_mode(lg, bus, state, &cfg, WaterHeaterMode::Vacation, now).await {
+        *last_change = Some(now);
+        *lockout_until = Some(now + chrono::Duration::seconds(cfg.discharge_lockout_secs as i64));
+        *retry_after = None;
+    } else {
+        *retry_after = Some(now + chrono::Duration::seconds(FAST_GUARD_RETRY_SECS));
+    }
+}
+
 async fn control_task(
     wh_cfg: Arc<RwLock<WaterHeaterConfig>>,
     lg: Arc<LgThinqClient>,
@@ -175,11 +302,24 @@ async fn control_task(
     let mut last_change: Option<DateTime<Utc>> = None;
     let mut consecutive_fails: u32 = 0;
     let mut ticker = interval(Duration::from_secs(300));
+    let mut guard = interval(Duration::from_secs(FAST_GUARD_SECS));
+    guard.set_missed_tick_behavior(MissedTickBehavior::Skip);
+    let mut lockout_until: Option<DateTime<Utc>> = None;
+    let mut guard_retry_after: Option<DateTime<Utc>> = None;
 
-    info!("Water heater control task started (5min interval)");
+    info!("Water heater control task started (5min interval, coupure rapide batterie toutes les {FAST_GUARD_SECS}s)");
 
     loop {
-        ticker.tick().await;
+        tokio::select! {
+            _ = ticker.tick() => {}
+            _ = guard.tick() => {
+                fast_discharge_cut(
+                    &wh_cfg, &lg, &bus, &state, &window,
+                    &mut last_change, &mut lockout_until, &mut guard_retry_after,
+                ).await;
+                continue;
+            }
+        }
         let now = Utc::now();
 
         // Snapshot des seuils courants : un clone par tick (toutes les 5 min) →
@@ -235,12 +375,7 @@ async fn control_task(
         // décision sur une mesure instantanée : batterie pleine, la régulation des MPPT donne
         // des creux brefs (−189 W relevés au démarrage le 18/11) qui forceraient VACATION
         // pour toute la durée du cooldown. Moins de BATTERY_MIN_SAMPLES → cycle sauté.
-        let battery_avg_w = {
-            let mut w = window.lock().await;
-            let avg = (w.n >= BATTERY_MIN_SAMPLES).then(|| w.sum_w / f64::from(w.n));
-            *w = PowerWindow::default();
-            avg
-        };
+        let battery_avg_w = window.lock().await.take_cycle_avg();
 
         // Read energy conditions — skip evaluation if MQTT data not yet available
         let (ac_ignore_opt, soc_opt, irradiance) = {
@@ -310,15 +445,17 @@ async fn control_task(
             cfg.turbo_soc_enter_pct,
             cfg.turbo_soc_exit_pct,
         );
-        let battery_discharging = rules::battery_discharging(battery_avg_w, cfg.discharge_block_w);
+        // Après une coupure rapide, HEAT_PUMP/TURBO restent interdits jusqu'à `lockout_until`.
+        let lockout = lockout_until.is_some_and(|t| now < t);
+        let battery_discharging = rules::battery_discharging(battery_avg_w, cfg.discharge_block_w) || lockout;
         let target_mode_str = rules::evaluate(
             grid_connected, soc_low, irradiance_low, temp_max_reached, battery_discharging, battery_full,
         );
         // Démoté info!→debug! (2026-06) : la décision est ré-évaluée à chaque tick
         // (toutes les 5 min) → 288 lignes/jour même sans changement. Le SEND réel
         // (changement de mode effectif) reste en info! plus bas.
-        debug!("Water heater: decision → target_mode={target_mode_str} (grid_connected={}, soc={:.1}%, irradiance_low={}, temp_max_reached={}, battery_avg={:.0}W, battery_discharging={}, battery_full={})",
-            grid_connected, soc, irradiance_low, temp_max_reached, battery_avg_w, battery_discharging, battery_full);
+        debug!("Water heater: decision → target_mode={target_mode_str} (grid_connected={}, soc={:.1}%, irradiance_low={}, temp_max_reached={}, battery_avg={:.0}W, battery_discharging={}, lockout={}, battery_full={})",
+            grid_connected, soc, irradiance_low, temp_max_reached, battery_avg_w, battery_discharging, lockout, battery_full);
 
         let target_mode = match target_mode_str {
             "HEAT_PUMP" => WaterHeaterMode::HeatPump,
@@ -359,8 +496,7 @@ async fn control_task(
             target_mode, actual_mode, soc, grid_connected, irradiance_low, battery_avg_w, battery_discharging, battery_full
         );
 
-        if let Err(e) = lg.set_mode(target_mode).await {
-            error!("LG set_mode error: {e}");
+        if !apply_mode(&lg, &bus, &state, &cfg, target_mode, now).await {
             consecutive_fails += 1;
             if consecutive_fails >= 3 {
                 warn!(
@@ -373,36 +509,37 @@ async fn control_task(
 
         consecutive_fails = 0;
         last_change = Some(now);
-
-        {
-            let mut s = state.write().await;
-            s.water_heater_mode = target_mode;
-            s.water_heater_last_change = Some(now);
-            s.water_heater_send_count += 1;
-        }
-        publish_to_venus(&bus, &state).await;
-
-        let delay_secs = cfg.temp_set_delay_secs;
-        let target_temp = match target_mode {
-            WaterHeaterMode::HeatPump => cfg.heat_pump_target_c,
-            WaterHeaterMode::Turbo    => cfg.turbo_target_c,
-            WaterHeaterMode::Vacation => cfg.vacation_target_c,
-        };
-
-        let lg2 = lg.clone();
-        let bus2 = bus.clone();
-        let state2 = state.clone();
-        tokio::spawn(async move {
-            sleep(Duration::from_secs(delay_secs)).await;
-            if let Err(e) = lg2.set_target_temp(target_temp).await {
-                error!("LG set_target_temp error: {e}");
-                return;
-            }
-            {
-                let mut s = state2.write().await;
-                s.water_heater_target_c = Some(target_temp);
-            }
-            publish_to_venus(&bus2, &state2).await;
-        });
     }   // close loop
+}
+
+#[cfg(test)]
+mod power_window_tests {
+    use super::{PowerWindow, BATTERY_MIN_SAMPLES};
+
+    #[test]
+    fn recent_minute_is_rolling_and_needs_full_minute() {
+        let mut w = PowerWindow::default();
+        for _ in 0..BATTERY_MIN_SAMPLES - 1 {
+            w.push(-300.0);
+        }
+        assert_eq!(w.recent_avg(), None);
+        w.push(-300.0);
+        assert_eq!(w.recent_avg(), Some(-300.0));
+        for _ in 0..BATTERY_MIN_SAMPLES {
+            w.push(60.0); // les anciens échantillons sortent de la minute
+        }
+        assert_eq!(w.recent_avg(), Some(60.0));
+    }
+
+    #[test]
+    fn stale_measure_clears_minute_but_not_cycle() {
+        let mut w = PowerWindow::default();
+        for _ in 0..BATTERY_MIN_SAMPLES {
+            w.push(-500.0);
+        }
+        w.clear_recent();
+        assert_eq!(w.recent_avg(), None);
+        assert_eq!(w.take_cycle_avg(), Some(-500.0));
+        assert_eq!(w.take_cycle_avg(), None); // cumul remis à zéro
+    }
 }

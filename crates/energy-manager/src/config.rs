@@ -402,10 +402,14 @@ pub struct WaterHeaterConfig {
     /// Target temperature in TURBO mode (°C). Défaut : 60.
     #[serde(default = "default_turbo_target_c")]
     pub turbo_target_c: f64,
-    /// Décharge batterie : puissance SmartShunt moyenne du cycle de contrôle (5 min) sous
-    /// `-discharge_block_w` → VACATION (HEAT_PUMP/TURBO interdits). Tolérance en W. Défaut : 100.
+    /// Décharge batterie : puissance SmartShunt moyenne sous `-discharge_block_w` → VACATION
+    /// (HEAT_PUMP/TURBO interdits) — sur le cycle de 5 min, et sur la dernière minute pour la
+    /// coupure rapide (toutes les 30 s, sans cooldown). Tolérance en W. Défaut : 50.
     #[serde(default = "default_discharge_block_w")]
     pub discharge_block_w: f64,
+    /// Après une coupure rapide, HEAT_PUMP/TURBO interdits pendant ce délai (s). Défaut : 1800.
+    #[serde(default = "default_discharge_lockout_secs")]
+    pub discharge_lockout_secs: u64,
     /// URL d'écriture des métriques chauffe-eau (daly-bms-server → redb,
     /// endpoint POST /api/v1/import/prometheus). Défaut : http://127.0.0.1:8080
     #[serde(default = "default_wh_vm_url")]
@@ -426,7 +430,8 @@ fn default_temp_max_hold_secs() -> u64 { 600 }
 fn default_turbo_soc_enter_pct() -> f64 { 98.0 }
 fn default_turbo_soc_exit_pct() -> f64 { 95.0 }
 fn default_turbo_target_c() -> f64 { 60.0 }
-fn default_discharge_block_w() -> f64 { 100.0 }
+fn default_discharge_block_w() -> f64 { 50.0 }
+fn default_discharge_lockout_secs() -> u64 { 1800 }
 fn default_wh_vm_url() -> String { "http://127.0.0.1:8080".into() }
 
 impl Default for WaterHeaterConfig {
@@ -447,6 +452,7 @@ impl Default for WaterHeaterConfig {
             turbo_soc_exit_pct: default_turbo_soc_exit_pct(),
             turbo_target_c: default_turbo_target_c(),
             discharge_block_w: default_discharge_block_w(),
+            discharge_lockout_secs: default_discharge_lockout_secs(),
             vm_url: default_wh_vm_url(),
         }
     }

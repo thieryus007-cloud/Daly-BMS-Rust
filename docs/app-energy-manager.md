@@ -470,8 +470,8 @@ Canaux : `[energy_manager.victron] shelly_deye_channels = [0, 1]` (un canal par 
 - `soc_pct` ← EnergyState
 - `irradiance_low` ← `irradiance_wm2 < 300 W/m²` (solaire **disponible** insuffisant)
 - `battery_discharging` ← puissance SmartShunt **moyenne du cycle de 5 min** (échantillon toutes
-  les 10 s, mesure fraîche ≤ 30 s) < −`discharge_block_w` (100 W) : le solaire ne couvre pas la
-  consommation, chauffe-eau compris. La puissance MPPT n'est pas utilisable pour ce critère :
+  les 10 s, mesure fraîche ≤ 30 s) < −`discharge_block_w` (50 W), ou verrouillage actif après une
+  coupure rapide : le solaire ne couvre pas la consommation, chauffe-eau compris. La puissance MPPT n'est pas utilisable pour ce critère :
   batterie pleine, elle est bridée à la consommation. Moins de 6 échantillons frais (1 min) sur
   le cycle → évaluation sautée, mode conservé (cas du premier cycle après un redémarrage) :
   jamais de décision sur une mesure instantanée.
@@ -516,6 +516,15 @@ est lue régulièrement (poller LG ThinQ + control_task 5 min) et stockée dans
 `temp_max_reached` passe à `true` → la PAC bascule en `VACATION` (inutile de
 continuer à chauffer). Le suivi est réarmé dès que la température redescend.
 
+**Coupure rapide — aucune énergie batterie pour le chauffe-eau** (toutes les 30 s) : chauffe-eau
+en HEAT_PUMP/TURBO et batterie en décharge sur la **dernière minute** (moyenne < −`discharge_block_w`)
+→ `VACATION` immédiatement, **sans attendre** la fin du cycle ni `mode_change_min_secs`
+(`rules::fast_cut`). HEAT_PUMP/TURBO restent ensuite interdits `discharge_lockout_secs` (1800 s)
+pour éviter les cycles courts du compresseur quand le solaire est tout juste suffisant. Minute
+incomplète ou mesure périmée → pas de coupure. Échec d'envoi → nouvel essai après 120 s.
+Limite : une chauffe déclenchée par le LG lui-même (programme horaire, anti-légionellose) alors
+qu'il reste en VACATION n'est pas visible dans le mode et n'est pas coupée.
+
 **Flux de contrôle** (toutes les 5 min) :
 1. `lg.get_state()` → actual_mode, temp, target_temp
 2. Vérifier données MQTT (ac_ignore, soc) — skip si absent
@@ -533,7 +542,7 @@ continuer à chauffer). Le suivi est réarmé dès que la température redescend
 - Métriques redb via metrics-store (toutes les 5 min)
 - WebSocket live `"water_heater_venus"`
 
-**Config** : `irradiance_min_wm2=300`, `mode_change_min_secs=900`, `heat_pump_target_c=60`, `vacation_target_c=45`, `temp_set_delay_secs=15`, `keepalive_secs=25`, `temp_max_c=60`, `temp_max_hold_secs=600`, `turbo_soc_enter_pct=98`, `turbo_soc_exit_pct=95`, `turbo_target_c=60`, `discharge_block_w=100`
+**Config** : `irradiance_min_wm2=300`, `mode_change_min_secs=900`, `heat_pump_target_c=60`, `vacation_target_c=45`, `temp_set_delay_secs=15`, `keepalive_secs=25`, `temp_max_c=60`, `temp_max_hold_secs=600`, `turbo_soc_enter_pct=98`, `turbo_soc_exit_pct=95`, `turbo_target_c=60`, `discharge_block_w=50`, `discharge_lockout_secs=1800`
 
 **Rechargement à chaud** : après modification de `/etc/daly-bms/config.toml`,
 `curl -s -X POST http://127.0.0.1:8081/api/v1/em/rules/reload -d '{"name":"water_heater"}'`

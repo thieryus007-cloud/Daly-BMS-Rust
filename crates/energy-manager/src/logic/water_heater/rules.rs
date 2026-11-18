@@ -46,6 +46,13 @@ pub fn battery_discharging(avg_power_w: f64, block_w: f64) -> bool {
     avg_power_w < -block_w
 }
 
+/// Fast cut (checked every 30 s): the heater is in HEAT_PUMP/TURBO (`heating`) and the
+/// battery discharges over the last minute → VACATION at once, without waiting for the end
+/// of the control cycle nor the mode-change cooldown. No full minute of fresh samples → no cut.
+pub fn fast_cut(heating: bool, recent_avg_w: Option<f64>, block_w: f64) -> bool {
+    heating && recent_avg_w.is_some_and(|avg| battery_discharging(avg, block_w))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -88,6 +95,14 @@ mod tests {
         assert!(turbo_wanted(95.0, true, 98.0, 95.0));
         assert!(!turbo_wanted(94.9, true, 98.0, 95.0));
         assert!(!turbo_wanted(96.0, false, 98.0, 95.0));
+    }
+
+    #[test]
+    fn fast_cut_only_when_heating_and_minute_discharging() {
+        assert!(fast_cut(true, Some(-300.0), 50.0));
+        assert!(!fast_cut(true, Some(-40.0), 50.0)); // bruit de régulation batterie pleine
+        assert!(!fast_cut(false, Some(-2000.0), 50.0)); // déjà en VACATION : rien à couper
+        assert!(!fast_cut(true, None, 50.0)); // minute incomplète / mesure périmée
     }
 
     #[test]
