@@ -28,6 +28,7 @@ pub async fn list_tasmota(State(state): State<AppState>) -> Json<serde_json::Val
             "tasmota_id":   dev.tasmota_id,
             "mqtt_index":   dev.mqtt_index,
             "service_type": dev.service_type,
+            "network":      dev.network,
             "snapshot":     snap,
         }));
     }

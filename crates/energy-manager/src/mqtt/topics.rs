@@ -13,7 +13,14 @@ pub fn w(portal_id: &str, path: &str) -> String {
 // All topics the energy-manager subscribes to
 // ---------------------------------------------------------------------------
 
-pub fn all_subscriptions(portal_id: &str, vebus: u32, mppts: &[u32], pvinv: u32, shunt: u32) -> Vec<String> {
+pub fn all_subscriptions(
+    portal_id: &str,
+    vebus: u32,
+    mppts: &[u32],
+    pvinv: u32,
+    shunt: u32,
+    tasmota_waterheater_id: &str,
+) -> Vec<String> {
     let pid = portal_id;
     let mut v = vec![
         // --- VEBus ---
@@ -74,10 +81,6 @@ pub fn all_subscriptions(portal_id: &str, vebus: u32, mppts: &[u32], pvinv: u32,
         // --- Shelly (DEYE relay events) ---
         "shellypro2pm-ec62608840a4/events/rpc".to_string(),
 
-        // --- Tasmota (water heater relay) ---
-        "stat/tongou_3BC764/POWER".to_string(),
-        "tele/tongou_3BC764/SENSOR".to_string(),
-
         // --- Toshiba climatiseurs (télémétrie lecture seule, wildcard par zone).
         //     Préfixe LOCAL, non relayé par le bridge vers le GX (règle #11). ---
         "santuario/toshiba/+/state".to_string(),
@@ -90,7 +93,28 @@ pub fn all_subscriptions(portal_id: &str, vebus: u32, mppts: &[u32], pvinv: u32,
         "santuario/persist/yield_yesterday".to_string(),
         "santuario/persist/deye_state".to_string(),
     ]);
+
+    // --- Tasmota du chauffe-eau (`victron.tasmota_waterheater_id`, logic::tasmota) ---
+    if !tasmota_waterheater_id.is_empty() {
+        v.push(format!("stat/{tasmota_waterheater_id}/POWER"));
+        v.push(format!("tele/{tasmota_waterheater_id}/SENSOR"));
+    }
     v
+}
+
+#[cfg(test)]
+mod subscription_tests {
+    use super::all_subscriptions;
+
+    #[test]
+    fn water_heater_tasmota_follows_config() {
+        let v = all_subscriptions("pid", 276, &[273], 32, 274, "tongou_B459B8");
+        assert!(v.contains(&"stat/tongou_B459B8/POWER".to_string()));
+        assert!(v.contains(&"tele/tongou_B459B8/SENSOR".to_string()));
+        assert!(!v.iter().any(|t| t.contains("tongou_3BC764")));
+        let none = all_subscriptions("pid", 276, &[273], 32, 274, "");
+        assert!(!none.iter().any(|t| t.starts_with("stat/") || t.starts_with("tele/")));
+    }
 }
 
 // ---------------------------------------------------------------------------

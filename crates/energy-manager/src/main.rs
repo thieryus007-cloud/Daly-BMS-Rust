@@ -53,6 +53,7 @@ async fn main() -> anyhow::Result<()> {
         &cfg.victron.mppt_list(),
         cfg.victron.pvinverter_instance,
         cfg.victron.smartshunt_instance,
+        &cfg.victron.tasmota_waterheater_id,
     );
 
     // --- Spawn MQTT client ---

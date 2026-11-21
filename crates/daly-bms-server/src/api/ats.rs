@@ -7,8 +7,8 @@
 //! | GET     | /api/v1/ats/status           | Snapshot complet ATS (tous champs)    |
 //! | POST    | /api/v1/ats/remote_on        | Activer télécommande                  |
 //! | POST    | /api/v1/ats/remote_off       | Désactiver télécommande               |
-//! | POST    | /api/v1/ats/force_source1    | Forcer Onduleur (source 1)            |
-//! | POST    | /api/v1/ats/force_source2    | Forcer Réseau (source 2)              |
+//! | POST    | /api/v1/ats/force_source1    | Forcer source 1 (AC-1 MultiPlus)      |
+//! | POST    | /api/v1/ats/force_source2    | Forcer source 2 (AC-2 Inverter RS)    |
 //! | POST    | /api/v1/ats/force_double     | Forcer double déclenché               |
 //! | POST    | /api/v1/ats/send_raw         | Envoyer trame Modbus brute (hex)      |
 //! | GET     | /api/v1/ats/debug_on         | Activer debug (no-op, loggé)          |

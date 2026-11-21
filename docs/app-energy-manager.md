@@ -721,8 +721,8 @@ fn validate(raw: f64) -> bool { (0.0..=2000.0).contains(&raw) } // W/m²
 **Rôle** : Surveiller le relais chauffe-eau Tasmota (Tongou).
 
 **Topics en entrée (hardcodés)** :
-- `stat/tongou_3BC764/POWER` → état ON/OFF
-- `tele/tongou_3BC764/SENSOR` → métriques énergie
+- `stat/tongou_B459B8/POWER` → état ON/OFF (Tongou « LG », `victron.tasmota_waterheater_id`)
+- `tele/tongou_B459B8/SENSOR` → métriques énergie
 
 **Sorties WebSocket** :
 - `"tasmota_wh"` — état du relais (on: bool)
@@ -882,8 +882,8 @@ santuario/persist/pvinv_baseline  (persistance baseline)
 santuario/persist/yield_yesterday (persistance production hier)
 santuario/persist/deye_state      (persistance état relais DEYE)
 shellypro2pm-ec62608840a4/events/rpc  (réponses Shelly — hardcodé)
-stat/tongou_3BC764/POWER          (Tasmota — hardcodé)
-tele/tongou_3BC764/SENSOR         (Tasmota — hardcodé)
+stat/{tasmota_waterheater_id}/POWER   (Tasmota du chauffe-eau, tongou_B459B8)
+tele/{tasmota_waterheater_id}/SENSOR  (idem)
 ```
 
 **ABSENT** du code : `santuario/switch/+/venus` (contrairement à ce que pouvait laisser croire l'ancienne documentation).
@@ -1174,7 +1174,7 @@ smartshunt           = 274             # Instance SmartShunt (batterie)
 shelly_deye_id       = "shellypro2pm-ec62608840a4"
 shelly_deye_channel  = 0               # Fallback mono-canal (hérité)
 shelly_deye_channels = [0, 1]          # Un canal par DEYE — coupe/restaure les deux
-tasmota_waterheater_id = "tongou_3BC764"
+tasmota_waterheater_id = "tongou_B459B8"   # Tongou « LG » — relais + mesure du chauffe-eau
 
 [energy_manager.deye]
 # Décision : Fréquence AC + état des MPPT UNIQUEMENT (ni réseau, ni SmartShunt).

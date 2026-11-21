@@ -130,7 +130,7 @@ pub struct VictronConfig {
     /// Example: `[0, 1]` to drive both channels of a Shelly Pro 2PM.
     #[serde(default)]
     pub shelly_deye_channels: Vec<u8>,
-    /// Tasmota device ID for water heater relay (e.g. "tongou_3BC764")
+    /// Tasmota du chauffe-eau LG (topic MQTT, ex. "tongou_B459B8") : relais + mesure ; vide = désactivé
     #[serde(default)]
     pub tasmota_waterheater_id: String,
     /// SmartShunt device instance on Venus OS (VRM ID 274)

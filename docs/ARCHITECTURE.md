@@ -77,9 +77,9 @@ transverse**. Tous les documents vivent dans `docs/`.
 │                     ── BMS-620Ah  (0x03)                            │
 │                     ── PRALRAN     (0x05) — Irradiance / Météo      │
 │                     ── ET112 PV   (0x07) — Micro-Onduleurs          │
-│                     ── ET112 House (0x08) — Consommation maison     │
-│                     ── ET112 Grid  (0x09) — Réseau EDF              │
-│                     ── ATS CHINT   (RS485) — bascule grid/inverter  │
+│                     ── ET112 House (0x08) — Réseau AC-1 (maison)    │
+│                     ── ET112 AC-2  (0x09) — Réseau AC-2             │
+│                     ── ATS CHINT   (RS485) — bascule AC-1 / AC-2    │
 │                                  │                                  │
 │                                  ▼                                  │
 │                          daly-bms-server :8080                      │
@@ -196,12 +196,34 @@ Bus `/dev/ttyUSB0` (RS485), instances Venus OS :
 | 0x03 | BMS-620Ah | `battery.mqtt_3` | `bms/3/venus` | 153 |
 | 0x05 | PRALRAN irradiance | `meteo` | `irradiance/raw` | 40 |
 | 0x07 | ET112 Micro-Onduleurs | `pvinverter.mqtt_7` | `pvinverter/7/venus` | 32 |
-| 0x08 | ET112 Maison | `acload.mqtt_8` | `grid/8/venus` | 30 |
-| 0x09 | ET112 Réseau | `grid.mqtt_9` | `grid/9/venus` | 31 |
+| 0x08 | ET112 Maison (AC-1) | `acload.mqtt_8` | `grid/8/venus` | 30 |
+| 0x09 | ET112 AC-2 | `acload.mqtt_9` | `grid/9/venus` | 31 |
 
 Appareils Victron du GX (instances VRM) : MultiPlus-II `vebus` 276, MPPT 273 / 288–292,
 SmartShunt 274, GX IO extender 50, Shelly Pro 2PM 50/51 — tableau complet dans
 [`nanoPi/README.md`](../nanoPi/README.md).
+
+### Réseaux AC (installation 100 % hors réseau)
+
+Deux réseaux AC partagent les mêmes batteries (BMS 320 / 360 / 620 Ah) :
+
+```
+MultiPlus-II ── AC-1 ──► ATS entrée I ─┐
+                                       ├─► sortie ATS ─► ET112-Maison (0x08) ─► groupe I :
+Inverter RS Smart ── AC-2 ─► ET112-AC2 (0x09) ─┬─► ATS entrée II   General, AC-4, LG (chauffe-eau),
+                                               │                    Climatisation
+                                               └─► groupe II : DEYE (Tongou 0616E4 ─► ET112 0x07 ─►
+                                                   micro-onduleurs DEYE + Shelly Pro 2PM) et 5 Tongou
+```
+
+- L'ATS bascule le groupe I sur l'Inverter RS Smart pendant une maintenance ou un arrêt du
+  MultiPlus. L'Inverter RS ne charge pas les batteries ; le surplus des DEYE (couplage AC sur
+  sa sortie) les recharge par décalage de fréquence automatique.
+- En attendant l'installation de l'Inverter RS Smart, AC-2 est alimenté par AC-1.
+- Tongou : 4 sur AC-1, 6 sur AC-2 — `[[tasmota.devices]]` (`network = "AC-1" / "AC-2"`) dans
+  `Config.toml`, `[[switches]]` dans `nanoPi/config-nanopi.toml`.
+- Aucun compteur `grid` : ET112 0x08 et 0x09 sont des `acload` ; ESS sans compteur réseau
+  (`RunWithoutGridMeter = 1`).
 
 Inventaire complet (switchs Tongou, ATS, températures, onduleur Victron direct) et procédures :
 [integration-materiel.md](./integration-materiel.md). Référence canonique : [`CLAUDE.md` §5](../CLAUDE.md).

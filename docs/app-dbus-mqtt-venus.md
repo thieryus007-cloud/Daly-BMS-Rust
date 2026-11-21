@@ -167,7 +167,7 @@ les batteries, et étend la couverture à tous les autres types de capteurs. Voi
         ├─ com.victronenergy.switch.mqtt_1     ATS CHINT  [60]
         ├─ com.victronenergy.switch.mqtt_2…6   Tongou 1-5 [61-65]
         ├─ com.victronenergy.acload.mqtt_8     ET112-Maison [30]
-        ├─ com.victronenergy.grid.mqtt_9       ET112-Réseau [31]
+        ├─ com.victronenergy.acload.mqtt_9     ET112-AC2 [31]
         ├─ com.victronenergy.pvinverter.mqtt_7 ET112-PV   [32]
         └─ com.victronenergy.platform          Pi5 backup [50]
                 │
@@ -379,13 +379,18 @@ Si le keepalive est trop long (ex: 60s > 30s watchdog), le service Rust met
 | `heatpump/1/venus` | `com.victronenergy.heatpump.mqtt_1` | — | Chauffe-eau LG ThinQ (optionnel) | energy-manager |
 | `meteo/venus` | `com.victronenergy.meteo` | 40 | Irradiance PRALRAN (RS485 0x05) | daly-bms-server |
 | `switch/1/venus` | `com.victronenergy.switch.mqtt_1` | 60 | ATS CHINT | daly-bms-server |
-| `switch/2/venus` | `com.victronenergy.switch.mqtt_2` | 61 | Tongou Switch1 (tongou_3BC764) | energy-manager |
-| `switch/3/venus` | `com.victronenergy.switch.mqtt_3` | 62 | Tongou Switch2 (tongou_0A3FA0) | energy-manager |
-| `switch/4/venus` | `com.victronenergy.switch.mqtt_4` | 63 | Tongou Switch3 (tongou_0A3C14) | energy-manager |
-| `switch/5/venus` | `com.victronenergy.switch.mqtt_5` | 64 | Tongou Switch4 (tongou_0A4040) | energy-manager |
-| `switch/6/venus` | `com.victronenergy.switch.mqtt_6` | 65 | Tongou Switch5 (tongou_3ACC34) | energy-manager |
+| `switch/2/venus` | `com.victronenergy.switch.mqtt_2` | 61 | Climatisation (tongou_3BC764) — AC-1 | daly-bms-server |
+| `switch/3/venus` | `com.victronenergy.switch.mqtt_3` | 62 | Tongou 0A3FA0 (tongou_0A3FA0) — AC-2 | daly-bms-server |
+| `switch/4/venus` | `com.victronenergy.switch.mqtt_4` | 63 | General (tongou_0A3C14) — AC-1 | daly-bms-server |
+| `switch/5/venus` | `com.victronenergy.switch.mqtt_5` | 64 | AC-4 (tongou_0A4040) — AC-1 | daly-bms-server |
+| `switch/6/venus` | `com.victronenergy.switch.mqtt_6` | 65 | Tongou 3ACC34 (tongou_3ACC34) — AC-2 | daly-bms-server |
+| `switch/7/venus` | `com.victronenergy.switch.mqtt_7` | 66 | LG — chauffe-eau (tongou_B459B8) — AC-1 | daly-bms-server |
+| `switch/8/venus` | `com.victronenergy.switch.mqtt_8` | 67 | DEYE — coupure complète (tongou_0616E4) — AC-2 | daly-bms-server |
+| `switch/9/venus` | `com.victronenergy.switch.mqtt_9` | 68 | Tongou 0615D8 (tongou_0615D8) — AC-2 | daly-bms-server |
+| `switch/10/venus` | `com.victronenergy.switch.mqtt_10` | 69 | Tongou 0616D0 (tongou_0616D0) — AC-2 | daly-bms-server |
+| `switch/11/venus` | `com.victronenergy.switch.mqtt_11` | 70 | Tongou 061630 (tongou_061630) — AC-2 | daly-bms-server |
 | `grid/8/venus` | `com.victronenergy.acload.mqtt_8` | 30 | ET112-Maison (RS485 0x08, SN 119215X) | daly-bms-server |
-| `grid/9/venus` | `com.victronenergy.grid.mqtt_9` | 31 | ET112-Réseau (RS485 0x09, SN 061077X) | daly-bms-server |
+| `grid/9/venus` | `com.victronenergy.acload.mqtt_9` | 31 | ET112-AC2 — réseau AC-2 (RS485 0x09, SN 061077X) | daly-bms-server |
 | `pvinverter/7/venus` | `com.victronenergy.pvinverter.mqtt_7` | 32 | ET112-Micro-Onduleurs (RS485 0x07, SN 119253X) | daly-bms-server |
 | `platform/venus` | `com.victronenergy.platform` | 50 | Pi5 backup/restore | energy-manager |
 
@@ -552,7 +557,7 @@ Sémantique Victron (`grid` vs `acload`) :
 
 Mapping production :
 - `0x08` "ET112-Maison" (`mqtt_index=8`) → `acload` → `com.victronenergy.acload.mqtt_8` (inst. 30)
-- `0x09` "ET112-Réseau" (`mqtt_index=9`) → `grid` → `com.victronenergy.grid.mqtt_9` (inst. 31)
+- `0x09` "ET112-AC2" (`mqtt_index=9`) → `acload` → `com.victronenergy.acload.mqtt_9` (inst. 31) — installation 100 % hors réseau, aucun compteur `grid`
 
 Voir [section 10.1](#101-grid_service--monophase-et-acnumberofphases) pour la
 particularité monophasée.
@@ -737,45 +742,90 @@ name            = "ATS CHINT"
 device_instance = 60
 # Pas de command_topic → lecture seule dans Venus
 
-[[switches]]
-mqtt_index      = 2
-name            = "tongou_3BC764"              # 192.168.1.115
-device_instance = 61
-command_topic   = "cmnd/tongou_3BC764/Power"   # → contrôlable depuis console Venus
-custom_name     = "Tongou 1"                   # nom affiché dans la console Venus OS
-group           = "Tongou"                     # regroupe sur une même carte
+# Tongou : mqtt_index / device_instance = ceux de daly-bms-server (Config.toml [[tasmota.devices]]).
+# Groupe I  = réseau AC-1 (MultiPlus, sortie ATS)  ; Groupe II = réseau AC-2 (Inverter RS Smart).
 
-[[switches]]
-mqtt_index      = 3
-name            = "tongou_0A3FA0"              # 192.168.1.72
-device_instance = 62
-command_topic   = "cmnd/tongou_0A3FA0/Power"
-custom_name     = "Tongou 2"
-group           = "Tongou"
-
+# --- Groupe I — AC-1 ---
 [[switches]]
 mqtt_index      = 4
-name            = "tongou_0A3C14"              # 192.168.1.250
+name            = "tongou_0A3C14"              # 192.168.1.27
 device_instance = 63
-command_topic   = "cmnd/tongou_0A3C14/Power"
-custom_name     = "Tongou 3"
-group           = "Tongou"
+command_topic   = "cmnd/tongou_0A3C14/Power"   # → contrôlable depuis console Venus
+custom_name     = "General"                    # nom affiché dans la console Venus OS
+group           = "Groupe I (AC-1)"            # regroupe les prises du réseau sur une même carte
 
 [[switches]]
 mqtt_index      = 5
-name            = "tongou_0A4040"              # 192.168.1.53
+name            = "tongou_0A4040"              # 192.168.1.28
 device_instance = 64
 command_topic   = "cmnd/tongou_0A4040/Power"
-custom_name     = "Tongou 4"
-group           = "Tongou"
+custom_name     = "AC-4"
+group           = "Groupe I (AC-1)"
+
+[[switches]]
+mqtt_index      = 7
+name            = "tongou_B459B8"              # 192.168.1.29 — chauffe-eau LG
+device_instance = 66
+command_topic   = "cmnd/tongou_B459B8/Power"
+custom_name     = "LG"
+group           = "Groupe I (AC-1)"
+
+[[switches]]
+mqtt_index      = 2
+name            = "tongou_3BC764"              # 192.168.1.30
+device_instance = 61
+command_topic   = "cmnd/tongou_3BC764/Power"
+custom_name     = "Climatisation"
+group           = "Groupe I (AC-1)"
+
+# --- Groupe II — AC-2 ---
+[[switches]]
+mqtt_index      = 8
+name            = "tongou_0616E4"              # 192.168.1.21 — coupure complète des DEYE
+device_instance = 67
+command_topic   = "cmnd/tongou_0616E4/Power"
+custom_name     = "DEYE"
+group           = "Groupe II (AC-2)"
+
+[[switches]]
+mqtt_index      = 9
+name            = "tongou_0615D8"              # 192.168.1.22
+device_instance = 68
+command_topic   = "cmnd/tongou_0615D8/Power"
+custom_name     = "Tongou 0615D8"
+group           = "Groupe II (AC-2)"
+
+[[switches]]
+mqtt_index      = 10
+name            = "tongou_0616D0"              # 192.168.1.23
+device_instance = 69
+command_topic   = "cmnd/tongou_0616D0/Power"
+custom_name     = "Tongou 0616D0"
+group           = "Groupe II (AC-2)"
+
+[[switches]]
+mqtt_index      = 11
+name            = "tongou_061630"              # 192.168.1.24
+device_instance = 70
+command_topic   = "cmnd/tongou_061630/Power"
+custom_name     = "Tongou 061630"
+group           = "Groupe II (AC-2)"
 
 [[switches]]
 mqtt_index      = 6
-name            = "tongou_3ACC34"              # 192.168.1.80
+name            = "tongou_3ACC34"              # 192.168.1.25
 device_instance = 65
 command_topic   = "cmnd/tongou_3ACC34/Power"
-custom_name     = "Tongou 5"
-group           = "Tongou"
+custom_name     = "Tongou 3ACC34"
+group           = "Groupe II (AC-2)"
+
+[[switches]]
+mqtt_index      = 3
+name            = "tongou_0A3FA0"              # 192.168.1.26
+device_instance = 62
+command_topic   = "cmnd/tongou_0A3FA0/Power"
+custom_name     = "Tongou 0A3FA0"
+group           = "Groupe II (AC-2)"
 ```
 
 ### 6.8 Section [grid] et [[grids]]
@@ -785,16 +835,16 @@ group           = "Tongou"
 topic_prefix = "santuario/grid"
 
 [[grids]]
-mqtt_index      = 8             # ET112 addr=0x08 — Maison / consommation AC
+mqtt_index      = 8             # ET112 addr=0x08 (SN: 119215X) — réseau AC-1 (sortie ATS, groupe I)
 name            = "ET112-Maison"
 device_instance = 30
 service_type    = "acload"     # → com.victronenergy.acload.mqtt_8
 
 [[grids]]
-mqtt_index      = 9             # ET112 addr=0x09 — Réseau / compteur EDF
-name            = "ET112-Réseau"
+mqtt_index      = 9             # ET112 addr=0x09 (SN: 061077X) — réseau AC-2 (Inverter RS Smart, groupe II)
+name            = "ET112-AC2"
 device_instance = 31
-service_type    = "grid"       # → com.victronenergy.grid.mqtt_9
+service_type    = "acload"     # → com.victronenergy.acload.mqtt_9
 ```
 
 `service_type` accepte `"grid"` (défaut) ou `"acload"`. Le payload JSON est identique
@@ -1469,7 +1519,7 @@ dbus -y com.victronenergy.temperature.mqtt_1 / GetItems
 dbus -y com.victronenergy.meteo / GetItems
 dbus -y com.victronenergy.switch.mqtt_1 / GetItems
 dbus -y com.victronenergy.acload.mqtt_8 / GetItems
-dbus -y com.victronenergy.grid.mqtt_9 / GetItems
+dbus -y com.victronenergy.acload.mqtt_9 / GetItems
 dbus -y com.victronenergy.pvinverter.mqtt_7 / GetItems
 dbus -y com.victronenergy.platform / GetItems
 ```
@@ -1502,8 +1552,8 @@ dbus -y com.victronenergy.switch.mqtt_1 /Position GetValue
 dbus -y com.victronenergy.switch.mqtt_1 /State GetValue
 
 # Grid/ACload
-dbus -y com.victronenergy.grid.mqtt_9 /Ac/L1/Power GetValue
-dbus -y com.victronenergy.grid.mqtt_9 /Ac/L1/Voltage GetValue
+dbus -y com.victronenergy.acload.mqtt_9 /Ac/L1/Power GetValue
+dbus -y com.victronenergy.acload.mqtt_9 /Ac/L1/Voltage GetValue
 dbus -y com.victronenergy.acload.mqtt_8 /Ac/L1/Power GetValue
 
 # PV Inverter

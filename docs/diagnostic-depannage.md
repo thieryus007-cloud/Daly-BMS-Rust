@@ -759,7 +759,7 @@ com.victronenergy.battery.mqtt_2
 com.victronenergy.battery.mqtt_3
 com.victronenergy.pvinverter.mqtt_7
 com.victronenergy.acload.mqtt_8
-com.victronenergy.grid.mqtt_9
+com.victronenergy.acload.mqtt_9
 com.victronenergy.temperature.mqtt_1
 com.victronenergy.switch.mqtt_1  ... mqtt_6
 com.victronenergy.meteo

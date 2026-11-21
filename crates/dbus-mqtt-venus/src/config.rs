@@ -464,3 +464,25 @@ impl VenusServiceConfig {
         anyhow::bail!("Config non trouvée — ni Config.toml ni /etc/daly-bms/config.toml");
     }
 }
+
+#[cfg(test)]
+mod gx_config_tests {
+    use super::VenusServiceConfig;
+    use std::collections::HashSet;
+
+    /// La config déployée sur le GX (`nanoPi/config-nanopi.toml`) se parse, sans doublon
+    /// d'index MQTT ni d'instance VRM parmi les switches, et sans compteur `grid`
+    /// (installation 100 % hors réseau).
+    #[test]
+    fn deployed_gx_config_parses_and_is_consistent() {
+        let cfg: VenusServiceConfig =
+            toml::from_str(include_str!("../../../nanoPi/config-nanopi.toml")).expect("TOML valide");
+        let idx: Vec<u8> = cfg.switches.iter().filter_map(|s| s.mqtt_index).collect();
+        assert_eq!(idx.len(), cfg.switches.len(), "mqtt_index manquant");
+        assert_eq!(idx.iter().collect::<HashSet<_>>().len(), idx.len(), "mqtt_index en double");
+        let inst: Vec<_> = cfg.switches.iter().filter_map(|s| s.device_instance).collect();
+        assert_eq!(inst.iter().collect::<HashSet<_>>().len(), inst.len(), "device_instance en double");
+        assert_eq!(cfg.switches.len(), 11, "ATS + 10 Tongou");
+        assert!(cfg.grids.iter().all(|g| g.service_type.as_deref() == Some("acload")));
+    }
+}

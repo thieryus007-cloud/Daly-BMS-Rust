@@ -18,7 +18,7 @@
 //! santuario/switch/1/venus → broker NanoPi
 //!   ↓ dbus-mqtt-venus — SwitchManager
 //! com.victronenergy.switch.mqtt_1 (device_instance=60)
-//!   /Position  0=AC1/Réseau  1=AC2/Onduleur
+//!   /Position  1=source I (AC-1 MultiPlus)  0=source II (AC-2 Inverter RS) ou neutre
 //!   /State     0=inactive  1=active  2=alerted
 //! ```
 

@@ -1,4 +1,4 @@
-// ── ATS RÉSEAU NODE ───────────────────────────────────────────────────────────
+// ── ATS SOURCE II NODE — réseau AC-2 (Inverter RS Smart) ─────────────────────
 function AtsReseauNode({ data }) {
   const active    = (data.sw2 || '').includes('Fermé');
   const connected = (parseInt(data.v2a) || 0) > 50;
@@ -14,11 +14,11 @@ function AtsReseauNode({ data }) {
 
   return h('div', { className: `pro-node${active ? ' active-source' : ''}` },
     mkHandle('source', Position.Right,  'reseau-out'),
-    mkHandle('source', Position.Bottom, 'reseau-et112reseau'),
+    mkHandle('target', Position.Bottom, 'reseau-in'),
     h('div', { className: 'pn-banner' },
       h('div', { className: 'pn-banner-left' },
         h('div', { className: 'pn-bicon pn-bicon-res' }, '⚡'),
-        h('span', null, 'Réseau')
+        h('span', null, 'II · AC-2 Inverter RS')
       ),
       h('div', { className: 'pn-banner-center' },
         h('span', { className: 'pn-volt' }, data.v2a || '--', h('span', { className: 'pn-volt-unit' }, ' V')),
@@ -74,7 +74,7 @@ function AtsOnduleurNode({ data }) {
     h('div', { className: 'pn-banner' },
       h('div', { className: 'pn-banner-left' },
         h('div', { className: 'pn-bicon pn-bicon-inv' }, '🔋'),
-        h('span', null, 'Onduleur')
+        h('span', null, 'I · AC-1 MultiPlus')
       ),
       h('div', { className: 'pn-banner-center' },
         h('span', { className: 'pn-volt' }, data.v1a || '--', h('span', { className: 'pn-volt-unit' }, ' V')),

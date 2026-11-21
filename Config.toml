@@ -213,9 +213,10 @@ poll_interval_ms = 5000
 # Les champs port/baud sont supprimés — bus hérité du SharedBus global.
 #
 # Adresses RS485 (configurées physiquement sur les compteurs) :
-#   0x07 = Micro-onduleurs  → D-Bus pvinverter (mqtt_7, instance 32)
-#   0x08 = Maison (conso)    → D-Bus acload     (mqtt_8, instance 30) — charge AC mesurée
-#   0x09 = Réseau (EDF)      → D-Bus grid       (mqtt_9, instance 31) — compteur réseau import/export
+#   0x07 = Micro-onduleurs DEYE (réseau AC-2, après le Tongou 0616E4) → D-Bus pvinverter (mqtt_7, instance 32)
+#   0x08 = Maison — réseau AC-1 (sortie ATS, groupe I)                → D-Bus acload     (mqtt_8, instance 30)
+#   0x09 = Réseau AC-2 (Inverter RS Smart, groupe II)                  → D-Bus acload     (mqtt_9, instance 31)
+# Installation 100 % hors réseau : plus de compteur « grid ».
 #
 # Sémantique Victron (wiki dbus) :
 #   com.victronenergy.grid   = point de connexion réseau (compté import/export, ESS, bilan système)
@@ -238,7 +239,7 @@ position         = 1
 
 [[et112.devices]]               # SN: 119215X — branché ✅
 address          = "0x08"
-name             = "ET112-Maison"
+name             = "ET112-Maison"  # réseau AC-1 (MultiPlus → ATS → groupe I)
 mqtt_index       = 8           # → santuario/grid/8/venus → com.victronenergy.acload.mqtt_8
 service_type     = "acload"
 device_instance  = 30
@@ -246,9 +247,9 @@ position         = 1
 
 [[et112.devices]]               # SN: 061077X — branché ✅
 address          = "0x09"
-name             = "ET112-Réseau"
-mqtt_index       = 9           # → santuario/grid/9/venus → com.victronenergy.grid.mqtt_9
-service_type     = "grid"
+name             = "ET112-AC2"     # réseau AC-2 (Inverter RS Smart → groupe II + entrée II de l'ATS)
+mqtt_index       = 9           # → santuario/grid/9/venus → com.victronenergy.acload.mqtt_9
+service_type     = "acload"
 device_instance  = 31
 position         = 1
 
@@ -268,9 +269,15 @@ position         = 1
 #   0x02 → BMS-320Ah (Daly)
 #   0x05 → Irradiance PRALRAN
 #   0x06 → ATS CHINT NXZB  ← ici
-#   0x07 → ET112 Micro-Onduleurs
-#   0x08 → ET112 PAC Chauffe-eau
-#   0x09 → ET112 PAC Climatisation
+#   0x07 → ET112 Micro-Onduleurs (DEYE, AC-2)
+#   0x08 → ET112-Maison (AC-1)
+#   0x09 → ET112-AC2 (AC-2)
+#
+# Entrées de l'ATS (installation 100 % hors réseau) :
+#   I  (source 1) = réseau AC-1, sortie du MultiPlus
+#   II (source 2) = réseau AC-2, sortie de l'Inverter RS Smart (secours ; alimenté par AC-1
+#                   en attendant l'installation de l'Inverter RS)
+#   Sortie ATS    = groupe I (General, AC-4, LG, Climatisation) via ET112-Maison
 #
 # Registres Modbus ATS (FC=03 lecture) :
 #   0x0006–0x000B : tensions phases (V) sources 1 et 2
@@ -286,14 +293,14 @@ position         = 1
 # Commandes Modbus (FC=06 écriture) :
 #   0x2800 = 0x0004 → activer télécommande
 #   0x2800 = 0x0000 → désactiver télécommande
-#   0x2700 = 0x0000 → forcer source 1 (Onduleur / AC2)
-#   0x2700 = 0x00AA → forcer source 2 (Réseau / AC1)
+#   0x2700 = 0x0000 → forcer source 1 (I  — AC-1 MultiPlus)
+#   0x2700 = 0x00AA → forcer source 2 (II — AC-2 Inverter RS)
 #   0x2700 = 0x00FF → forcer double déclenché (neutre)
 #
 # Intégration Venus OS :
 #   MQTT topic    : santuario/switch/{mqtt_index}/venus
 #   D-Bus service : com.victronenergy.switch.mqtt_1 (instance 60)
-#   /Position     : 0 = AC1/Réseau, 1 = AC2/Onduleur
+#   /Position     : 1 = source I (AC-1 MultiPlus), 0 = source II (AC-2 Inverter RS) ou neutre
 #   /State        : 0 = inactif, 1 = actif, 2 = alerte
 
 [ats]
@@ -338,45 +345,106 @@ device_instance = 60
 # Taille du ring buffer par prise (720 = 1 heure si SENSOR toutes les 5s)
 ring_buffer_size = 720
 
+# Deux réseaux AC, mêmes batteries (BMS 320 / 360 / 620 Ah) :
+#   AC-1 = sortie du MultiPlus → entrée I de l'ATS → sortie ATS → ET112-Maison (0x08) → groupe I
+#   AC-2 = sortie de l'Inverter RS Smart → ET112 AC-2 (0x09) → groupe II (dont DEYE via 0616E4 → ET112 0x07)
+#          + entrée II de l'ATS (secours du groupe I si le MultiPlus est arrêté)
+#          En attendant l'Inverter RS, AC-2 est alimenté par AC-1.
+# `id` = clé du ring buffer et label `id` des métriques tasmota_* : ne pas renuméroter.
+# `network` = réseau qui alimente la prise ("AC-1" / "AC-2") — regroupement dans la visualisation.
+# Topic MQTT = tongou_<6 derniers caractères de la MAC> ; broker du Tongou = 192.168.1.120 (GX).
+
+# --- Groupe I — réseau AC-1 (MultiPlus, via l'ATS) ---
 [[tasmota.devices]]
-id              = 1                  # Identifiant interne unique (clé du ring buffer)
-tasmota_id      = "tongou_3BC764"    # Topics : tele/tongou_3BC764/STATE, stat/tongou_3BC764/POWER
-name            = "Tongou Switch1"
-mqtt_index      = 2                  # → forward santuario/switch/2/venus → D-Bus switch.mqtt_2
+id              = 3
+tasmota_id      = "tongou_0A3C14"    # 192.168.1.27  1c:69:20:0a:3c:14
+name            = "General"
+network         = "AC-1"
+mqtt_index      = 4                  # → santuario/switch/4/venus → D-Bus switch.mqtt_4
 service_type    = "switch"
-device_instance = 61                 # Instance D-Bus Venus OS (60=ATS CHINT, 61=Tongou)
+device_instance = 63
 
 [[tasmota.devices]]
-id              = 2                  # Identifiant interne unique (clé du ring buffer)
-tasmota_id      = "tongou_0A3FA0"    # Topics : tele/tongou_0A3FA0/STATE, stat/tongou_0A3FA0/POWER
-name            = "Tongou Switch2"
-mqtt_index      = 3                  # → forward santuario/switch/2/venus → D-Bus switch.mqtt_3
+id              = 4
+tasmota_id      = "tongou_0A4040"    # 192.168.1.28  1c:69:20:0a:40:40
+name            = "AC-4"
+network         = "AC-1"
+mqtt_index      = 5                  # → switch.mqtt_5
 service_type    = "switch"
-device_instance = 62                 # Instance D-Bus Venus OS (60=ATS CHINT, 61=Tongou)
+device_instance = 64
 
 [[tasmota.devices]]
-id              = 3                  # Identifiant interne unique (clé du ring buffer)
-tasmota_id      = "tongou_0A3C14"    # Topics : tele/tongou_0A3C14/STATE, stat/tongou_0A3C14/POWER
-name            = "Tongou Switch3"
-mqtt_index      = 4                  # → forward santuario/switch/2/venus → D-Bus switch.mqtt_4
+id              = 6
+tasmota_id      = "tongou_B459B8"    # 192.168.1.29  28:05:a5:b4:59:b8 — chauffe-eau LG
+name            = "LG"
+network         = "AC-1"
+mqtt_index      = 7                  # → switch.mqtt_7
 service_type    = "switch"
-device_instance = 63                 # Instance D-Bus Venus OS (60=ATS CHINT, 61=Tongou)
+device_instance = 66
 
 [[tasmota.devices]]
-id              = 4                  # Identifiant interne unique (clé du ring buffer)
-tasmota_id      = "tongou_0A4040"    # Topics : tele/tongou_0A4040/STATE, stat/tongou_0A4040/POWER
-name            = "Tongou Switch4"
-mqtt_index      = 5                 # → forward santuario/switch/5/venus → D-Bus switch.mqtt_5
+id              = 1
+tasmota_id      = "tongou_3BC764"    # 192.168.1.30  a0:dd:6c:3b:c7:64
+name            = "Climatisation"
+network         = "AC-1"
+mqtt_index      = 2                  # → switch.mqtt_2
 service_type    = "switch"
-device_instance = 64                 # Instance D-Bus Venus OS
+device_instance = 61
+
+# --- Groupe II — réseau AC-2 (Inverter RS Smart) ---
+[[tasmota.devices]]
+id              = 7
+tasmota_id      = "tongou_0616E4"    # 192.168.1.21  f0:24:f9:06:16:e4 — coupure complète des DEYE (≠ Shelly)
+name            = "DEYE"
+network         = "AC-2"
+mqtt_index      = 8                  # → switch.mqtt_8
+service_type    = "switch"
+device_instance = 67
 
 [[tasmota.devices]]
-id              = 5                  # Identifiant interne unique (clé du ring buffer)
-tasmota_id      = "tongou_3ACC34"    # 192.168.1.80  tongou-3ACC34
-name            = "Tongou Switch5"
-mqtt_index      = 6                  # → forward santuario/switch/6/venus → D-Bus switch.mqtt_6
+id              = 8
+tasmota_id      = "tongou_0615D8"    # 192.168.1.22  f0:24:f9:06:15:d8
+name            = "Tongou 0615D8"
+network         = "AC-2"
+mqtt_index      = 9                  # → switch.mqtt_9
 service_type    = "switch"
-device_instance = 65                 # Instance D-Bus Venus OS
+device_instance = 68
+
+[[tasmota.devices]]
+id              = 9
+tasmota_id      = "tongou_0616D0"    # 192.168.1.23  f0:24:f9:06:16:d0
+name            = "Tongou 0616D0"
+network         = "AC-2"
+mqtt_index      = 10                 # → switch.mqtt_10
+service_type    = "switch"
+device_instance = 69
+
+[[tasmota.devices]]
+id              = 10
+tasmota_id      = "tongou_061630"    # 192.168.1.24  f0:24:f9:06:16:30
+name            = "Tongou 061630"
+network         = "AC-2"
+mqtt_index      = 11                 # → switch.mqtt_11
+service_type    = "switch"
+device_instance = 70
+
+[[tasmota.devices]]
+id              = 5
+tasmota_id      = "tongou_3ACC34"    # 192.168.1.25  a0:dd:6c:3a:cc:34
+name            = "Tongou 3ACC34"
+network         = "AC-2"
+mqtt_index      = 6                  # → switch.mqtt_6
+service_type    = "switch"
+device_instance = 65
+
+[[tasmota.devices]]
+id              = 2
+tasmota_id      = "tongou_0A3FA0"    # 192.168.1.26  1c:69:20:0a:3f:a0
+name            = "Tongou 0A3FA0"
+network         = "AC-2"
+mqtt_index      = 3                  # → switch.mqtt_3
+service_type    = "switch"
+device_instance = 62
 
 # Décommenter et adapter pour chaque prise Tasmota supplémentaire :
 # [[tasmota.devices]]
@@ -583,7 +651,7 @@ pvinverter_instance  = 32              # ET112 Micro-Onduleurs
 shelly_deye_id       = "shellypro2pm-ec62608840a4"
 shelly_deye_channel  = 0                # fallback mono-canal (hérité)
 shelly_deye_channels = [0, 1]           # un canal par DEYE — coupe/restaure les deux
-tasmota_waterheater_id = "tongou_3BC764"
+tasmota_waterheater_id = "tongou_B459B8"  # Tongou « LG » (192.168.1.29) — relais + mesure du chauffe-eau
 # SmartShunt device instance sur Venus OS — vérifier avec :
 #   ssh root@192.168.1.120 "dbus -y | grep battery"
 smartshunt_instance  = 274             # VRM ID 274 (Battery Monitor)

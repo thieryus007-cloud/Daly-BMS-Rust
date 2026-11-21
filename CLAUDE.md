@@ -308,7 +308,7 @@ Bus `/dev/ttyUSB0` :
 | 0x05 | PRALRAN irradiance | `meteo` | `irradiance/raw` | 40 |
 | 0x07 | ET112-Micro-Onduleurs (SN 119253X) | `pvinverter.mqtt_7` | `pvinverter/7/venus` | 32 |
 | 0x08 | ET112-Maison (SN 119215X) | `acload.mqtt_8` | `grid/8/venus` | 30 |
-| 0x09 | ET112-Réseau (SN 061077X) | `grid.mqtt_9` | `grid/9/venus` | 31 |
+| 0x09 | ET112-AC2 — réseau AC-2 (SN 061077X) | `acload.mqtt_9` | `grid/9/venus` | 31 |
 
 Services D-Bus actifs nominaux :
 
@@ -318,14 +318,19 @@ com.victronenergy.battery.mqtt_2          BMS-320Ah (inst. 152)
 com.victronenergy.battery.mqtt_3          BMS-620Ah (inst. 153)
 com.victronenergy.pvinverter.mqtt_7       ET112-Micro-Onduleurs (inst. 32)
 com.victronenergy.acload.mqtt_8           ET112-Maison / Consommation AC (inst. 30)
-com.victronenergy.grid.mqtt_9             ET112-Réseau / Compteur réseau EDF (inst. 31)
+com.victronenergy.acload.mqtt_9           ET112-AC2 — réseau AC-2 (inst. 31)
 com.victronenergy.temperature.mqtt_1      Capteur ext. (type 4, inst. 20)
 com.victronenergy.switch.mqtt_1           ATS CHINT (inst. 60)
-com.victronenergy.switch.mqtt_2           Tongou Switch1 (inst. 61)
-com.victronenergy.switch.mqtt_3           Tongou Switch2 (inst. 62)
-com.victronenergy.switch.mqtt_4           Tongou Switch3 (inst. 63)
-com.victronenergy.switch.mqtt_5           Tongou Switch4 (inst. 64)
-com.victronenergy.switch.mqtt_6           Tongou Switch5 / tongou_3ACC34 (inst. 65)
+com.victronenergy.switch.mqtt_2           Climatisation / tongou_3BC764 — AC-1 (inst. 61)
+com.victronenergy.switch.mqtt_3           Tongou 0A3FA0 — AC-2 (inst. 62)
+com.victronenergy.switch.mqtt_4           General / tongou_0A3C14 — AC-1 (inst. 63)
+com.victronenergy.switch.mqtt_5           AC-4 / tongou_0A4040 — AC-1 (inst. 64)
+com.victronenergy.switch.mqtt_6           Tongou 3ACC34 — AC-2 (inst. 65)
+com.victronenergy.switch.mqtt_7           LG (chauffe-eau) / tongou_B459B8 — AC-1 (inst. 66)
+com.victronenergy.switch.mqtt_8           DEYE / tongou_0616E4 — AC-2 (inst. 67)
+com.victronenergy.switch.mqtt_9           Tongou 0615D8 — AC-2 (inst. 68)
+com.victronenergy.switch.mqtt_10          Tongou 0616D0 — AC-2 (inst. 69)
+com.victronenergy.switch.mqtt_11          Tongou 061630 — AC-2 (inst. 70)
 com.victronenergy.meteo                   Irradiance PRALRAN + TodaysYield (inst. 40)
 ```
 

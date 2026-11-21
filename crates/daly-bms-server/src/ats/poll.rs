@@ -243,8 +243,8 @@ async fn poll_ats(
     let s2c = PhaseStatus::from_bits(((pwr >> 4)  & 0x03) as u8);
 
     // ── Statut commutation (0x0050) ───────────────────────────────────────
-    // bit 3 = SW1 (Onduleur) : 1=ouvert, 0=fermé
-    // bit 4 = SW2 (Réseau)   : 1=ouvert, 0=fermé
+    // bit 3 = SW1 (entrée I, AC-1 MultiPlus) : 1=ouvert, 0=fermé
+    // bit 4 = SW2 (entrée II, AC-2 Inverter RS) : 1=ouvert, 0=fermé
     // bit 1 = Mode           : 1=Auto, 0=Manuel
     // bit 8 = Télécommande   : 1=active, 0=inactive
     // bits 5-7 = Code défaut

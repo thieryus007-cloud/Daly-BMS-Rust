@@ -1,4 +1,5 @@
-/// Handles Tasmota MQTT topics for the water heater relay (tongou_3BC764).
+/// Handles Tasmota MQTT topics for the water heater relay (`victron.tasmota_waterheater_id`,
+/// Tongou « LG » tongou_B459B8).
 /// Parses stat/{id}/POWER and tele/{id}/SENSOR.
 use serde::Deserialize;
 use std::sync::Arc;

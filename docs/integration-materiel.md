@@ -109,7 +109,7 @@ Bus `/dev/ttyUSB0` — paramètres : 9600 bauds, 8N1 :
 | `0x06` | ATS CHINT NXZB | `switch.mqtt_1` | `switch/1/venus` | 60 |
 | `0x07` | ET112-Micro-Onduleurs (SN 119253X) | `pvinverter.mqtt_7` | `pvinverter/7/venus` | 32 |
 | `0x08` | ET112-Maison (SN 119215X) | `acload.mqtt_8` | `grid/8/venus` | 30 |
-| `0x09` | ET112-Réseau (SN 061077X) | `grid.mqtt_9` | `grid/9/venus` | 31 |
+| `0x09` | ET112-AC2 — réseau AC-2 (SN 061077X) | `acload.mqtt_9` | `grid/9/venus` | 31 |
 
 > **Note :** L'adresse `0x06` (ATS CHINT) n'est pas listée dans la table CLAUDE.md §5 mais est documentée dans la section **ATS CHINT** plus bas dans ce document (schéma ASCII §1). Elle est réservée sur le bus.
 
@@ -154,14 +154,19 @@ com.victronenergy.battery.mqtt_2          BMS-320Ah (inst. 152)
 com.victronenergy.battery.mqtt_3          BMS-620Ah (inst. 153)
 com.victronenergy.pvinverter.mqtt_7       ET112-Micro-Onduleurs (inst. 32)
 com.victronenergy.acload.mqtt_8           ET112-Maison / Consommation AC (inst. 30)
-com.victronenergy.grid.mqtt_9             ET112-Réseau / Compteur réseau EDF (inst. 31)
+com.victronenergy.acload.mqtt_9           ET112-AC2 — réseau AC-2 (inst. 31)
 com.victronenergy.temperature.mqtt_1      Capteur ext. (type 4, inst. 20)
 com.victronenergy.switch.mqtt_1           ATS CHINT (inst. 60)
-com.victronenergy.switch.mqtt_2           Tongou Switch1 (inst. 61)
-com.victronenergy.switch.mqtt_3           Tongou Switch2 (inst. 62)
-com.victronenergy.switch.mqtt_4           Tongou Switch3 (inst. 63)
-com.victronenergy.switch.mqtt_5           Tongou Switch4 (inst. 64)
-com.victronenergy.switch.mqtt_6           Tongou Switch5 / tongou_3ACC34 (inst. 65)
+com.victronenergy.switch.mqtt_2           Climatisation / tongou_3BC764 — AC-1 (inst. 61)
+com.victronenergy.switch.mqtt_3           Tongou 0A3FA0 — AC-2 (inst. 62)
+com.victronenergy.switch.mqtt_4           General / tongou_0A3C14 — AC-1 (inst. 63)
+com.victronenergy.switch.mqtt_5           AC-4 / tongou_0A4040 — AC-1 (inst. 64)
+com.victronenergy.switch.mqtt_6           Tongou 3ACC34 — AC-2 (inst. 65)
+com.victronenergy.switch.mqtt_7           LG (chauffe-eau) / tongou_B459B8 — AC-1 (inst. 66)
+com.victronenergy.switch.mqtt_8           DEYE / tongou_0616E4 — AC-2 (inst. 67)
+com.victronenergy.switch.mqtt_9           Tongou 0615D8 — AC-2 (inst. 68)
+com.victronenergy.switch.mqtt_10          Tongou 0616D0 — AC-2 (inst. 69)
+com.victronenergy.switch.mqtt_11          Tongou 061630 — AC-2 (inst. 70)
 com.victronenergy.meteo                   Irradiance PRALRAN + TodaysYield (inst. 40)
 com.victronenergy.pvinverter.cgwacs_ttyUSB0_mb2   Onduleur PV Victron direct
 ```
@@ -299,7 +304,7 @@ Tasmota / Tongou (WiFi MQTT)
               └── dbus-mqtt-venus → com.victronenergy.switch.mqtt_{n}
 ```
 
-Instances Tongou : `switch.mqtt_2` (inst. 61), `switch.mqtt_3` (inst. 62), `switch.mqtt_4` (inst. 63), `switch.mqtt_5` (inst. 64), `switch.mqtt_6` / tongou_3ACC34 (inst. 65).
+Instances Tongou : `switch.mqtt_2` à `switch.mqtt_11` (inst. 61 à 70) — groupe I (AC-1) : Climatisation, General, AC-4, LG ; groupe II (AC-2) : DEYE et 5 Tongou (détail au tableau des services ci-dessus).
 
 Pour le catalogue détaillé des métriques Tasmota → [./metriques-promql-reference.md].
 
@@ -571,7 +576,7 @@ ssh root@192.168.1.120 'mosquitto_pub -h localhost -t santuario/bms/3/venus -r -
 │  dbus-mqtt-venus (GX)                                               │
 │                                                                     │
 │  com.victronenergy.switch.mqtt_1  (device_instance = 60)           │
-│    ├── /Position   : 0 = AC1/Réseau, 1 = AC2/Onduleur              │
+│    ├── /Position   : 1 = source I (AC-1 MultiPlus), 0 = source II (AC-2 Inverter RS)              │
 │    ├── /State      : 0 = inactif, 1 = actif, 2 = alerte            │
 │    ├── /Connected  : 0 ou 1                                         │
 │    ├── /CustomName : "ATS CHINT NXZB"                               │
@@ -688,7 +693,7 @@ sudo systemctl start daly-bms
 | sw1_bit | sw2_bit | État |
 |---------|---------|------|
 | 0 | 0 | Position centrale / neutre (middle-off) |
-| 0 | 1 | **SW1 fermé → Source 1 (Onduleur) active** |
+| 0 | 1 | **SW1 fermé → Source 1 (I, AC-1 MultiPlus) active** |
 | 1 | 0 | **SW2 fermé → Source 2 (Réseau) active** |
 | 1 | 1 | Les deux ouverts (transition en cours) |
 
@@ -721,7 +726,7 @@ sudo systemctl start daly-bms
 |----------|--------|----------|-----------|
 | 0x2800 | 0x0004 | Activer télécommande | — |
 | 0x2800 | 0x0000 | Désactiver télécommande | — |
-| 0x2700 | 0x0000 | Forcer Source 1 (Onduleur) | Télécommande active |
+| 0x2700 | 0x0000 | Forcer Source 1 (I, AC-1 MultiPlus) | Télécommande active |
 | 0x2700 | 0x00AA | Forcer Source 2 (Réseau) | Télécommande active |
 | 0x2700 | 0x00FF | Forcer double déclenché | Télécommande active |
 
@@ -737,7 +742,7 @@ sudo systemctl start daly-bms
 URL : `http://192.168.1.141:8080/dashboard/ats`
 
 **Panneau gauche — Schéma unifilaire SVG** :
-- Source 1 (Onduleur) avec tension phase A
+- Source 1 (I, AC-1 MultiPlus) avec tension phase A
 - Source 2 (Réseau) avec tension phase A
 - SW1 et SW2 : FERMÉ (vert) / OUVERT (rouge)
 - Mode AUTO / MANUEL
@@ -771,7 +776,7 @@ curl -X POST http://192.168.1.141:8080/api/v1/ats/remote_on
 # Désactiver télécommande (retour en Auto)
 curl -X POST http://192.168.1.141:8080/api/v1/ats/remote_off
 
-# Forcer sur Source 1 (Onduleur)
+# Forcer sur Source 1 (I, AC-1 MultiPlus)
 curl -X POST http://192.168.1.141:8080/api/v1/ats/force_source1
 
 # Forcer sur Source 2 (Réseau)
@@ -1054,7 +1059,7 @@ INFO daly_bms_server::bridges::mqtt: ATS CHINT publié → santuario/switch/1/ve
 |---------|----------|-----------------|------|-----------|---------|
 | `0x07` | ET112-Micro-Onduleurs | SN 119253X | Mesure production micro-onduleurs PV | `pvinverter.mqtt_7` | 32 |
 | `0x08` | ET112-Maison | SN 119215X | Mesure consommation maison | `acload.mqtt_8` | 30 |
-| `0x09` | ET112-Réseau | SN 061077X | Mesure import/export réseau EDF | `grid.mqtt_9` | 31 |
+| `0x09` | ET112-AC2 | SN 061077X | Consommation du réseau AC-2 (Inverter RS Smart) | `acload.mqtt_9` | 31 |
 
 ### 8.3 Monophasé — phases L2/L3 fantômes
 

@@ -1,10 +1,6 @@
-// ── TONGOU GROUP NODE ─────────────────────────────────────────────────────────
-const TASMOTA_IDS = [1, 2, 3, 4, 5];
-
+// ── TONGOU GROUP NODE — prises d'un réseau AC (data.title, data.switches) ────
 const TongouGroupNode = memo(function TongouGroupNode({ data }) {
-  const switches = (data.switches && data.switches.length > 0)
-    ? data.switches
-    : TASMOTA_IDS.map(id => ({ id, name: `Switch ${id}`, connected: false }));
+  const switches = data.switches || [];
 
   const disabled = data.disabled || false;
 
@@ -33,7 +29,7 @@ const TongouGroupNode = memo(function TongouGroupNode({ data }) {
     mkHandle('source', Position.Left,   'sl', { top: '68%' }),
     h('div', { className: 'tg-header' },
       h('span', { className: 'tg-header-icon' }, '🔌'),
-      h('span', { className: 'tg-header-title' }, 'Meter Switchs'),
+      h('span', { className: 'tg-header-title' }, data.title || 'Meter Switchs'),
       h('span', { className: 'tg-header-count' }, `${countOnline}/${switches.length} en ligne`)
     ),
     h('div', { className: 'tg-switch-list' },
@@ -138,7 +134,7 @@ function WaterHeaterNode({ data }) {
               h('span', { className: 'wh-et112-val' }, nrj != null ? `${nrj.toFixed(2)} kWh` : '—')
             )
           )
-        : h('div', { className: 'wh-wait' }, 'ET112 en attente…')
+        : h('div', { className: 'wh-wait' }, 'Mesure Tongou en attente…')
     )
   );
 }

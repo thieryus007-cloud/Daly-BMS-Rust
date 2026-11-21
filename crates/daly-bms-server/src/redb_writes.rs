@@ -747,8 +747,8 @@ pub fn write_ats(writer: &Writer, rl: &RateLimiter, snap: &AtsSnapshot) {
     // Alias scalaires de la source active (utilisés par certains dashboards
     // Grafana qui ne discriminent pas la phase). On expose la valeur de la
     // source actuellement sélectionnée par l'ATS — pas une moyenne arbitraire.
-    // Source1=0 (Onduleur) → v1*/freq1, Source2=1 (Réseau) → v2*/freq2.
-    // Neutral (2) ou inconnu : on retombe par défaut sur la source 2 (Réseau).
+    // Source1=0 (AC-1 MultiPlus) → v1*/freq1, Source2=1 (AC-2 Inverter RS) → v2*/freq2.
+    // Neutral (2) ou inconnu : on retombe par défaut sur la source 2 (AC-2 Inverter RS).
     let (av_a, av_b, av_c, af_hz) = match snap.active_source as i32 {
         0 => (snap.v1a, snap.v1b, snap.v1c, snap.freq1_hz.unwrap_or(0)),
         _ => (snap.v2a, snap.v2b, snap.v2c, snap.freq2_hz.unwrap_or(0)),

@@ -112,8 +112,8 @@ impl FaultCode {
             Self::None           => "Aucun",
             Self::FireInterlock  => "Interconnexion incendie",
             Self::MotorOverload  => "Surcharge moteur",
-            Self::Disconnect1    => "Disjonction I Onduleur",
-            Self::Disconnect2    => "Disjonction II Réseau",
+            Self::Disconnect1    => "Disjonction I (AC-1 MultiPlus)",
+            Self::Disconnect2    => "Disjonction II (AC-2 Inverter RS)",
             Self::AbnormalClose  => "Fermeture anormale",
             Self::AbnormalPhase1 => "Phase anormale I",
             Self::AbnormalPhase2 => "Phase anormale II",
@@ -170,13 +170,15 @@ impl OperationMode {
 // Source active
 // =============================================================================
 
-/// Source actuellement alimentant la charge.
+/// Source actuellement alimentant la charge (sortie ATS = groupe I).
+/// Installation 100 % hors réseau : entrée I = réseau AC-1 (sortie MultiPlus), entrée II =
+/// réseau AC-2 (sortie Inverter RS Smart, secours).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ActiveSource {
-    #[serde(rename = "Onduleur")]
-    Source1, // Onduleur / UPS
-    #[serde(rename = "Réseau")]
-    Source2, // Réseau / Grid
+    #[serde(rename = "AC-1 MultiPlus")]
+    Source1, // entrée I — AC-1, MultiPlus
+    #[serde(rename = "AC-2 Inverter RS")]
+    Source2, // entrée II — AC-2, Inverter RS Smart
     #[serde(rename = "Neutre")]
     Neutral, // Position centrale (double déclenché)
 }
@@ -184,18 +186,18 @@ pub enum ActiveSource {
 impl ActiveSource {
     pub fn label(&self) -> &'static str {
         match self {
-            Self::Source1 => "Onduleur",
-            Self::Source2 => "Réseau",
+            Self::Source1 => "AC-1 MultiPlus",
+            Self::Source2 => "AC-2 Inverter RS",
             Self::Neutral => "Neutre",
         }
     }
 
-    /// Valeur de /Position pour Venus OS switch.
-    /// 0 = AC1 (réseau), 1 = AC2 (onduleur/générateur)
+    /// Valeur de /Position pour Venus OS switch (valeurs inchangées pour les consommateurs
+    /// existants) : 1 = source I (AC-1 MultiPlus), 0 = source II (AC-2 Inverter RS) ou neutre.
     pub fn venus_position(&self) -> i32 {
         match self {
-            Self::Source1 => 1, // AC2 = onduleur/générateur
-            Self::Source2 => 0, // AC1 = réseau
+            Self::Source1 => 1,
+            Self::Source2 => 0,
             Self::Neutral => 0,
         }
     }
@@ -245,8 +247,8 @@ pub struct AtsSnapshot {
 
     // ── Commutation ─────────────────────────────────────────────────────────
     pub sw_mode:    bool,       // true=Auto, false=Manuel
-    pub sw1_closed: bool,       // SW1 fermé (Onduleur alimenté)
-    pub sw2_closed: bool,       // SW2 fermé (Réseau alimenté)
+    pub sw1_closed: bool,       // SW1 fermé (entrée I, AC-1 MultiPlus)
+    pub sw2_closed: bool,       // SW2 fermé (entrée II, AC-2 Inverter RS)
     pub middle_off: bool,       // Position centrale (double déclenché)
     pub remote:     bool,       // Télécommande activée
     pub fault:      FaultCode,  // Code de défaut
@@ -322,9 +324,9 @@ pub enum AtsCommand {
     RemoteOn,
     /// Désactiver la télécommande (0x2800 = 0x0000).
     RemoteOff,
-    /// Forcer position onduleur/source1 (0x2700 = 0x0000).
+    /// Forcer source 1 — entrée I, AC-1 MultiPlus (0x2700 = 0x0000).
     ForceSource1,
-    /// Forcer position réseau/source2 (0x2700 = 0x00AA).
+    /// Forcer source 2 — entrée II, AC-2 Inverter RS (0x2700 = 0x00AA).
     ForceSource2,
     /// Forcer double déclenché / position centrale (0x2700 = 0x00FF).
     ForceDouble,
@@ -346,8 +348,8 @@ impl AtsCommand {
         match self {
             Self::RemoteOn    => "Télécommande activée",
             Self::RemoteOff   => "Télécommande désactivée",
-            Self::ForceSource1 => "Forçage Onduleur",
-            Self::ForceSource2 => "Forçage Réseau",
+            Self::ForceSource1 => "Forçage I (AC-1 MultiPlus)",
+            Self::ForceSource2 => "Forçage II (AC-2 Inverter RS)",
             Self::ForceDouble  => "Double déclenché",
         }
     }

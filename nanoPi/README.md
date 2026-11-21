@@ -25,7 +25,7 @@ Pi5 (192.168.1.141) — daly-bms-server / energy-manager
                                                           │
                                                           ▼ D-Bus système Venus OS
                                    com.victronenergy.battery.mqtt_1/2/3, switch.mqtt_1..6,
-                                   grid.mqtt_9, acload.mqtt_8, pvinverter.mqtt_7,
+                                   acload.mqtt_9, acload.mqtt_8, pvinverter.mqtt_7,
                                    temperature.mqtt_1, meteo → GUI / VRM / systemcalc
 ```
 
@@ -114,7 +114,7 @@ correspondant (`santuario/<type>/<n>/venus`) ; il passe `Connected=0` après
 | `acload.shelly_EC62608840A4_0/1` | 50 / 51 | Shelly Pro 2PM (Chauffe-eau / Éclairage) |
 | `battery.mqtt_1/2/3` | 151 / 152 / 153 | BMS Daly 360 / 320 / 620 Ah (dbus-mqtt-venus) |
 | `pvinverter.mqtt_7` | 32 | ET112 Micro-onduleurs (dbus-mqtt-venus) |
-| `acload.mqtt_8` / `grid.mqtt_9` | 30 / 31 | ET112 Maison / Réseau (dbus-mqtt-venus) |
+| `acload.mqtt_8` / `acload.mqtt_9` | 30 / 31 | ET112 Maison (AC-1) / ET112-AC2 (AC-2) (dbus-mqtt-venus) |
 | `switch.mqtt_1..6` | 60–65 | ATS CHINT + Tongou 1–5 (dbus-mqtt-venus) |
 | `temperature.mqtt_1` | 20 | Température extérieure (dbus-mqtt-venus) |
 | `meteo` | 40 | Irradiance PRALRAN (dbus-mqtt-venus) |

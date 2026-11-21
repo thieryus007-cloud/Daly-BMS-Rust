@@ -627,7 +627,7 @@ ssh root@192.168.1.120 \
 | `santuario/bms/{n}/venus` | 1s | 1 | true | Snapshot BMS complet (SOC, tension, courant, cellules, alarmes) |
 | `santuario/pvinverter/7/venus` | polling | 0 | true | ET112 0x07 — Puissance micro-onduleurs |
 | `santuario/heatpump/8/venus` | polling | 0 | true | ET112 0x08 — Consommation maison |
-| `santuario/heatpump/9/venus` | polling | 0 | true | ET112 0x09 — Réseau EDF |
+| `santuario/grid/9/venus` | polling | 0 | true | ET112 0x09 — réseau AC-2 (acload) |
 | `santuario/switch/1/venus` | polling | 0 | true | ATS CHINT — état bascule |
 | `santuario/irradiance/raw` | polling | 1 | true | PRALRAN 0x05 — irradiance brute |
 

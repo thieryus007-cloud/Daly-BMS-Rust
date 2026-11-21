@@ -95,7 +95,7 @@
 <div class="ats-header">
   <div class="ats-header-top">
     <div class="ats-section">
-      <h1>⚡ ATS CHINT — Onduleur / Réseau</h1>
+      <h1>⚡ ATS CHINT — I : AC-1 MultiPlus / II : AC-2 Inverter RS</h1>
       <div class="status-bar">
         <div style="display:flex;align-items:center;gap:8px;"><div class="led" id="led"></div><div id="statusText">Connexion...</div></div>
         <div class="refresh-counter" id="refreshCounter">Actus: 0</div>
@@ -137,14 +137,14 @@
     <div class="ats-card-title">
       <div class="source-status">
         <div class="source-dot" id="onduleurDot"></div>
-        <span class="source-name">🔋 Onduleur</span>
+        <span class="source-name">🔋 I — AC-1 MultiPlus</span>
         <span class="source-connection" id="onduleurStatus">Connecté</span>
       </div>
       <div class="remote-indicator" id="remoteIndicatorOnduleur">🔒</div>
     </div>
     <div class="phase-row"><span class="data-label">Phase A</span><span class="data-value"><span id="v1a">— V</span> <span id="s1a_badge" class="badge-normal" style="margin-left:6px">—</span></span></div>
     <div class="data-row"><span class="data-label">Max enregistré Phase A</span><span class="data-value" id="max1">— V</span></div>
-    <div class="data-row"><span class="data-label">Commutations Onduleur → Réseau</span><span class="data-value" id="cnt1_display">—</span></div>
+    <div class="data-row"><span class="data-label">Commutations I → II</span><span class="data-value" id="cnt1_display">—</span></div>
     <div class="data-row"><span class="data-label">T1 (transfert)</span><span class="data-value setting-value" id="t1">— s</span></div>
     <div class="separator"></div>
     <div class="action-buttons" style="flex-direction:column;gap:8px;">
@@ -162,8 +162,8 @@
       <div class="info-badge" style="margin-left:auto" id="remoteBadgeReg">🔒 Télécom: OFF</div>
     </div>
     <div class="data-row"><span class="data-label">Mode opératoire</span><span class="data-value" id="swModeReg">—</span></div>
-    <div class="data-row"><span class="data-label">SW1 - Interrupteur Onduleur</span><span class="data-value" id="sw1">—</span></div>
-    <div class="data-row"><span class="data-label">SW2 - Interrupteur Réseau</span><span class="data-value" id="sw2">—</span></div>
+    <div class="data-row"><span class="data-label">SW1 - Interrupteur I (AC-1 MultiPlus)</span><span class="data-value" id="sw1">—</span></div>
+    <div class="data-row"><span class="data-label">SW2 - Interrupteur II (AC-2 Inverter RS)</span><span class="data-value" id="sw2">—</span></div>
     <div class="data-row"><span class="data-label">Position centrale (middleOFF)</span><span class="data-value" id="middleOFF">—</span></div>
     <div class="data-row"><span class="data-label">Télécommande</span><span class="data-value" id="swRemoteReg">—</span></div>
     <div class="data-row"><span class="data-label">Défaut</span><span class="data-value" id="swFaultReg">—</span></div>
@@ -182,14 +182,14 @@
     <div class="ats-card-title">
       <div class="source-status">
         <div class="source-dot" id="reseauDot"></div>
-        <span class="source-name">⚡ Réseau</span>
+        <span class="source-name">⚡ II — AC-2 Inverter RS</span>
         <span class="source-connection" id="reseauStatus">Connecté</span>
       </div>
       <div class="remote-indicator" id="remoteIndicatorReseau">🔒</div>
     </div>
     <div class="phase-row"><span class="data-label">Phase A</span><span class="data-value"><span id="v2a">— V</span> <span id="s2a_badge" class="badge-normal" style="margin-left:6px">—</span></span></div>
     <div class="data-row"><span class="data-label">Max enregistré Phase A</span><span class="data-value" id="max2">— V</span></div>
-    <div class="data-row"><span class="data-label">Commutations Réseau → Onduleur</span><span class="data-value" id="cnt2_display">—</span></div>
+    <div class="data-row"><span class="data-label">Commutations II → I</span><span class="data-value" id="cnt2_display">—</span></div>
     <div class="data-row"><span class="data-label">T2 (retour)</span><span class="data-value setting-value" id="t2">— s</span></div>
     <div class="separator"></div>
     <div class="action-buttons" style="flex-direction:column;gap:8px;">
@@ -278,14 +278,14 @@ async function forceSource1WithRemote() {
         let data = await resp.json();
         if (!data.success) throw new Error(data.error || 'Échec');
         await new Promise(r => setTimeout(r, 300));
-        updateCompactLog('🔋 Forçage source Onduleur...', 'send');
+        updateCompactLog('🔋 Forçage source I (AC-1 MultiPlus)...', 'send');
         resp = await fetch('/api/v1/ats/force_source1', { method: 'POST' });
         data = await resp.json();
         if (!data.success) throw new Error(data.error || 'Échec');
         await new Promise(r => setTimeout(r, 300));
         updateCompactLog('🔒 Désactivation télécommande...', 'send');
         await fetch('/api/v1/ats/remote_off', { method: 'POST' });
-        updateCompactLog('✅ Forçage Onduleur réussi !', 'success');
+        updateCompactLog('✅ Forçage source I réussi !', 'success');
         setTimeout(refreshNow, 500);
     } catch(e) {
         updateCompactLog(`❌ Erreur: ${e.message}`, 'error');
@@ -306,14 +306,14 @@ async function forceSource2WithRemote() {
         let data = await resp.json();
         if (!data.success) throw new Error(data.error || 'Échec');
         await new Promise(r => setTimeout(r, 300));
-        updateCompactLog('⚡ Forçage source Réseau...', 'send');
+        updateCompactLog('⚡ Forçage source II (AC-2 Inverter RS)...', 'send');
         resp = await fetch('/api/v1/ats/force_source2', { method: 'POST' });
         data = await resp.json();
         if (!data.success) throw new Error(data.error || 'Échec');
         await new Promise(r => setTimeout(r, 300));
         updateCompactLog('🔒 Désactivation télécommande...', 'send');
         await fetch('/api/v1/ats/remote_off', { method: 'POST' });
-        updateCompactLog('✅ Forçage Réseau réussi !', 'success');
+        updateCompactLog('✅ Forçage source II réussi !', 'success');
         setTimeout(refreshNow, 500);
     } catch(e) {
         updateCompactLog(`❌ Erreur: ${e.message}`, 'error');
@@ -402,8 +402,8 @@ function toggleTelecom() {
 
 function updateActiveCardBorder(sourceActive) {
     ['cardOnduleur','cardReg50','cardReseau'].forEach(id => document.getElementById(id).classList.remove('card-active-blink'));
-    if (sourceActive.includes("Onduleur"))      document.getElementById('cardOnduleur').classList.add('card-active-blink');
-    else if (sourceActive.includes("Réseau"))   document.getElementById('cardReseau').classList.add('card-active-blink');
+    if (sourceActive.includes("AC-1"))      document.getElementById('cardOnduleur').classList.add('card-active-blink');
+    else if (sourceActive.includes("AC-2"))     document.getElementById('cardReseau').classList.add('card-active-blink');
     else if (sourceActive.includes("OFF") || sourceActive.includes("Aucune")) document.getElementById('cardReg50').classList.add('card-active-blink');
 }
 
@@ -449,8 +449,8 @@ async function refreshNow() {
             }
             const sw1 = data.values.sw1 || "", sw2 = data.values.sw2 || "", mo = data.values.middleOFF || "";
             let src = "❌ Aucune";
-            if (sw1.includes("Fermé")) src = "🔋 Onduleur";
-            else if (sw2.includes("Fermé")) src = "⚡ Réseau";
+            if (sw1.includes("Fermé")) src = "🔋 AC-1 MultiPlus";
+            else if (sw2.includes("Fermé")) src = "⚡ AC-2 Inverter RS";
             else if (mo.includes("Fermé") || mo.includes("Activ")) src = "⏹️ OFF";
             set('activeSource', src);
             updateActiveCardBorder(src);

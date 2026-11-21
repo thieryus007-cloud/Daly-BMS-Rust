@@ -828,7 +828,7 @@ Puis dans la requête :
 | `bms_id` | `"0x01"`, `"0x02"` | bms_* |
 | `cell` | `"C01"` … `"C16"` | bms_cell_voltage |
 | `address` | `"0x05"`, `"0x07"`, `"0x08"`, `"0x09"` | et112_*, irradiance_wm2 |
-| `name` | `"ET112-Micro-Onduleurs"`, `"Tongou Switch1"` … | et112_*, tasmota_*, shelly_* |
+| `name` | `"ET112-Micro-Onduleurs"`, `"Climatisation"`, `"LG"` … | et112_*, tasmota_*, shelly_* |
 | `instance` | `"273"`, `"289"` | venus_mppt_* |
 | `idx` | `"8"`, `"9"` | venus_heatpump_* |
 | `source` | `"1"` (Onduleur), `"2"` (Réseau) | ats_voltage_v, ats_freq_hz |
@@ -1134,7 +1134,7 @@ ats_sw1_closed
 # SW2 fermé = Réseau alimenté (0/1)
 ats_sw2_closed
 
-# Tension Source 1 (Onduleur) phase A
+# Tension Source 1 (I, AC-1 MultiPlus) phase A
 ats_voltage_v{source="1", phase="a"}
 
 # Tension Source 2 (Réseau) phase A
@@ -1157,13 +1157,13 @@ ats_active_source[6h]
 
 ### 11. Tasmota Tongou (6 switchs)
 
-> IDs : 1=Tongou Switch1, 2=Switch2, 3=Switch3, 4=Switch4, 5=Switch5, 6=Switch6 (tongou_3ACC34)
+> IDs : 1=Climatisation (3BC764), 2=Tongou 0A3FA0, 3=General (0A3C14), 4=AC-4 (0A4040), 5=Tongou 3ACC34, 6=LG/chauffe-eau (B459B8), 7=DEYE (0616E4), 8=Tongou 0615D8, 9=Tongou 0616D0, 10=Tongou 061630 — groupe I (AC-1) : 1, 3, 4, 6 ; groupe II (AC-2) : 2, 5, 7–10
 
 ```promql
 # État de tous les switchs (1=ON, 0=OFF)
 tasmota_power_on
 
-# État Tongou Switch1
+# État Tongou id 1 (Climatisation)
 tasmota_power_on{id="1"}
 
 # Puissance consommée par switch

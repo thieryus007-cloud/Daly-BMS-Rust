@@ -743,6 +743,10 @@ pub struct TasmotaDeviceConfig {
     pub service_type: String,
     /// Instance D-Bus Venus OS (ex: 500)
     pub device_instance: Option<u16>,
+    /// Réseau AC qui alimente la prise : "AC-1" (MultiPlus, via l'ATS) ou "AC-2" (Inverter RS
+    /// Smart). Regroupe les prises dans la visualisation ; optionnel.
+    #[serde(default)]
+    pub network: Option<String>,
 }
 
 const DEFAULT_TASMOTA_NAME: &str = "Tasmota";
