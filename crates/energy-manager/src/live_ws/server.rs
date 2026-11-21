@@ -226,7 +226,11 @@ struct WaterHeaterCard {
     turbo_soc_enter_pct: f64,
     turbo_soc_exit_pct:  f64,
     discharge_block_w:   f64,
-    /// Dernière décision du control_task : cible, raison, batterie (cycle / minute), verrou.
+    start_grace_secs:    u64,
+    start_grace_max_wh:  f64,
+    full_battery_soc_pct: f64,
+    /// Dernière décision du control_task : cible, raison, batterie (cycle / minute), verrou,
+    /// production bridée, tolérance de démarrage.
     rule:                WaterHeaterRuleStatus,
 }
 
@@ -311,6 +315,9 @@ async fn rules_status_handler(State(srv): State<ServerState>) -> Response {
             turbo_soc_enter_pct: wh_cfg.turbo_soc_enter_pct,
             turbo_soc_exit_pct:  wh_cfg.turbo_soc_exit_pct,
             discharge_block_w:   wh_cfg.discharge_block_w,
+            start_grace_secs:    wh_cfg.start_grace_secs,
+            start_grace_max_wh:  wh_cfg.start_grace_max_wh,
+            full_battery_soc_pct: wh_cfg.full_battery_soc_pct,
             rule:                s.water_heater_rule.clone(),
         },
         charge_current: ChargeCurrent {

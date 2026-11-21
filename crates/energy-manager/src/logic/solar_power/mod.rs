@@ -31,18 +31,19 @@ pub async fn spawn(
 
 /// MPPT field fed by a `N/{portal}/solarcharger/{instance}/…` topic.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum MpptField { Power, Yield, MaxPower, State, PvV, DcI }
+enum MpptField { Power, Yield, MaxPower, State, PvV, DcI, MppMode }
 
 /// Venus topic → (instance, field) for every followed MPPT.
 /// Paths must match `mqtt::topics::all_subscriptions`.
 fn mppt_topic_map(pid: &str, instances: &[u32]) -> HashMap<String, (u32, MpptField)> {
-    const PATHS: [(&str, MpptField); 6] = [
+    const PATHS: [(&str, MpptField); 7] = [
         ("Yield/Power",              MpptField::Power),
         ("History/Daily/0/Yield",    MpptField::Yield),
         ("History/Daily/0/MaxPower", MpptField::MaxPower),
         ("State",                    MpptField::State),
         ("Pv/V",                     MpptField::PvV),
         ("Dc/0/Current",             MpptField::DcI),
+        ("MppOperationMode",         MpptField::MppMode),
     ];
     let mut map = HashMap::new();
     for &i in instances {
@@ -98,6 +99,10 @@ async fn mqtt_task(
                     }
                     MpptField::PvV      => m.pv_voltage_v      = msg.victron_value::<f64>(),
                     MpptField::DcI      => m.dc_current_a      = msg.victron_value::<f64>(),
+                    MpptField::MppMode  => {
+                        m.mpp_mode         = msg.victron_value::<i64>();
+                        m.mpp_mode_last_ts = Some(chrono::Utc::now());
+                    }
                 }
             } else if *t == t_dc_pv {
                 // Source de vérité pour la somme MPPT : N/.../system/0/Dc/Pv/Power
@@ -222,7 +227,8 @@ mod mppt_topic_tests {
     #[test]
     fn maps_every_path_of_every_instance() {
         let m = mppt_topic_map("pid", &[273, 290]);
-        assert_eq!(m.len(), 12);
+        assert_eq!(m.len(), 14);
+        assert_eq!(m.get("N/pid/solarcharger/273/MppOperationMode"), Some(&(273, MpptField::MppMode)));
         assert_eq!(m.get("N/pid/solarcharger/290/History/Daily/0/Yield"), Some(&(290, MpptField::Yield)));
         assert_eq!(m.get("N/pid/solarcharger/273/State"), Some(&(273, MpptField::State)));
         assert_eq!(m.get("N/pid/solarcharger/289/State"), None);

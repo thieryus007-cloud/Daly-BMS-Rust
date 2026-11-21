@@ -265,6 +265,11 @@ pub struct MpptState {
     /// Timestamp of the last `/State` update — freshness guard for the DEYE decision
     /// (a frozen State must not strand the relay; see deye_command).
     pub state_last_ts: Option<DateTime<Utc>>,
+    /// `/MppOperationMode` : 0 = off, 1 = limité en tension/courant (production bridée),
+    /// 2 = suivi MPP (tout le solaire disponible est produit). Règle chauffe-eau.
+    pub mpp_mode: Option<i64>,
+    /// Horodatage de la dernière mise à jour de `/MppOperationMode` (fraîcheur).
+    pub mpp_mode_last_ts: Option<DateTime<Utc>>,
 }
 
 /// Instantané télémétrie d'un climatiseur Toshiba (une zone), reçu en JSON sur
@@ -306,6 +311,14 @@ pub struct WaterHeaterRuleStatus {
     pub lock_ceiling: Option<String>,
     /// …jusqu'à cette échéance.
     pub lock_until: Option<DateTime<Utc>>,
+    /// Production solaire bridée batterie pleine (MPPT limités en tension, SOC ≥
+    /// `full_battery_soc_pct`) : la décharge n'est pas imputée au chauffe-eau.
+    pub production_curtailed: bool,
+    /// Tolérance de démarrage en cours jusqu'à cette échéance…
+    pub start_grace_until: Option<DateTime<Utc>>,
+    /// …et énergie fournie par la batterie depuis le démarrage (Wh), comparée à
+    /// `start_grace_max_wh`.
+    pub start_used_wh: Option<f64>,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

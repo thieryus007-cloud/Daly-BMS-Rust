@@ -42,6 +42,9 @@ struct PowerWindow {
     recent: VecDeque<f64>,
     /// Échantillons encore à ignorer après un changement de mode (SETTLE_SAMPLES).
     skip: u32,
+    /// Énergie fournie par la batterie depuis le dernier changement de mode (Wh, décharges
+    /// seules) : budget de la tolérance de démarrage.
+    discharge_wh: f64,
 }
 
 impl PowerWindow {
@@ -49,6 +52,9 @@ impl PowerWindow {
         if self.skip > 0 {
             self.skip -= 1;
             return;
+        }
+        if p < 0.0 {
+            self.discharge_wh += -p * BATTERY_SAMPLE_SECS as f64 / 3600.0;
         }
         self.sum_w += p;
         self.n += 1;
@@ -73,6 +79,12 @@ impl PowerWindow {
         self.n = 0;
         self.recent.clear();
         self.skip = SETTLE_SAMPLES;
+        self.discharge_wh = 0.0;
+    }
+
+    /// Énergie fournie par la batterie depuis le dernier changement de mode (Wh).
+    fn discharge_wh(&self) -> f64 {
+        self.discharge_wh
     }
 
     /// Moyenne de la dernière minute (None tant qu'elle n'est pas complète).
@@ -103,6 +115,21 @@ const BATTERY_MIN_SAMPLES: u32 = 6;
 /// Échantillons ignorés après un changement de mode (20 s). Mesuré le 18/11 : TURBO coupé à
 /// 12:58:06, batterie encore à −65 W à 12:58:10, +1591 W à 12:58:20.
 const SETTLE_SAMPLES: u32 = 2;
+/// Au-delà, `/State` ou `/MppOperationMode` d'un MPPT est périmé (Venus les republie toutes
+/// les ~25 s) : ce MPPT ne compte pas pour la production bridée.
+const MPPT_MAX_AGE_SECS: i64 = 120;
+
+/// Production solaire bridée batterie pleine, sur les MPPT aux mesures fraîches.
+fn production_curtailed_now(s: &EnergyState, now: DateTime<Utc>, full_soc_pct: f64) -> bool {
+    let fresh = |t: Option<DateTime<Utc>>| t.is_some_and(|t| (now - t).num_seconds() <= MPPT_MAX_AGE_SECS);
+    let mppts: Vec<(i64, i64)> = s
+        .mppts
+        .values()
+        .filter(|m| fresh(m.mpp_mode_last_ts) && fresh(m.state_last_ts))
+        .filter_map(|m| Some((m.mpp_mode?, m.state?)))
+        .collect();
+    rules::production_curtailed(&mppts, s.soc_pct, full_soc_pct)
+}
 
 /// Verrou après une descente pour décharge : mode maximal autorisé et échéance.
 type DischargeLock = Option<(WaterHeaterMode, DateTime<Utc>)>;
@@ -304,11 +331,12 @@ async fn apply_mode(
 }
 
 /// Coupure rapide « aucune énergie batterie pour le chauffe-eau » (toutes les 30 s) :
-/// chauffe-eau en TURBO/HEAT_PUMP et batterie en décharge sur la dernière minute → un cran
-/// en dessous immédiatement (TURBO → HEAT_PUMP, HEAT_PUMP → VACATION), sans attendre la fin
-/// du cycle ni le délai entre changements. Le mode quitté reste ensuite interdit
-/// `discharge_lockout_secs` (pas de cycles courts quand le solaire est tout juste suffisant).
-/// Rafraîchit aussi la moyenne de la dernière minute et le verrou exposés par /api/rules-status.
+/// chauffe-eau en TURBO/HEAT_PUMP et décharge imputable → un cran en dessous immédiatement
+/// (TURBO → HEAT_PUMP, HEAT_PUMP → VACATION), sans attendre la fin du cycle ni le délai entre
+/// changements. Imputable = budget de démarrage dépassé pendant la tolérance de démarrage,
+/// sinon décharge sur la dernière minute hors production bridée ([`rules::fast_cut`]). Le mode
+/// quitté reste ensuite interdit `discharge_lockout_secs` (pas de cycles courts quand le
+/// solaire est tout juste suffisant). Rafraîchit aussi l'état exposé par /api/rules-status.
 #[allow(clippy::too_many_arguments)]
 async fn fast_discharge_cut(
     wh_cfg: &Arc<RwLock<WaterHeaterConfig>>,
@@ -318,36 +346,61 @@ async fn fast_discharge_cut(
     window: &Arc<Mutex<PowerWindow>>,
     last_change: &mut Option<DateTime<Utc>>,
     lock: &mut DischargeLock,
+    start_grace_until: &mut Option<DateTime<Utc>>,
     retry_after: &mut Option<DateTime<Utc>>,
 ) {
     let now = Utc::now();
     *lock = active_lock(*lock, now);
-    let recent = window.lock().await.recent_avg();
-    let mode = {
+    *start_grace_until = start_grace_until.filter(|&t| now < t);
+    let cfg = wh_cfg.read().await.clone();
+    let (recent, used_wh) = {
+        let w = window.lock().await;
+        (w.recent_avg(), w.discharge_wh())
+    };
+    let (mode, curtailed) = {
         let mut s = state.write().await;
+        let curtailed = production_curtailed_now(&s, now, cfg.full_battery_soc_pct);
         s.water_heater_rule.battery_minute_avg_w = recent;
+        s.water_heater_rule.production_curtailed = curtailed;
+        s.water_heater_rule.start_grace_until = *start_grace_until;
+        s.water_heater_rule.start_used_wh = start_grace_until.map(|_| used_wh);
         set_lock_status(&mut s, *lock);
-        s.water_heater_mode
+        (s.water_heater_mode, curtailed)
     };
     if retry_after.is_some_and(|t| now < t) {
         return;
     }
-    let cfg = wh_cfg.read().await.clone();
-    let Some(target) = rules::fast_cut(mode, recent, cfg.discharge_block_w) else {
+    let budget = start_grace_until.map(|_| (used_wh, cfg.start_grace_max_wh));
+    let Some(target) = rules::fast_cut(mode, recent, cfg.discharge_block_w, curtailed, budget) else {
         return;
     };
+    let (why, reason) = match budget {
+        Some((used, max)) => (
+            format!("démarrage : la batterie a fourni {used:.0} Wh (budget {max:.0} Wh)"),
+            "coupure rapide : budget de démarrage dépassé",
+        ),
+        None => (
+            format!(
+                "batterie {:.0} W en moyenne sur la dernière minute (seuil −{:.0} W), production non bridée",
+                recent.unwrap_or(0.0), cfg.discharge_block_w
+            ),
+            "coupure rapide : batterie en décharge sur la dernière minute",
+        ),
+    };
     warn!(
-        "Water heater: COUPURE RAPIDE {mode:?} → {target:?} — batterie {:.0} W en moyenne sur la dernière \
-         minute (seuil −{:.0} W) ; {} pendant {} s",
-        recent.unwrap_or(0.0), cfg.discharge_block_w, lock_desc(target), cfg.discharge_lockout_secs
+        "Water heater: COUPURE RAPIDE {mode:?} → {target:?} — {why} ; {} pendant {} s",
+        lock_desc(target), cfg.discharge_lockout_secs
     );
     if apply_mode(lg, bus, state, &cfg, window, target, now).await {
         *last_change = Some(now);
         *lock = Some((target, now + chrono::Duration::seconds(cfg.discharge_lockout_secs as i64)));
+        *start_grace_until = None;
         *retry_after = None;
         let mut s = state.write().await;
-        set_decision(&mut s, target, "coupure rapide : batterie en décharge sur la dernière minute", now);
+        set_decision(&mut s, target, reason, now);
         set_lock_status(&mut s, *lock);
+        s.water_heater_rule.start_grace_until = None;
+        s.water_heater_rule.start_used_wh = None;
     } else {
         *retry_after = Some(now + chrono::Duration::seconds(FAST_GUARD_RETRY_SECS));
     }
@@ -366,6 +419,7 @@ async fn control_task(
     let mut guard = interval(Duration::from_secs(FAST_GUARD_SECS));
     guard.set_missed_tick_behavior(MissedTickBehavior::Skip);
     let mut lock: DischargeLock = None;
+    let mut start_grace_until: Option<DateTime<Utc>> = None;
     let mut guard_retry_after: Option<DateTime<Utc>> = None;
 
     info!("Water heater control task started (5min interval, coupure rapide batterie toutes les {FAST_GUARD_SECS}s)");
@@ -376,7 +430,7 @@ async fn control_task(
             _ = guard.tick() => {
                 fast_discharge_cut(
                     &wh_cfg, &lg, &bus, &state, &window,
-                    &mut last_change, &mut lock, &mut guard_retry_after,
+                    &mut last_change, &mut lock, &mut start_grace_until, &mut guard_retry_after,
                 ).await;
                 continue;
             }
@@ -517,12 +571,21 @@ async fn control_task(
         );
         // Après une descente pour décharge, le mode quitté reste interdit jusqu'à l'échéance.
         lock = active_lock(lock, now);
+        start_grace_until = start_grace_until.filter(|&t| now < t);
+        // Décharge imputable au chauffe-eau : hors production bridée (MPPT limités batterie
+        // pleine) et hors tolérance de démarrage (bornée par son budget, coupure rapide).
+        let curtailed = production_curtailed_now(&*state.read().await, now, cfg.full_battery_soc_pct);
+        let starting = start_grace_until.is_some();
         let inputs = rules::Inputs {
             grid_connected,
             soc_low,
             irradiance_low,
             temp_max_reached,
-            battery_discharging: rules::battery_discharging(battery_avg_w, cfg.discharge_block_w),
+            battery_discharging: rules::discharge_counts(
+                rules::battery_discharging(battery_avg_w, cfg.discharge_block_w),
+                curtailed,
+                starting,
+            ),
             battery_full,
             current: actual_mode,
             ceiling: lock.map(|(m, _)| m),
@@ -532,13 +595,15 @@ async fn control_task(
             let mut s = state.write().await;
             set_decision(&mut s, target_mode, reason, now);
             s.water_heater_rule.battery_cycle_avg_w = Some(battery_avg_w);
+            s.water_heater_rule.production_curtailed = curtailed;
             set_lock_status(&mut s, lock);
         }
         // Démoté info!→debug! (2026-06) : la décision est ré-évaluée à chaque tick
         // (toutes les 5 min) → 288 lignes/jour même sans changement. Le SEND réel
         // (changement de mode effectif) reste en info! plus bas.
         debug!(
-            "Water heater: decision → {target_mode:?} ({reason}) — {inputs:?}, battery_avg={:.0}W, lock={:?}",
+            "Water heater: decision → {target_mode:?} ({reason}) — {inputs:?}, battery_avg={:.0}W, \
+             curtailed={curtailed}, starting={starting}, lock={:?}",
             battery_avg_w, lock
         );
 
@@ -566,8 +631,8 @@ async fn control_task(
         }
 
         info!(
-            "Water heater: SEND {:?} — {} (actual={:?}, soc={:.1}%, grid={}, irradiance_low={}, battery_avg={:.0}W, battery_full={}, lock={:?})",
-            target_mode, reason, actual_mode, soc, grid_connected, irradiance_low, battery_avg_w, battery_full, lock
+            "Water heater: SEND {:?} — {} (actual={:?}, soc={:.1}%, grid={}, irradiance_low={}, battery_avg={:.0}W, production_bridée={}, battery_full={}, lock={:?})",
+            target_mode, reason, actual_mode, soc, grid_connected, irradiance_low, battery_avg_w, curtailed, battery_full, lock
         );
 
         if !apply_mode(&lg, &bus, &state, &cfg, &window, target_mode, now).await {
@@ -584,6 +649,18 @@ async fn control_task(
         consecutive_fails = 0;
         last_change = Some(now);
 
+        // Démarrage (mode qui consomme plus) : tolérance de démarrage, bornée par
+        // start_grace_max_wh (coupure rapide). Toute descente la referme.
+        start_grace_until = rules::is_increase(actual_mode, target_mode)
+            .then(|| now + chrono::Duration::seconds(cfg.start_grace_secs as i64));
+        if let Some(until) = start_grace_until {
+            info!(
+                "Water heater: démarrage {actual_mode:?} → {target_mode:?} — décharge tolérée jusqu'à {until} \
+                 dans la limite de {:.0} Wh",
+                cfg.start_grace_max_wh
+            );
+        }
+
         // Descente pour décharge vue sur le cycle (TURBO → HEAT_PUMP, HEAT_PUMP → VACATION) :
         // même verrou qu'après une coupure rapide.
         if inputs.battery_discharging && target_mode == rules::step_down(actual_mode) {
@@ -592,7 +669,12 @@ async fn control_task(
                 "Water heater: descente pour décharge (cycle) — {} pendant {} s",
                 lock_desc(target_mode), cfg.discharge_lockout_secs
             );
-            set_lock_status(&mut *state.write().await, lock);
+        }
+        {
+            let mut s = state.write().await;
+            set_lock_status(&mut s, lock);
+            s.water_heater_rule.start_grace_until = start_grace_until;
+            s.water_heater_rule.start_used_wh = start_grace_until.map(|_| 0.0);
         }
     }   // close loop
 }
@@ -644,5 +726,20 @@ mod power_window_tests {
         }
         assert_eq!(w.recent_avg(), Some(100.0));
         assert_eq!(w.take_cycle_avg(), Some(100.0));
+    }
+
+    #[test]
+    fn start_budget_counts_discharge_since_last_change() {
+        let mut w = PowerWindow::default();
+        w.push(-3600.0); // 10 s à −3600 W = 10 Wh, avant le changement de mode
+        w.reset_after_change();
+        assert_eq!(w.discharge_wh(), 0.0);
+        for _ in 0..SETTLE_SAMPLES {
+            w.push(-3600.0); // pendant l'attente de 20 s : ignoré
+        }
+        w.push(-1800.0); // 5 Wh
+        w.push(1800.0); // une recharge ne rembourse pas le budget
+        w.push(-360.0); // 1 Wh
+        assert!((w.discharge_wh() - 6.0).abs() < 1e-9);
     }
 }

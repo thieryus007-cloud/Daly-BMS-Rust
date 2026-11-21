@@ -651,6 +651,11 @@ discharge_block_w     = 50.0          # W — batterie en décharge (moyenne Sma
                                       #     TURBO → HEAT_PUMP, HEAT_PUMP → VACATION ; vérifié sur la dernière minute
                                       #     (coupure rapide toutes les 30 s) ET sur le cycle de 5 min
 discharge_lockout_secs = 1800         # s — après une descente, mode quitté interdit 30 min (TURBO, ou HEAT_PUMP+TURBO)
+start_grace_secs      = 300           # s — démarrage (mode qui consomme plus) : décharge tolérée 5 min, le temps
+                                      #     que le LG démarre et que les MPPT remontent (batterie pleine)…
+start_grace_max_wh    = 40.0          # Wh — …dans la limite de ce que la batterie fournit depuis le démarrage
+full_battery_soc_pct  = 98.0          # % — MPPT limités en tension (production bridée) : décharge de régulation
+                                      #     tolérée tant que SOC ≥ seuil (la batterie cède au plus 2 %)
 # ⮑ Rechargement À CHAUD (sans redémarrage) : `sudo cp Config.toml /etc/daly-bms/config.toml` puis
 #    `curl -s -X POST http://127.0.0.1:8081/api/v1/em/rules/reload -d '{"name":"water_heater"}'`
 #    → appliqué au prochain cycle (≤ 5 min). Redémarrage requis seulement pour keepalive_secs et vm_url.

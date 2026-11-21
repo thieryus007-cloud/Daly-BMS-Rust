@@ -544,8 +544,19 @@ async function fetchRulesStatus() {
     const minuteW = rule.battery_minute_avg_w ?? null;
     const cycleW  = rule.battery_cycle_avg_w ?? null;
     const batW    = minuteW ?? cycleW;
-    const batOk   = batW != null && batW >= -blockW;
     const fmtW    = w => w != null ? `${w >= 0 ? '+' : ''}${w.toFixed(0)} W` : '—';
+    // Décharge non imputée au chauffe-eau : production bridée (MPPT limités batterie pleine)
+    // ou démarrage en cours (borné par son budget en Wh).
+    const curtailed = rule.production_curtailed === true;
+    const fullSoc   = wh?.full_battery_soc_pct ?? 98;
+    const graceTo   = rule.start_grace_until ? new Date(rule.start_grace_until) : null;
+    const graceOn   = graceTo != null && graceTo > new Date();
+    const graceMax  = wh?.start_grace_max_wh ?? 40;
+    const graceWh   = rule.start_used_wh ?? 0;
+    const batOk     = (batW != null && batW >= -blockW) || curtailed || graceOn;
+    const batDetail = graceOn ? `démarrage : ${graceWh.toFixed(0)} / ${graceMax} Wh`
+                    : (curtailed && batW != null && batW < -blockW) ? 'tolérée : production bridée'
+                    : `cycle 5 min : ${fmtW(cycleW)}`;
 
     // ── Batterie pleine → TURBO à la place de HEAT_PUMP (hystérésis sur le mode LG)
     const tEnter = wh?.turbo_soc_enter_pct ?? 98;
@@ -565,7 +576,11 @@ async function fetchRulesStatus() {
         ruleRow('Grid déconnecté (AC IN Ignored)', gridOffOk, acIgnore != null ? (acIgnore ? 'ACTIF' : 'Normal') : '—', null),
         ruleRow(`Temp < ${tMaxC} °C tenue < ${tHoldMin} min`, tempOk, tempVal, tempDetail),
         ruleRow(`Batterie pas en décharge (≥ −${blockW} W)`, batOk,
-                minuteW != null ? fmtW(minuteW) + ' (1 min)' : 'mesure…', `cycle 5 min : ${fmtW(cycleW)}`),
+                minuteW != null ? fmtW(minuteW) + ' (1 min)' : 'mesure…', batDetail),
+        statusRow(`Production bridée (MPPT limités, SOC ≥ ${fullSoc} %)`,
+                  curtailed ? 'oui — décharge tolérée' : 'non', curtailed ? '#38bdf8' : '#64748b', null),
+        graceOn ? statusRow('Démarrage en cours', `${graceWh.toFixed(0)} / ${graceMax} Wh`, '#f59e0b',
+                            `jusqu'à ${graceTo.toLocaleTimeString('fr-FR')}`) : '',
         statusRow(`Batterie pleine → TURBO (SOC > ${tEnter} %, maintien ≥ ${tExit} %)`,
                   full ? 'oui' : 'non', full ? '#fb923c' : '#64748b', null),
         lockOn ? statusRow('Verrou après coupure pour décharge', lockTxt, '#f59e0b',

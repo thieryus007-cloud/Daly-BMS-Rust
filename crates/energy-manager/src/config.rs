@@ -412,6 +412,20 @@ pub struct WaterHeaterConfig {
     /// TURBO après TURBO → HEAT_PUMP, HEAT_PUMP et TURBO après HEAT_PUMP → VACATION. Défaut : 1800.
     #[serde(default = "default_discharge_lockout_secs")]
     pub discharge_lockout_secs: u64,
+    /// Tolérance de démarrage (s) : après un passage vers un mode qui consomme plus, la
+    /// décharge ne déclenche pas de descente pendant ce délai (démarrage du LG + remontée des
+    /// MPPT batterie pleine), sauf dépassement de `start_grace_max_wh`. Défaut : 300.
+    #[serde(default = "default_start_grace_secs")]
+    pub start_grace_secs: u64,
+    /// Budget du démarrage : énergie maximale fournie par la batterie pendant la tolérance de
+    /// démarrage (Wh) ; au-delà, un cran de moins immédiatement. Défaut : 40.
+    #[serde(default = "default_start_grace_max_wh")]
+    pub start_grace_max_wh: f64,
+    /// SOC minimal (%) pour tolérer la décharge de régulation batterie pleine (MPPT limités en
+    /// tension) : la batterie peut ainsi céder au plus (100 − seuil) % avant que la décharge
+    /// compte de nouveau. Défaut : 98.
+    #[serde(default = "default_full_battery_soc_pct")]
+    pub full_battery_soc_pct: f64,
     /// URL d'écriture des métriques chauffe-eau (daly-bms-server → redb,
     /// endpoint POST /api/v1/import/prometheus). Défaut : http://127.0.0.1:8080
     #[serde(default = "default_wh_vm_url")]
@@ -434,6 +448,9 @@ fn default_turbo_soc_exit_pct() -> f64 { 95.0 }
 fn default_turbo_target_c() -> f64 { 60.0 }
 fn default_discharge_block_w() -> f64 { 50.0 }
 fn default_discharge_lockout_secs() -> u64 { 1800 }
+fn default_start_grace_secs() -> u64 { 300 }
+fn default_start_grace_max_wh() -> f64 { 40.0 }
+fn default_full_battery_soc_pct() -> f64 { 98.0 }
 fn default_wh_vm_url() -> String { "http://127.0.0.1:8080".into() }
 
 impl Default for WaterHeaterConfig {
@@ -455,6 +472,9 @@ impl Default for WaterHeaterConfig {
             turbo_target_c: default_turbo_target_c(),
             discharge_block_w: default_discharge_block_w(),
             discharge_lockout_secs: default_discharge_lockout_secs(),
+            start_grace_secs: default_start_grace_secs(),
+            start_grace_max_wh: default_start_grace_max_wh(),
+            full_battery_soc_pct: default_full_battery_soc_pct(),
             vm_url: default_wh_vm_url(),
         }
     }
@@ -626,6 +646,14 @@ impl EnergyManagerConfig {
         anyhow::ensure!(
             self.water_heater.discharge_block_w >= 0.0,
             "config invalide : `water_heater.discharge_block_w` doit être ≥ 0 (tolérance en W)"
+        );
+        anyhow::ensure!(
+            self.water_heater.start_grace_max_wh >= 0.0,
+            "config invalide : `water_heater.start_grace_max_wh` doit être ≥ 0 (budget en Wh)"
+        );
+        anyhow::ensure!(
+            (0.0..=100.0).contains(&self.water_heater.full_battery_soc_pct),
+            "config invalide : `water_heater.full_battery_soc_pct` doit être entre 0 et 100 (%)"
         );
         if self.toshiba_ac.enabled {
             anyhow::ensure!(

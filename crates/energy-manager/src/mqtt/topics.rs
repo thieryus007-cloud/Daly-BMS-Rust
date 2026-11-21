@@ -58,7 +58,7 @@ pub fn all_subscriptions(portal_id: &str, vebus: u32, mppts: &[u32], pvinv: u32,
     // Paths must match `logic::solar_power::mppt_topic_map`.
     for m in mppts {
         for path in ["Yield/Power", "History/Daily/0/Yield", "History/Daily/0/MaxPower",
-                     "State", "Pv/V", "Dc/0/Current"] {
+                     "State", "Pv/V", "Dc/0/Current", "MppOperationMode"] {
             v.push(n(pid, &format!("solarcharger/{m}/{path}")));
         }
     }
