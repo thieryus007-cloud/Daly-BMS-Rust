@@ -26,6 +26,7 @@
 
 mod battery_service;
 mod config;
+mod custom_names;
 mod grid_manager;
 mod grid_service;
 mod heatpump_manager;
@@ -140,6 +141,15 @@ async fn main() -> Result<()> {
     if let Some(bus) = cli.dbus_bus {
         cfg.venus.dbus_bus = bus;
     }
+
+    // Noms saisis dans la console Venus : `custom-names.json` à côté du fichier de config
+    // (sur le GX : /data/daly-bms/custom-names.json, non réécrit par les redéploiements).
+    let names_path = cli
+        .config
+        .as_ref()
+        .and_then(|p| p.parent().map(|d| d.join("custom-names.json")))
+        .unwrap_or_else(|| PathBuf::from("/data/daly-bms/custom-names.json"));
+    custom_names::init(&names_path);
 
     info!(
         version            = env!("CARGO_PKG_VERSION"),

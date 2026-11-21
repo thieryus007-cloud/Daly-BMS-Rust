@@ -48,6 +48,9 @@ use tracing::{debug, info, warn};
 use zbus::{connection, object_server::SignalContext, Connection};
 use zvariant::{OwnedValue, Str};
 
+/// Classe de l'appareil pour les noms personnalisés (`custom_names`, clé `switch/<instance>`).
+const NAME_CLASS: &str = "switch";
+
 // =============================================================================
 // Constante
 // =============================================================================
@@ -177,7 +180,14 @@ impl SwitchValues {
         }
     }
 
+    /// Items D-Bus, avec le nom saisi dans la console Venus (`custom_names`).
     pub fn to_items(&self) -> HashMap<String, DbusItem> {
+        let mut m = self.to_items_raw();
+        crate::custom_names::apply(NAME_CLASS, self.device_instance, &mut m, DbusItem::str);
+        m
+    }
+
+    fn to_items_raw(&self) -> HashMap<String, DbusItem> {
         let mut m = HashMap::new();
 
         // ── Identification ────────────────────────────────────────────────────
@@ -292,11 +302,15 @@ impl BusItemLeaf {
     ///
     /// Chemins inscriptibles :
     /// - `/SwitchableOutput/0/State`               → commande ON/OFF vers Tasmota
-    /// - `/SwitchableOutput/0/Settings/CustomName` → renommage depuis la console (RW per spec)
-    /// - `/CustomName`                             → idem (chemin alternatif lu par Venus)
+    /// - `/SwitchableOutput/0/Settings/CustomName` et `/CustomName` → renommage depuis la
+    ///   console, conservé par `custom_names` (traité en tête de fonction)
     ///
     /// Retourne 0 (succès) ou 1 (non supporté / chemin en lecture seule).
     fn set_value(&self, val: zvariant::Value<'_>) -> i32 {
+        if crate::custom_names::is_name_path(&self.path) {
+            let instance = self.values.lock().device_instance;
+            return crate::custom_names::set_from_value(NAME_CLASS, instance, &val);
+        }
         // ── Commande ON/OFF ────────────────────────────────────────────────────
         if self.path == PATH_SW_STATE {
             let Some(tx) = &self.cmd_tx else { return 1 };
@@ -327,22 +341,6 @@ impl BusItemLeaf {
             let _ = tx.try_send(state_val);
             debug!(path = %self.path, state = state_val, "Commande switch reçue depuis console Venus");
             return 0; // succès D-Bus
-        }
-
-        // ── Renommage CustomName (RW par spec Victron) ─────────────────────────
-        if self.path == "/SwitchableOutput/0/Settings/CustomName"
-            || self.path == "/CustomName"
-        {
-            let new_name = match &val {
-                zvariant::Value::Str(s) => s.as_str().to_string(),
-                _ => return 0, // type inattendu → ignorer silencieusement
-            };
-            {
-                let mut g = self.values.lock();
-                debug!(path = %self.path, name = %new_name, "CustomName mis à jour depuis console Venus");
-                g.custom_name = new_name;
-            }
-            return 0;
         }
 
         1 // lecture seule pour tous les autres chemins

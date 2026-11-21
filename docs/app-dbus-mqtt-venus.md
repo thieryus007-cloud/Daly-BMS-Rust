@@ -29,6 +29,7 @@
   - [5.7 Compteurs réseau — grid et acload](#57-compteurs-reseau--grid-et-acload)
   - [5.8 Onduleurs PV / compteurs ET112 (pvinverter)](#58-onduleurs-pv--compteurs-et112-pvinverter)
   - [5.9 Platform backup/restore Pi5 (platform)](#59-platform-backuprestore-pi5-platform)
+  - [5.10 Noms personnalisés — renommage depuis la console Venus](#510-noms-personnalisés--renommage-depuis-la-console-venus)
 - [6. Configuration TOML — référence complète](#6-configuration-toml--reference-complete)
   - [6.1 Section [mqtt]](#61-section-mqtt)
   - [6.2 Section [venus]](#62-section-venus)
@@ -604,6 +605,32 @@ Chemins D-Bus exposés :
 | `/Restore/LastRun` | timestamp Unix | Dernier restore terminé |
 
 Topic fixe : `santuario/platform/venus`. Instance 50.
+
+### 5.10 Noms personnalisés — renommage depuis la console Venus
+
+Tous les appareils publiés par le Pi5 (BMS, ET112 `acload`/`pvinverter`, Tongou et ATS,
+sonde de température, irradiance, PAC) se renomment depuis la console Venus (écran du GX,
+Remote Console, VRM) : champ « Nom » de l'appareil, ou nom de la sortie d'un switch.
+
+- Venus écrit `/CustomName` (ou `/SwitchableOutput/0/Settings/CustomName`) ; le service
+  enregistre le nom dans `custom-names.json`, à côté du fichier de config
+  (`/data/daly-bms/custom-names.json` sur le GX), clé `<classe>/<instance VRM>` :
+  `battery`, `ac-meter` (grid/acload), `pvinverter`, `switch`, `temperature`, `meteo`,
+  `heatpump` — ex. `{"switch/68": "Pompe piscine"}`.
+- Le nom enregistré prévaut sur `custom_name`/`name` de la config et sur un `CustomName`
+  reçu dans les payloads MQTT ; il survit aux redémarrages, aux mises à jour de Venus et aux
+  redéploiements (`install-venus.sh` ne copie que le binaire, et `config.toml` seulement s'il est absent).
+- Nom vide = retour au nom de la config (ou au `/ProductName` si aucun).
+- `/CustomName` est exposé par tous ces services (vide s'il n'y a pas de nom) pour que la
+  console propose le renommage.
+- Pages web du Pi5 : le nom d'un Tongou saisi dans Venus est repris par daly-bms-server
+  (topic `N/<portail>/switch/<instance>/SwitchableOutput/0/Settings/CustomName`, déjà relayé
+  par le bridge) dans `/api/v1/tasmota`, la page Tasmota et la visualisation. Les autres
+  cartes du Pi5 (ET112, BMS, ATS) gardent leurs libellés.
+
+Le service `com.victronenergy.platform` (singleton, pas un appareil) n'est pas concerné.
+
+Procédure pas à pas (console, fichier, ajout d'une prise) : [renommer-appareils.md](./renommer-appareils.md).
 
 ---
 

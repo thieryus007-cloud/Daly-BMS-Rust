@@ -31,6 +31,9 @@ use tracing::{debug, info, warn};
 use zbus::{connection, object_server::SignalContext, Connection};
 use zvariant::{OwnedValue, Str};
 
+/// Classe de l'appareil pour les noms personnalisés (`custom_names`, clé `temperature/<instance>`).
+const NAME_CLASS: &str = "temperature";
+
 // =============================================================================
 // Constantes
 // =============================================================================
@@ -162,7 +165,14 @@ impl SensorValues {
     }
 
     /// Construit le dictionnaire complet des items D-Bus.
+    /// Items D-Bus, avec le nom saisi dans la console Venus (`custom_names`).
     pub fn to_items(&self) -> HashMap<String, DbusItem> {
+        let mut m = self.to_items_raw();
+        crate::custom_names::apply(NAME_CLASS, self.device_instance, &mut m, DbusItem::str);
+        m
+    }
+
+    fn to_items_raw(&self) -> HashMap<String, DbusItem> {
         let mut m = HashMap::new();
 
         // Identification (commun à tous les services Victron)
@@ -258,7 +268,11 @@ impl BusItemLeaf {
             .unwrap_or_default()
     }
 
-    fn set_value(&self, _val: zvariant::Value<'_>) -> i32 {
+    fn set_value(&self, val: zvariant::Value<'_>) -> i32 {
+        if crate::custom_names::is_name_path(&self.path) {
+            let instance = self.values.lock().device_instance;
+            return crate::custom_names::set_from_value(NAME_CLASS, instance, &val);
+        }
         1 // lecture seule
     }
 }

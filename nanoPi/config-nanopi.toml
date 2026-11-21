@@ -152,6 +152,8 @@ device_instance = 60
 # Pas de command_topic → ATS géré via Modbus RS485, lecture seule dans Venus
 
 # Tongou : mqtt_index / device_instance = ceux de daly-bms-server (Config.toml [[tasmota.devices]]).
+# custom_name = nom par défaut : un nom saisi dans la console Venus le remplace et est conservé dans
+# /data/daly-bms/custom-names.json (non réécrit par les redéploiements) — voir docs/app-dbus-mqtt-venus.md §5.10.
 # Groupe I  = réseau AC-1 (MultiPlus, sortie ATS)  ; Groupe II = réseau AC-2 (Inverter RS Smart).
 
 # --- Groupe I — AC-1 ---

@@ -16,6 +16,24 @@ use std::time::Duration;
 use tracing::{info, warn};
 use chrono::Local;
 
+/// Topic Venus du nom d'un switch : `N/<portail>/switch/<instance VRM>/SwitchableOutput/0/Settings/
+/// CustomName` (déjà relayé du GX par le bridge, `switch/+/SwitchableOutput/#`). dbus-mqtt-venus y
+/// place le nom saisi dans la console Venus, qui prévaut sur `name` de la config.
+const VENUS_NAME_TOPIC: &str = "N/+/switch/+/SwitchableOutput/0/Settings/CustomName";
+
+/// `Some((instance, Some(nom)))` pour un nom Venus non vide, `Some((instance, None))` pour un
+/// nom vide (retour au nom de la config) ; `None` si le topic n'est pas un nom de switch Venus.
+fn parse_venus_name(topic: &str, payload: &str) -> Option<(u16, Option<String>)> {
+    let p: Vec<&str> = topic.split('/').collect();
+    if p.len() != 8 || p[0] != "N" || p[2] != "switch" || p[4..] != ["SwitchableOutput", "0", "Settings", "CustomName"] {
+        return None;
+    }
+    let instance = p[3].parse::<u16>().ok()?;
+    let v: serde_json::Value = serde_json::from_str(payload).unwrap_or(serde_json::Value::Null);
+    let name = v["value"].as_str().map(str::trim).filter(|n| !n.is_empty()).map(str::to_string);
+    Some((instance, name))
+}
+
 /// Boucle principale d'abonnement MQTT Tasmota.
 ///
 /// Se reconnecte automatiquement après déconnexion (backoff 10 s).
@@ -37,6 +55,9 @@ where
     // État inter-messages : état relais (POWER) et dernier snapshot énergie (SENSOR)
     let mut power_states:    HashMap<u8, bool>             = HashMap::new();
     let mut energy_cache:    HashMap<u8, TasmotaSnapshot>  = HashMap::new();
+    // Noms saisis dans la console Venus (VENUS_NAME_TOPIC, par instance VRM) : prévalent
+    // sur `name` de la config → un seul endroit pour renommer une prise.
+    let mut venus_names:     HashMap<u8, String>           = HashMap::new();
 
     loop {
         let mut opts = MqttOptions::new(
@@ -59,6 +80,9 @@ where
         if let Err(e) = client.subscribe("stat/+/POWER", QoS::AtMostOnce).await {
             warn!("Tasmota MQTT subscribe failed (stat/+/POWER): {e}");
         }
+        if let Err(e) = client.subscribe(VENUS_NAME_TOPIC, QoS::AtMostOnce).await {
+            warn!("Tasmota MQTT subscribe failed ({VENUS_NAME_TOPIC}): {e}");
+        }
 
         loop {
             match eventloop.poll().await {
@@ -72,6 +96,23 @@ where
                         Ok(s) => s,
                         Err(_) => continue,
                     };
+
+                    // Nom saisi dans la console Venus pour un switch (instance VRM = device_instance)
+                    if let Some((instance, name)) = parse_venus_name(topic, payload) {
+                        let Some(dev) = devices.iter().find(|d| d.device_instance == Some(instance)) else {
+                            continue;
+                        };
+                        let shown = name.unwrap_or_else(|| dev.name.clone());
+                        match venus_names.insert(dev.id, shown.clone()) {
+                            Some(prev) if prev == shown => continue,
+                            _ => info!(id = dev.id, tasmota_id = %dev.tasmota_id, name = %shown, "Nom Tasmota repris de Venus"),
+                        }
+                        if let Some(snap) = energy_cache.get_mut(&dev.id) {
+                            snap.name = shown;
+                            on_snapshot(snap.clone());
+                        }
+                        continue;
+                    }
 
                     // Découper le topic : tele/{device_name}/SENSOR ou stat/{device_name}/POWER
                     let parts: Vec<&str> = topic.split('/').collect();
@@ -105,7 +146,7 @@ where
 
                                 let snap = TasmotaSnapshot {
                                     id,
-                                    name:                  dev_cfg.name.clone(),
+                                    name:                  venus_names.get(&id).cloned().unwrap_or_else(|| dev_cfg.name.clone()),
                                     tasmota_id:            dev_cfg.tasmota_id.clone(),
                                     timestamp:             Local::now(),
                                     power_on,
@@ -139,5 +180,24 @@ where
 
         warn!("Tasmota MQTT déconnecté — reconnexion dans 10s");
         tokio::time::sleep(Duration::from_secs(10)).await;
+    }
+}
+
+#[cfg(test)]
+mod venus_name_tests {
+    use super::parse_venus_name;
+
+    #[test]
+    fn parses_switch_custom_name_topics() {
+        assert_eq!(
+            parse_venus_name("N/d81d13b31a8b/switch/68/SwitchableOutput/0/Settings/CustomName", r#"{"value": " Pompe piscine "}"#),
+            Some((68, Some("Pompe piscine".to_string())))
+        );
+        let t = "N/pid/switch/68/SwitchableOutput/0/Settings/CustomName";
+        assert_eq!(parse_venus_name(t, r#"{"value": ""}"#), Some((68, None)));
+        assert_eq!(parse_venus_name(t, r#"{"value": null}"#), Some((68, None)));
+        assert_eq!(parse_venus_name("N/pid/switch/68/SwitchableOutput/0/State", r#"{"value": 1}"#), None);
+        assert_eq!(parse_venus_name("tele/tongou_0615D8/SENSOR", "{}"), None);
+        assert_eq!(parse_venus_name("N/pid/acload/31/CustomName", r#"{"value": "X"}"#), None);
     }
 }

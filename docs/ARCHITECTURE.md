@@ -51,7 +51,8 @@ transverse**. Tous les documents vivent dans `docs/`.
 | [integration-toshiba-shorai-esphome.md](./integration-toshiba-shorai-esphome.md) | **Plan d'intégration Toshiba SHORAI EDGE** (×3) : ESP32 + ESPHome `toshiba_suzumi` sur CN22 → MQTT Mosquitto → module EM `logic/toshiba_ac`. BOM, câblage, phases. |
 | [toshiba-suzumi-rs-plan.md](./toshiba-suzumi-rs-plan.md) | **Projet Toshiba — firmware Rust ESP32 + décisions d'intégration** (protocole SUZUMI vérifié, §18 décisions FP2/HomeKit/Homie/HomeSpan/Matter, reprise de session §0). Lourd → détail opérationnel déporté ci-dessous. |
 | [toshiba-bridges.md](./toshiba-bridges.md) | **Ponts & crates Toshiba/FP2 — référence opérationnelle** : contrat MQTT, carte des composants **A–E**, pipeline présence, HomeKit **D** vs Matter **E**, commandes/tests. |
-| [diagnostic-depannage.md](./diagnostic-depannage.md) | Dépannage transverse, `netdiag` réseau, debug onduleur/SmartShunt, investigation memory-leak (en cours). |
+| [diagnostic-depannage.md](./diagnostic-depannage.md) | Dépannage transverse, erreurs `Checksum` BMS (`scripts/diag-bms-trames.sh`, §2.1), `netdiag` réseau, debug onduleur/SmartShunt, investigation memory-leak (en cours). |
+| [renommer-appareils.md](./renommer-appareils.md) | **Renommer un appareil** : renommage depuis la console Venus (conservé dans `/data/daly-bms/custom-names.json`), noms par défaut des configs, ajout d'une prise Tongou. |
 | [incident-2026-07-09-reboot-redb.md](./incident-2026-07-09-reboot-redb.md) | **Post-mortem** : boucle de crash au reboot (récupération redb > `TimeoutStartSec`). Diagnostic, cause racine, 3 correctifs (timeout `infinity`, ouverture redb en tâche de fond, sauvegarde quotidienne), récupération d'historique, prévention (UPS). |
 
 ### Hors `docs/`

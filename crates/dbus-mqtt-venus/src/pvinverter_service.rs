@@ -41,6 +41,9 @@ use tracing::{debug, info, warn};
 use zbus::{connection, object_server::SignalContext, Connection};
 use zvariant::{Array, OwnedValue, Str, Value};
 
+/// Classe de l'appareil pour les noms personnalisés (`custom_names`, clé `pvinverter/<instance>`).
+const NAME_CLASS: &str = "pvinverter";
+
 // =============================================================================
 // Constantes
 // =============================================================================
@@ -200,7 +203,14 @@ impl PvinverterValues {
         }
     }
 
+    /// Items D-Bus, avec le nom saisi dans la console Venus (`custom_names`).
     pub fn to_items(&self) -> HashMap<String, DbusItem> {
+        let mut m = self.to_items_raw();
+        crate::custom_names::apply(NAME_CLASS, self.device_instance, &mut m, DbusItem::str);
+        m
+    }
+
+    fn to_items_raw(&self) -> HashMap<String, DbusItem> {
         let mut m = HashMap::new();
 
         // Identification
@@ -300,6 +310,10 @@ impl BusItemLeaf {
     }
 
     fn set_value(&self, val: zvariant::Value<'_>) -> i32 {
+        if crate::custom_names::is_name_path(&self.path) {
+            let instance = self.values.lock().device_instance;
+            return crate::custom_names::set_from_value(NAME_CLASS, instance, &val);
+        }
         match self.path.as_str() {
             "/Position" => {
                 let new_pos: i32 = match &val {

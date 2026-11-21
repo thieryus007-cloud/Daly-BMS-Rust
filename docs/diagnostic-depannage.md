@@ -153,6 +153,45 @@ déclenche la réouverture sur `DalyError::Serial` **et** `DalyError::Io` (backo
 Bus partagé → ET112/ATS/PRALRAN repartent aussi. **Plus besoin de redémarrer le service
 manuellement après un débranchement USB.**
 
+### 2.1 Erreurs `Checksum` / trames altérées sur un BMS
+
+Symptôme : `WARN daly_bms_core::poll: Erreur : Checksum { expected: …, actual: … } bms="0x0N"`
+en rafale. Le message n'apparaît qu'**après épuisement des nouvelles tentatives** d'une
+commande, et le relevé complet de ce BMS est alors perdu pour ce cycle.
+
+**1. Mesurer** (lecture seule) — erreurs par BMS et relevés réussis sur la dernière heure :
+
+```bash
+for b in 0x01 0x02 0x03; do
+  ok=$(journalctl -u daly-bms --since -60min --no-pager | grep -c "Snapshot OK bms=\"$b\"")
+  er=$(journalctl -u daly-bms --since -60min --no-pager | grep "bms=\"$b\"" | grep -c -E "Erreur :|Timeout — BMS")
+  echo "BMS $b : relevés OK=$ok, cycles en échec=$er"      # normal : ~670 OK/h par BMS, 0 échec
+done
+journalctl --list-boots --no-pager | tail -n 5             # redémarrages du Pi5 (corrélation)
+```
+
+Dater la première erreur (`journalctl -u daly-bms --since … | grep -m1 Checksum`) et la
+comparer aux démarrages du Pi5 et aux déploiements.
+
+**2. Voir les octets** — `scripts/diag-bms-trames.sh` capture les trames brutes (niveau
+`trace` de `daly_bms_core::bus`) puis revient automatiquement au niveau `info`, même en cas
+d'interruption (deux redémarrages de daly-bms, quelques secondes sans données BMS chacun) :
+
+```bash
+cd ~/Daly-BMS-Rust && sudo bash scripts/diag-bms-trames.sh 120
+```
+
+Il affiche, par BMS, les trames valides / altérées, puis pour chaque trame altérée les octets
+qui diffèrent de la trame valide reçue juste après (nouvelle tentative).
+
+**3. Interpréter** :
+
+| Observation | Signification |
+|---|---|
+| Trames altérées sur **un seul** BMS, bits isolés modifiés (ex. `00>80`, `10>90`), Data ID et longueur corrects, les autres BMS intacts | Les octets émis par ce BMS arrivent déjà altérés au port série du Pi5 : le logiciel (le même pour tous les BMS) les lit tels quels. Contrôler la liaison RS485 de ce BMS (A/B, masse, connecteur, câble) et ce qui a changé au moment de la première erreur. |
+| Trame d'un autre Data ID / décalée, sur **tous** les BMS | Désynchronisation du flux (réponse tardive lue au tour suivant) : vérifier `timeout_ms`, le délai inter-trame et les purges `flush_rx` de `daly_bms_core::bus`. |
+| `Adresse inattendue` | Un autre BMS (le maître d'un montage en parallèle) a répondu : comportement géré, voir `bus.rs`. |
+
 ---
 
 ## 3. Diagnostic services systemd

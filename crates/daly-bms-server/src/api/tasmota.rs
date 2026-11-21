@@ -22,9 +22,12 @@ pub async fn list_tasmota(State(state): State<AppState>) -> Json<serde_json::Val
     let mut result = Vec::new();
     for dev in devices {
         let snap = state.tasmota_latest_for(dev.id).await;
+        // Nom affiché : celui du dernier relevé (nom saisi dans la console Venus s'il existe),
+        // sinon `name` de la config.
+        let name = snap.as_ref().map(|s| s.name.clone()).unwrap_or_else(|| dev.name.clone());
         result.push(serde_json::json!({
             "id":           dev.id,
-            "name":         dev.name,
+            "name":         name,
             "tasmota_id":   dev.tasmota_id,
             "mqtt_index":   dev.mqtt_index,
             "service_type": dev.service_type,
