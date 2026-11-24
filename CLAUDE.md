@@ -30,6 +30,7 @@
 | Nb séries en base | `curl -s http://localhost:8080/api/v1/redb/series \| jq '.data \| length'` |
 | Healthcheck backend | `curl -s http://localhost:8080/-/healthy` |
 | Valider Config.toml avant déploiement | `DALY_CONFIG=Config.toml daly-bms-server --check-config` et `ENERGY_CONFIG=Config.toml energy-manager --check-config` (dry-run : parse + bornes + typos — audit 2026-06 §12) |
+| Aperçu de la page Visualisation **sans compiler ni déployer** (PC Windows ; données réelles du Pi5, écritures bloquées) | `python scripts/viz-preview.py build` puis capture / mesure des cartes avec Edge headless — commandes : `docs/TRANSITION-refonte-visualisation.md` §1.7 |
 | Diag pic réseau (capture immédiate) | `sudo bash scripts/netdiag.sh` |
 | Profiler une fuite RSS (heap jemalloc, auto-restauré) | `sudo bash scripts/jemalloc-leak-profile.sh 2h` → rapport `/tmp/jeprof/leak-report-*.txt` (cf. docs/diagnostic-depannage.md §18) |
 | Diag pic réseau (veille auto-capture) | `sudo bash scripts/netdiag.sh --watch` → rapport `/tmp/netdiag-*.txt` |
@@ -499,6 +500,7 @@ Dashboard SSR (Askama) : `/dashboard`, `/dashboard/bms/:id`,
 | Une source ne se rafraîchit plus (valeurs figées, aucune erreur) | Requêter `source_last_update_age_seconds{source=...}` (bms_0x01, et112_0x07, venus_mppt, irradiance, ats…) et `em_source_last_update_age_seconds` (open_meteo, lg_thinq). Âge > 5× l'intervalle de polling = source morte (audit 2026-06 §18) |
 | metrics-store ne s'ouvre plus après coupure brutale | Quarantaine auto au boot : base corrompue renommée `metrics.redb.corrupt.<ts>` + base vide recréée (audit §15). L'ancien fichier reste sur le NVMe pour autopsie |
 | Dashboard affiche cumul brut | Vérifier `pvinv_baseline` retained MQTT (`santuario/persist/pvinv_baseline`) |
+| Juste après un déploiement : MPPT « — », production 0 W, Flux « Pas de production » | **Normal pendant ~1 min.** Redémarrer daly-bms relance aussi energy-manager (`PartOf=daly-bms.service` dans `contrib/energy-manager.service`) ; les valeurs reviennent seules (`curl -s localhost:8080/api/v1/venus/mppt`). |
 | energy-manager ne démarre pas | `journalctl -u energy-manager -n 50` — souvent TOML manquant ou `.env` absent |
 | `missing field energy_manager` | `sudo cp Config.toml /etc/daly-bms/config.toml` — section `[energy_manager]` absente |
 | energy-manager ne reçoit pas MQTT | Vérifier `portal_id` dans Config.toml et que Mosquitto est accessible sur `mqtt.host` |

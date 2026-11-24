@@ -605,7 +605,7 @@ wscat -c ws://localhost:8080/ws/bms/1/stream
 | `/dashboard/ats` | `ats.html` | État ATS CHINT (source active, tensions, commandes) |
 | `/dashboard/monitor` | `monitor.html` | Règles système (courant Victron, chauffe-eau LG, relais DEYE : état machine, fréquence, gardes îlotage/restore — via `:8081/api/rules-status`) + santé RS485 (CRC, timeouts, taux succès par appareil) |
 | `/dashboard/console` | `console.html` | Console logs WebSocket temps réel |
-| `/dashboard/visualization` | `visualization.html` | Diagramme flux d'énergie (ReactFlow / schéma SVG) |
+| `/dashboard/visualization` | `visualization.html` | Schéma de l'installation en ReactFlow (AC en haut, DC en bas), liaisons animées selon les flux. Disposition, blocs et aperçu local sans déploiement (`scripts/viz-preview.py`) : [TRANSITION-refonte-visualisation.md](./TRANSITION-refonte-visualisation.md) §1 |
 | `/dashboard/alerts` | `alerts.html` | Alertes actives + historique |
 | `/dashboard/logs` | `logs.html` | Logs systèmes (rotation fichiers) |
 | `/dashboard/settings` | `settings.html` | Paramètres configurables (seuils alarmes, affichage) |

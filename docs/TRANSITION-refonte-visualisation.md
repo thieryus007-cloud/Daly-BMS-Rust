@@ -155,16 +155,32 @@ Contraintes :
    awk '/^<script>/{f=1;next}/^<\/script>/{f=0}f' /tmp/viz-full.html > /tmp/viz-full.js && node --check /tmp/viz-full.js
    ```
 
-2. Tests et compilation sur le Pi5 (§4.2), puis déploiement avec `scripts/deploy-pi5.sh`.
-3. Capture d'écran sans navigateur visible (PowerShell, PC Windows), à comparer au schéma :
+2. **Aperçu local, sans compilation ni déploiement** — `scripts/viz-preview.py` : la page
+   servie par le Pi5 reçoit la feuille de style et le script des templates locaux, et lit les
+   données réelles du Pi5. Seules les lectures (GET) partent vers le Pi5 : les boutons (ATS,
+   Tasmota, Shelly) sont bloqués dans l'aperçu. Capture et mesure des cartes (PowerShell) :
 
    ```powershell
-   $S = "$env:TEMP\viz"; New-Item -ItemType Directory -Force $S | Out-Null
-   Start-Process "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" -Wait -WindowStyle Hidden -ArgumentList @(
-     "--headless","--no-sandbox","--disable-gpu","--hide-scrollbars","--window-size=1900,1150",
-     "--virtual-time-budget=20000","--user-data-dir=$S\prof","--screenshot=$S\viz.png",
-     "http://192.168.1.141:8080/visualization")
+   $O = "$env:TEMP\viz-preview"; python scripts\viz-preview.py build --out $O
+   $edge = "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+   $c = @("--headless","--no-sandbox","--disable-gpu","--disable-web-security","--allow-file-access-from-files",
+          "--window-size=1900,1150","--virtual-time-budget=20000","--user-data-dir=$O\prof")
+   $u = "file:///" + ($O -replace '\\','/')
+   # Capture (ajouter "--force-device-scale-factor=2" pour zoomer sur un détail)
+   Start-Process $edge -Wait -WindowStyle Hidden -ArgumentList ($c + @("--hide-scrollbars","--screenshot=$O\preview.png","$u/preview.html"))
+   # Tailles des cartes, en px du canevas : {"id": [largeur, hauteur], …}
+   Start-Process $edge -Wait -WindowStyle Hidden -RedirectStandardOutput "$O\dom.html" -RedirectStandardError "$O\err.txt" `
+     -ArgumentList ($c + @("--dump-dom","$u/preview-measure.html"))
+   python scripts\viz-preview.py sizes "$O\dom.html"
    ```
+
+   Les positions de `NODES0` sont calculées à partir des hauteurs mesurées (`H_*` en tête de
+   la disposition dans `visualization.html`). Après un changement de taille d'une carte,
+   reporter la nouvelle mesure dans la constante, sinon les liaisons ne sont plus droites.
+3. Tests et compilation sur le Pi5 (§4.2), puis déploiement avec `scripts/deploy-pi5.sh`.
+4. Capture de la page déployée, à comparer au schéma : même commande que la capture
+   ci-dessus, avec l'URL `http://192.168.1.141:8080/visualization`. Juste après un
+   déploiement, les MPPT et le Flux énergétique restent vides environ une minute (§4.4).
 
 ---
 
@@ -300,3 +316,13 @@ ionice -c3 nice -n19 cargo clippy --locked -j2 -p <crate> --all-targets -- -D wa
 - **Redémarrer daly-bms** : sans risque pour la base désormais. Un arrêt pendant la phase
   d'écriture d'une compaction peut toutefois prendre quelques minutes. Vérifier ensuite
   `curl http://127.0.0.1:8080/api/v1/redb/healthy` (200 = base prête).
+- **energy-manager redémarre avec daly-bms** (`PartOf=daly-bms.service` dans son unité) : tout
+  déploiement qui redémarre daly-bms relance aussi energy-manager. Pendant environ une minute,
+  les MPPT affichent « — », la production 0 W et le Flux énergétique « Pas de production »,
+  puis tout revient sans intervention.
+- **Attendre la fin d'un déploiement à distance** : lancer `deploy-pi5.sh` détaché
+  (`setsid nohup … > /tmp/deploy-viz.log &`), puis attendre avec
+  `while pgrep -f '[d]eploy-pi5.sh' >/dev/null; do sleep 15; done`. Avec `pgrep -f
+  deploy-pi5.sh`, la boucle se trouve elle-même et ne s'arrête jamais ; tuer `plink` côté PC ne
+  l'arrête pas sur le Pi5. Pour lister les processus, ne pas filtrer avec `grep -v grep` : cela
+  masque aussi les lignes « while pgrep ».
