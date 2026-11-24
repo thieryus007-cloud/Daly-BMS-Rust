@@ -87,11 +87,17 @@ MemoryHigh=256M
 MemoryMax=512M
 
 # Arrêt : SIGTERM → arrêt gracieux (drain HTTP + flush metrics-store, audit
-# 2026-06 §5). 60 s : laisse le flush + commit final redb se terminer sur une
-# grosse base (3-4 Go) AVANT le SIGKILL. Sans cette marge, un SIGKILL en plein
-# commit laisse la base à rouvrir en RÉCUPÉRATION au démarrage suivant
-# (lent → dépasse TimeoutStartSec → boucle de restart en échec).
-TimeoutStopSec=60
+# 2026-06 §5). Un SIGKILL avant la fin laisse la base redb à rouvrir en
+# RÉCUPÉRATION au démarrage suivant (mesuré : 18 min pour 11,8 Go).
+# Le runtime tokio attend la fin des tâches bloquantes avant de sortir :
+#  - compaction de maintenance (1re passe 60 s après le démarrage, ~20 min sur
+#    11,8 Go) : sa phase de lecture s'interrompt à l'arrêt, mais l'écriture et
+#    la purge (plusieurs minutes) vont au bout ;
+#  - ouverture/récupération redb en cours : ne s'interrompt pas ; la tuer la
+#    fait repartir de zéro au démarrage suivant.
+# 60 s ne suffisait pas : un redémarrage dans les ~20 min suivant un démarrage
+# finissait en SIGKILL puis en récupération. 30 min couvre ces deux cas.
+TimeoutStopSec=30min
 
 # Démarrage : READY=1 (Type=notify) n'est envoyé qu'APRÈS l'ouverture de
 # metrics-store (redb). Sur une grosse base — surtout après un arrêt non

@@ -91,6 +91,10 @@ struct Inner {
     /// rend `shutdown()` / `Drop` idempotents entre eux.
     shutdown_tx: parking_lot::Mutex<Option<mpsc::Sender<writer::WriterMsg>>>,
     writer_handle: parking_lot::Mutex<Option<thread::JoinHandle<()>>>,
+    /// Arrêt demandé (`MetricsStore::shutdown`) : la maintenance ne lance plus de passe et
+    /// interrompt la phase de lecture en cours (cf. `tiering`), pour que le process
+    /// s'arrête vite au lieu d'être tué par systemd en pleine écriture.
+    stop: Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl Inner {
@@ -173,6 +177,7 @@ impl MetricsStore {
                 db,
                 shutdown_tx: parking_lot::Mutex::new(Some(writer_tx)),
                 writer_handle: parking_lot::Mutex::new(Some(writer_handle)),
+                stop: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             }),
         })
     }
@@ -188,6 +193,9 @@ impl MetricsStore {
     /// les écritures ultérieures échouent en `Closed` (gérées par les
     /// producteurs), aucune panique.
     pub fn shutdown(&self) {
+        // D'abord la maintenance (phase lecture interrompue, aucune nouvelle passe), puis le
+        // writer : sans cela le runtime attend la fin d'une compaction de plusieurs minutes.
+        self.inner.stop.store(true, std::sync::atomic::Ordering::Relaxed);
         self.inner.shutdown_writer();
     }
 
@@ -232,7 +240,12 @@ impl MetricsStore {
     /// `interval_hours` contrôle la fréquence (défaut recommandé : 6 h ⇒
     /// 4 passes par jour). Cf. plan §9.1.
     pub fn spawn_maintenance(&self, policy: TierPolicy, interval_hours: u64) -> JoinHandle<()> {
-        tiering::spawn_maintenance(self.inner.db.clone(), policy, interval_hours)
+        tiering::spawn_maintenance(
+            self.inner.db.clone(),
+            policy,
+            interval_hours,
+            self.inner.stop.clone(),
+        )
     }
 
     /// Lance une seule passe de compaction synchrone (utilisée par
@@ -1189,6 +1202,40 @@ mod tests {
         // au néant après arrêt du writer — best-effort).
         let _ = w.try_write(Sample::new("x", 2, 2.0));
         drop(w);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// Arrêt du service : une passe interrompue en phase lecture n'écrit ni ne purge rien
+    /// (la passe suivante retrouve tous les points), et `shutdown()` lève le drapeau.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn compaction_stops_before_writing_when_shutdown_requested() {
+        use crate::tiering::{compact_raw_to_hourly, compact_raw_to_hourly_until};
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        let path = tmp_db_path("stop");
+        let _ = std::fs::remove_file(&path);
+        {
+            let opts = Options {
+                writer: WriterConfig { batch_max: 1, flush_ms: 20, poll_idle_ms: 2 },
+                ..Options::default()
+            };
+            let store = MetricsStore::open(&path, opts).expect("open");
+            let w = store.writer();
+            for ts in [0_i64, 1000, 2000] {
+                w.write(Sample::new("p", ts, 10.0)).await.unwrap();
+            }
+            tokio::time::sleep(Duration::from_millis(150)).await;
+
+            let stop = AtomicBool::new(true);
+            assert_eq!(compact_raw_to_hourly_until(&store.inner.db, 3000, &stop).unwrap(), None);
+            let s = compact_raw_to_hourly(&store.inner.db, 3000).unwrap();
+            assert_eq!(s.buckets_written, 1);
+            assert_eq!(s.points_purged, 3);
+
+            assert!(!store.inner.stop.load(Ordering::Relaxed));
+            store.shutdown();
+            assert!(store.inner.stop.load(Ordering::Relaxed));
+        }
         let _ = std::fs::remove_file(&path);
     }
 

@@ -102,6 +102,7 @@ Toshiba) : ils ne touchent ni `main.rs` ni le chemin d'ouverture redb.
 | 1 | `TimeoutStartSec` 300 → **infinity** | `contrib/daly-bms.service` (+ `scripts/jemalloc-leak-profile.sh`, commentaires `Config.toml`) | `cfe7695` |
 | 2 | Ouverture redb **en tâche de fond** (slot renseigné après récupération) | `crates/daly-bms-server/src/{main,state}.rs` (+ sites d'accès migrés) | `c07f5c2` |
 | 3 | **Sauvegarde quotidienne** crash-consistent + rotation | `scripts/backup-redb.sh`, `contrib/daly-bms-backup.{service,timer}`, `scripts/deploy-pi5.sh` | `c07f5c2`, `fda5dd6` |
+| 4 | **Arrêt sans SIGKILL pendant la maintenance ou la récupération** : `TimeoutStopSec` 60 s → **30 min**, phase de lecture de la compaction interruptible à l'arrêt | `contrib/daly-bms.service`, `crates/metrics-store/src/{lib,tiering}.rs` | voir § 5.4 |
 
 ### 5.1 `TimeoutStartSec=infinity`
 Aucune valeur **finie** ne couvre un fichier de taille arbitraire (choix
@@ -126,6 +127,24 @@ récupération, désormais tolérée par `infinity`). Le script `backup-redb.sh`
 copie horodatée + rotation (`KEEP`) + garde-fou espace + **verrou flock sur le
 répertoire** (anti-concurrence) + purge des `.partial` orphelins. Timer
 quotidien à 04:15 (`Persistent=true` → rattrapage si le Pi5 était éteint).
+
+### 5.4 Arrêt pendant la maintenance ou la récupération
+À la sortie, le runtime tokio **attend la fin des tâches bloquantes** : 1re passe
+de compaction (lancée 60 s après chaque démarrage, ~20 min sur 11,8 Go) ou
+ouverture/récupération redb en cours. Avec `TimeoutStopSec=60`, tout redémarrage
+dans les ~20 min suivant un démarrage finissait en **SIGKILL** en pleine écriture,
+puis en récupération au démarrage suivant (18 min pour 11,8 Go) ; un redémarrage
+pendant cette récupération la relançait de zéro. Désormais :
+- `MetricsStore::shutdown()` lève un drapeau d'arrêt : la maintenance ne lance plus
+  de passe et la **phase de lecture** en cours (balayage de la table, sans écriture)
+  s'interrompt aussitôt ; l'écriture et la purge déjà commencées vont au bout (sinon
+  double comptage des points non purgés, fusion R4) ;
+- `TimeoutStopSec=30min` laisse finir ces phases d'écriture ou une récupération en
+  cours au lieu de les tuer.
+
+Vérifications : log `compact raw→hourly interrompue (arrêt du service) — aucune
+écriture` lors d'un arrêt pendant une passe ; au démarrage suivant,
+`metrics-store ouvert … elapsed_s=0` (pas de récupération).
 
 ---
 

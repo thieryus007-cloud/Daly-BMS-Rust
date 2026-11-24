@@ -10,6 +10,8 @@
 #
 # Effet en production : deux redémarrages de daly-bms (quelques secondes sans
 # données BMS chacun). Rien n'est modifié dans le code ni dans la config.
+# Refuse de démarrer si la base de métriques n'est pas prête ou si la 1re passe
+# de maintenance depuis le dernier démarrage n'est pas terminée.
 #
 # Usage (sur le Pi5, depuis le dépôt) :
 #   sudo bash scripts/diag-bms-trames.sh          # capture de 120 s
@@ -25,6 +27,22 @@ DROPIN="$DROPIN_DIR/zz-diag-trace.conf"
 OUT="/tmp/diag-bms-trames-$(date +%Y%m%d-%H%M%S).log"
 
 [[ $EUID -eq 0 ]] || { echo "✗ Lancer avec sudo" >&2; exit 1; }
+[[ "$DUR" =~ ^[0-9]+$ ]] && (( DUR >= 10 && DUR <= 300 )) || { echo "✗ durée entre 10 et 300 s" >&2; exit 1; }
+
+# Préconditions : ne JAMAIS redémarrer daly-bms pendant l'ouverture / la récupération de la
+# base de métriques ni pendant la 1re passe de maintenance (≈ 20 min après un démarrage) :
+# l'arrêt attendrait leur fin (TimeoutStopSec) ou, s'il était tué, la base repartirait en
+# récupération (cf. contrib/daly-bms.service).
+code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/v1/redb/healthy || true)
+if [[ "$code" != "200" ]]; then
+    echo "✗ base de métriques pas prête (HTTP $code : ouverture ou récupération en cours) — réessayer plus tard" >&2
+    exit 1
+fi
+SINCE="$(systemctl show -p ActiveEnterTimestamp --value daly-bms)"
+if ! journalctl -u daly-bms --since "$SINCE" --no-pager | grep -q -E "compact hourly→daily (OK|failed|interrompue)"; then
+    echo "✗ 1re passe de maintenance pas terminée depuis le démarrage ($SINCE) — attendre (≈ 20 min)" >&2
+    exit 1
+fi
 
 revert() {
     rm -f "$DROPIN"

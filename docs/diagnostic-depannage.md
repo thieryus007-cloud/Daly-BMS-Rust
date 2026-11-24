@@ -175,7 +175,11 @@ comparer aux démarrages du Pi5 et aux déploiements.
 
 **2. Voir les octets** — `scripts/diag-bms-trames.sh` capture les trames brutes (niveau
 `trace` de `daly_bms_core::bus`) puis revient automatiquement au niveau `info`, même en cas
-d'interruption (deux redémarrages de daly-bms, quelques secondes sans données BMS chacun) :
+d'interruption (deux redémarrages de daly-bms, quelques secondes sans données BMS chacun).
+Il refuse de démarrer tant que la base de métriques n'est pas prête ou que la 1re passe de
+maintenance qui suit un démarrage (≈ 20 min) n'est pas terminée : un redémarrage à ce
+moment-là attend sa fin (`TimeoutStopSec=30min`), et un arrêt tué en pleine écriture
+remettrait la base en récupération (18 min pour 11,8 Go).
 
 ```bash
 cd ~/Daly-BMS-Rust && sudo bash scripts/diag-bms-trames.sh 120

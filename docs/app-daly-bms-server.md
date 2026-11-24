@@ -326,7 +326,7 @@ Runtime : [tokio-serial](https://docs.rs/tokio-serial/latest/tokio_serial/), [Ax
 | `0x21` | Calibration SOC | valeur × 10, encodée `uint16` big-endian dans DATA[0:1] |
 | `0x00` | Reset BMS | trame DATA = 0x00 × 8 ; confirmation `confirm: true` requise via API |
 
-> **Statut production** : les commandes de lecture sont validées en production (RPi5, données BMS 0x01/0x02/0x03 confirmées dans metrics-store depuis mars 2026). La validation des commandes d'écriture (MOS, SOC, reset) sur hardware réel est encore en cours (cf. Roadmap Phase 2).
+> **Statut production** : les commandes de lecture sont validées en production (RPi5, données BMS 0x01/0x02/0x03 confirmées dans metrics-store depuis mars 2026). **Reset (0x00) vérifié sur le matériel** (BMS 0x01) : pas d'accusé de réception (l'API répond `"ok": true` avec l'avertissement « Pas d'ACK BMS »), BMS muet quelques secondes pendant son redémarrage, aucune coupure de courant visible sur le pack (batterie pleine, charge faible). La validation des autres commandes d'écriture (MOS, SOC) sur hardware réel est encore en cours (cf. Roadmap Phase 2).
 
 ---
 

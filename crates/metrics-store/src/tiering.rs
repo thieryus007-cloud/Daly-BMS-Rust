@@ -8,8 +8,17 @@
 //!   compactés.
 //! - [`spawn_maintenance`] : tâche tokio qui exécute périodiquement les deux
 //!   compactions selon la `TierPolicy`.
+//!
+//! Arrêt du service : la phase de **lecture** d'une passe (balayage complet de la
+//! table, plusieurs minutes sur une grosse base) s'interrompt dès que le drapeau
+//! d'arrêt est levé (`MetricsStore::shutdown`), sans rien avoir écrit. Sans cela, le
+//! runtime tokio attend la fin de la tâche bloquante, systemd tue le processus en
+//! pleine écriture et la base repart en récupération au démarrage suivant. Les
+//! phases écriture + purge, elles, vont au bout : une passe arrêtée entre les deux
+//! ferait réagréger (donc compter deux fois) les points non purgés (fusion R4).
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -126,8 +135,22 @@ pub struct CompactionStats {
     pub points_purged: usize,
 }
 
+/// Nombre d'entrées lues entre deux consultations du drapeau d'arrêt.
+const STOP_CHECK_EVERY: usize = 4096;
+
 /// `raw → hourly` : agrège tous les points raw `ts < cutoff_ms`.
 pub fn compact_raw_to_hourly(db: &Database, cutoff_ms: i64) -> Result<CompactionStats> {
+    let never = AtomicBool::new(false);
+    Ok(compact_raw_to_hourly_until(db, cutoff_ms, &never)?.unwrap_or_default())
+}
+
+/// Comme [`compact_raw_to_hourly`], interruptible pendant la phase de lecture :
+/// `Ok(None)` si `stop` est levé avant toute écriture (rien n'a été modifié).
+pub fn compact_raw_to_hourly_until(
+    db: &Database,
+    cutoff_ms: i64,
+    stop: &AtomicBool,
+) -> Result<Option<CompactionStats>> {
     // 1. Phase lecture — agrège en mémoire. On mémorise le ts maximum
     //    réellement lu (`max_ts_read`) pour borner la purge (correctif R3).
     let mut buckets: HashMap<(u32, i64), AggBucketBuilder> = HashMap::new();
@@ -135,7 +158,10 @@ pub fn compact_raw_to_hourly(db: &Database, cutoff_ms: i64) -> Result<Compaction
     {
         let rtx = db.begin_read()?;
         let t_raw = rtx.open_table(TABLE_RAW)?;
-        for entry in t_raw.iter()? {
+        for (n, entry) in t_raw.iter()?.enumerate() {
+            if n % STOP_CHECK_EVERY == 0 && stop.load(Ordering::Relaxed) {
+                return Ok(None);
+            }
             let (k, v) = entry?;
             let (sid, ts) = dec_skey(k.value());
             if ts >= cutoff_ms {
@@ -154,7 +180,10 @@ pub fn compact_raw_to_hourly(db: &Database, cutoff_ms: i64) -> Result<Compaction
 
     let buckets_written = buckets.len();
     if buckets_written == 0 {
-        return Ok(CompactionStats::default());
+        return Ok(Some(CompactionStats::default()));
+    }
+    if stop.load(Ordering::Relaxed) {
+        return Ok(None);
     }
 
     // 2. Phase écriture des buckets — transaction unique. R4 : si un bucket
@@ -185,17 +214,30 @@ pub fn compact_raw_to_hourly(db: &Database, cutoff_ms: i64) -> Result<Compaction
     //    d'être purgé sans avoir été agrégé). Purge par lots (P3).
     let points_purged = purge_raw_before(db, max_ts_read.saturating_add(1))?;
 
-    Ok(CompactionStats { buckets_written, points_purged })
+    Ok(Some(CompactionStats { buckets_written, points_purged }))
 }
 
 /// `hourly → daily` : agrège tous les buckets horaires `ts < cutoff_ms`.
 pub fn compact_hourly_to_daily(db: &Database, cutoff_ms: i64) -> Result<CompactionStats> {
+    let never = AtomicBool::new(false);
+    Ok(compact_hourly_to_daily_until(db, cutoff_ms, &never)?.unwrap_or_default())
+}
+
+/// Comme [`compact_hourly_to_daily`], interruptible pendant la phase de lecture.
+pub fn compact_hourly_to_daily_until(
+    db: &Database,
+    cutoff_ms: i64,
+    stop: &AtomicBool,
+) -> Result<Option<CompactionStats>> {
     let mut buckets: HashMap<(u32, i64), AggBucketBuilder> = HashMap::new();
     let mut max_ts_read = i64::MIN;
     {
         let rtx = db.begin_read()?;
         let t_hour = rtx.open_table(TABLE_HOURLY)?;
-        for entry in t_hour.iter()? {
+        for (n, entry) in t_hour.iter()?.enumerate() {
+            if n % STOP_CHECK_EVERY == 0 && stop.load(Ordering::Relaxed) {
+                return Ok(None);
+            }
             let (k, v) = entry?;
             let (sid, ts) = dec_skey(k.value());
             if ts >= cutoff_ms {
@@ -215,7 +257,10 @@ pub fn compact_hourly_to_daily(db: &Database, cutoff_ms: i64) -> Result<Compacti
 
     let buckets_written = buckets.len();
     if buckets_written == 0 {
-        return Ok(CompactionStats::default());
+        return Ok(Some(CompactionStats::default()));
+    }
+    if stop.load(Ordering::Relaxed) {
+        return Ok(None);
     }
 
     // R4 : fusionne avec le bucket journalier existant le cas échéant.
@@ -241,7 +286,7 @@ pub fn compact_hourly_to_daily(db: &Database, cutoff_ms: i64) -> Result<Compacti
     // R3 + P3 : purge bornée au max lu, par lots.
     let points_purged = purge_hourly_before(db, max_ts_read.saturating_add(1))?;
 
-    Ok(CompactionStats { buckets_written, points_purged })
+    Ok(Some(CompactionStats { buckets_written, points_purged }))
 }
 
 /// Nombre max de clés supprimées par transaction de purge.
@@ -335,11 +380,13 @@ fn now_ms() -> i64 {
 }
 
 /// Boucle de maintenance — exécute les deux compactions toutes les
-/// `interval_hours` heures.
+/// `interval_hours` heures. S'arrête (sans démarrer de nouvelle passe, et en
+/// interrompant la phase de lecture en cours) dès que `stop` est levé.
 pub fn spawn_maintenance(
     db: Arc<Database>,
     policy: TierPolicy,
     interval_hours: u64,
+    stop: Arc<AtomicBool>,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
         let interval = Duration::from_secs(interval_hours.max(1) * 3600);
@@ -350,36 +397,47 @@ pub fn spawn_maintenance(
         // sans borne.
         tokio::time::sleep(Duration::from_secs(60)).await;
         loop {
+            if stop.load(Ordering::Relaxed) {
+                return;
+            }
             let now = now_ms();
             let cutoff_raw = now - policy.raw_retention_days as i64 * DAILY_MS;
             let cutoff_hourly = now - policy.hourly_retention_days as i64 * DAILY_MS;
 
-            let db_raw = db.clone();
+            let (db_raw, stop_raw) = (db.clone(), stop.clone());
             let raw_res = tokio::task::spawn_blocking(move || {
-                compact_raw_to_hourly(&db_raw, cutoff_raw)
+                compact_raw_to_hourly_until(&db_raw, cutoff_raw, &stop_raw)
             })
             .await;
             match raw_res {
-                Ok(Ok(s)) => tracing::info!(
+                Ok(Ok(Some(s))) => tracing::info!(
                     buckets = s.buckets_written,
                     purged = s.points_purged,
                     "compact raw→hourly OK"
                 ),
+                Ok(Ok(None)) => {
+                    tracing::info!("compact raw→hourly interrompue (arrêt du service) — aucune écriture");
+                    return;
+                }
                 Ok(Err(e)) => tracing::error!(error = %e, "compact raw→hourly failed"),
                 Err(e) => tracing::error!(error = %e, "spawn_blocking raw→hourly panicked"),
             }
 
-            let db_day = db.clone();
+            let (db_day, stop_day) = (db.clone(), stop.clone());
             let day_res = tokio::task::spawn_blocking(move || {
-                compact_hourly_to_daily(&db_day, cutoff_hourly)
+                compact_hourly_to_daily_until(&db_day, cutoff_hourly, &stop_day)
             })
             .await;
             match day_res {
-                Ok(Ok(s)) => tracing::info!(
+                Ok(Ok(Some(s))) => tracing::info!(
                     buckets = s.buckets_written,
                     purged = s.points_purged,
                     "compact hourly→daily OK"
                 ),
+                Ok(Ok(None)) => {
+                    tracing::info!("compact hourly→daily interrompue (arrêt du service) — aucune écriture");
+                    return;
+                }
                 Ok(Err(e)) => tracing::error!(error = %e, "compact hourly→daily failed"),
                 Err(e) => tracing::error!(error = %e, "spawn_blocking hourly→daily panicked"),
             }
