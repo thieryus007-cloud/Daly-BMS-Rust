@@ -4,14 +4,14 @@ Document de reprise pour une nouvelle session de travail. Il contient la spécif
 refonte de `visualization.html`, l'état actuel de l'installation et des développements, les
 points ouverts, et les procédures d'exploitation.
 
-**État du dépôt à la rédaction** : commit `eca5b89` ; copie locale (`C:\Daly-BMS-Rust`),
-GitHub et Pi5 identiques.
+**État** : la refonte du §1 est en service ; le §1 reste la référence de la disposition et
+des liaisons. Les points ouverts sont au §3.
 
 **Pour reprendre** :
 
 1. Lire ce document en entier.
-2. Joindre le schéma de l'utilisateur (image), dont le §1.2 est la transcription.
-3. Commencer par le §1.
+2. Pour toucher à la disposition, joindre le schéma de l'utilisateur (image), dont le §1.2 est
+   la transcription.
 
 ---
 
@@ -68,18 +68,18 @@ Tous les endpoints sont servis par daly-bms-server, sur le port 8080.
 | I-AC-1 | `ats-onduleur` (`AtsOnduleurNode`) | idem | Sous l'ATS, à gauche |
 | II-AC-2 | `ats-reseau` (`AtsReseauNode`) | idem | Sous l'ATS, à droite |
 | Multiplus | `onduleur` (`InverterNode`) | `/api/v1/venus/inverter` | Titre « EasySolar-II » → « Multiplus » (`viz_nodes_ats.js`, 2 occurrences) |
-| Inverter RS | `inverter-rs` (`PlaceholderNode`, « À venir ») | aucune tant qu'il n'est pas installé | Vrai bloc à la taille du Multiplus, toujours marqué « À venir » ; données branchées à l'installation (§3.1) |
+| Inverter RS | `inverter-rs` (`InverterRsNode`, « À venir ») | aucune tant qu'il n'est pas installé | Vrai bloc à la taille du Multiplus, toujours marqué « À venir » ; données branchées à l'installation (§3.1) |
 | ET112-AC2 | `et112-reseau` (`Et112CardNode`, 0x09) | `/api/v1/et112/9/status` | Placer au-dessus de l'Inverter RS |
 | Tasmota AC2 | `tongou-ac2` (`TongouGroupNode`) | `/api/v1/tasmota`, filtré sur `network = "AC-2"` | Placer à droite de l'ET112-AC2 |
 | ET112-Micro | `micro-ond` (`Et112CardNode`, 0x07) | `/api/v1/et112/7/status` | Libellé « ET112-Micro » ; à droite de Tasmota AC2 |
-| Shelly 2PM | — | `/api/v1/shelly` → `shelly[0].snapshot.channel_0` et `channel_1` (`output`, `power_w`, `voltage_v`, `current_a`, `energy_wh`) | **Nouveau** : carte à deux canaux (§1.5) |
+| Shelly 2PM | `shelly` (`ShellyNode`) | `/api/v1/shelly` → `shelly[0].snapshot.channel_0` et `channel_1` (`output`, `power_w`, `voltage_v`, `current_a`, `energy_wh`) | Carte à deux canaux, DEYE-1 / DEYE-2 (§1.5) |
 | Chauffe-eau | `chauffe-eau` (`WaterHeaterNode`) | Tongou `tongou_B459B8` + PAC Venus | Déplacer à gauche, sans liaison |
 | Climatisation | `climatisation` (`WaterHeaterNode`) | Tongou `tongou_3BC764` | En haut à droite, sans liaison |
-| Grid | — | aucune | **Nouveau** : carte « Off-grid » (§1.5) |
-| Cerbo GX | — | aucune | **Nouveau** : boîte seule (§1.5) |
-| Lynx Distributor | remplace `hubMPPT` et `hubBMS` (`HubNode`) | — | **Nouveau** : barre DC horizontale large |
+| Grid | `grid` (`BoxNode`) | aucune | Carte « Off-grid » (§1.5) |
+| Cerbo GX | `cerbo` (`BoxNode`) | aucune | Boîte seule (§1.5) |
+| Lynx Distributor | `lynx` (`LynxNode`) | — | Barre DC horizontale large |
 | SmartShunt | `smartshunt` (`SmartShuntNode`) | `/api/v1/venus/smartshunt` | Sous le Lynx |
-| BMS-360 / 320 / 620 Ah | `bms1`, `bms2`, `bms3` (`BmsNode`) | `/api/v1/bms/{1,2,3}/status` | Colonne à gauche, reliée au SmartShunt par une barre commune |
+| BMS-360 / 320 / 620 Ah | `bms1`, `bms2`, `bms3` (`BmsNode`) | `/api/v1/bms/{1,2,3}/status` | Colonne à gauche, reliée au SmartShunt par une barre commune (`bms-bus`, `BusNode`) |
 | MPPT | `mppt` (`MPPTGroupNode`) | `/api/v1/venus/mppt` | Grand bloc en bas à droite |
 | Flux énergétique | `sankey` (`SankeyNode`) | calculé dans `applyData` | À droite, au milieu, sans liaison |
 
@@ -110,8 +110,9 @@ pour un courant en ampères. Le sens s'inverse avec `reverse`.
   100 % hors réseau).
 - **Cerbo GX** : la boîte seule, avec son nom. Ni données ni liaison.
 - **Shelly 2PM** (« DEYE — Shelly Pro 2PM ») : les **deux canaux**, chacun avec son état
-  ON/OFF et sa puissance (éventuellement tension et énergie). Données :
-  `/api/v1/shelly`. Pas de liaison.
+  ON/OFF, sa puissance, sa tension et son énergie. Données : `/api/v1/shelly`. Pas de
+  liaison. Noms des canaux : **DEYE-1** (canal 1) et **DEYE-2** (canal 0), les mêmes que
+  dans Venus (§3.3) ; constante `SHELLY_DEYE_CHANNELS` de `visualization.html`.
 - **ATS** : la liaison vers I-AC-1 ou vers II-AC-2 dépend de la **source sélectionnée** ;
   conserver l'animation existante. Ce sont les arêtes dynamiques `ats-e1` et `ats-e2`, ajoutées
   dans `applyData` selon `sw1` / `sw2` / `middleOFF`. Les forçages de source (boutons des blocs
@@ -121,10 +122,10 @@ pour un courant en ampères. Le sens s'inverse avec `reverse`.
 
 | Fichier | Rôle |
 |---|---|
-| `crates/daly-bms-server/templates/visualization.html` | `NODES0` (positions), `EDGES0`, `applyData` (valeurs, arêtes ATS dynamiques), `fetchAll` (appels API), constantes `WH_TASMOTA` / `CLIM_TASMOTA` / `DEYE_TASMOTA` |
-| `viz_nodes_ats.js` | ATS, I/II, `InverterNode` (titre Multiplus) |
-| `viz_nodes_basic.js` | `Et112CardNode`, `HubNode`, `PlaceholderNode`, `BmsNode` |
-| `viz_nodes_devices.js` | `TongouGroupNode` (`data.title`), `WaterHeaterNode` |
+| `crates/daly-bms-server/templates/visualization.html` | constantes de disposition (`MP_X`, `RS_X`, `LYNX_*`, `BMS_Y`… : colonnes calculées pour des liaisons verticales droites), `NODES0` (positions), `EDGES0`, `applyData` (valeurs, arêtes ATS dynamiques), `fetchAll` (appels API), constantes `WH_TASMOTA` / `CLIM_TASMOTA` / `DEYE_TASMOTA` / `SHELLY_DEYE_CHANNELS` |
+| `viz_nodes_ats.js` | ATS (entrées I à gauche, II à droite, sortie en haut), I/II, `InverterNode` (Multiplus), `InverterRsNode` |
+| `viz_nodes_basic.js` | `Et112CardNode`, `LynxNode`, `BusNode` (barre BMS), `BoxNode` (Grid, Cerbo GX), `BmsNode` |
+| `viz_nodes_devices.js` | `TongouGroupNode` (`data.title`), `ShellyNode`, `WaterHeaterNode` |
 | `viz_nodes_venus.js` | `MPPTGroupNode`, `SmartShuntNode` |
 | `viz_edges.js` | arêtes animées (`AnimatedFlowEdge`, `CustomBezierEdge`, `TripleAtsEdge`) — pas de changement prévu |
 | `visualization.css` | styles des nouvelles cartes (Lynx, Grid, Cerbo, Shelly) |
@@ -236,8 +237,9 @@ Description complète : [ARCHITECTURE.md § Réseaux AC](./ARCHITECTURE.md).
 - **Chauffe-eau** : tant que le solaire ne couvre pas le TURBO, chaque essai peut coûter
   jusqu'à 40 Wh, rechargés ensuite par le surplus. Allonger le verrou du TURBO après un
   dépassement du budget a été proposé, sans décision.
-- **Shelly DEYE dans Venus** : noms personnalisés hérités « Chauffe-eau » / « Eclairage »
-  (instances 50 et 51, service Venus natif), renommables depuis la console.
+- **Shelly DEYE dans Venus** (service natif `acload.shelly_EC62608840A4_<canal>`) : canal 0
+  = instance 50 = « DEYE-2 », canal 1 = instance 51 = « DEYE-1 ». La page Visualisation
+  affiche les mêmes noms ; s'ils changent dans Venus, mettre à jour `SHELLY_DEYE_CHANNELS`.
 - **Healthcheck `histogram_quantile`** de `deploy-pi5.sh` : échec préexistant, connu.
 - **Laissés par la migration vers le Cerbo MK3** (côté utilisateur) : Home Assistant doit
   utiliser le portail `d81d13b31a8b`, et l'installation VRM orpheline peut être supprimée.

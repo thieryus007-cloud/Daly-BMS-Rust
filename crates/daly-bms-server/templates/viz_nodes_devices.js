@@ -24,6 +24,7 @@ const TongouGroupNode = memo(function TongouGroupNode({ data }) {
     mkHandle('target', Position.Top,    'tt'),
     mkHandle('source', Position.Bottom, 'sb'),
     mkHandle('target', Position.Left,  'tl', { top: '20%' }),
+    mkHandle('target', Position.Left,  'tlm', { top: '50%' }),
     mkHandle('source', Position.Right,  'sr'),
     mkHandle('target', Position.Right,  'tr', { top: '68%' }),
     mkHandle('source', Position.Left,   'sl', { top: '68%' }),
@@ -77,6 +78,51 @@ const TongouGroupNode = memo(function TongouGroupNode({ data }) {
     )
   );
 });
+
+// ── SHELLY PRO 2PM NODE — deux canaux, sans liaison ──────────────────────────
+// data.live : snapshot de /api/v1/shelly (channel_0, channel_1) ou null.
+// data.channels : [{ ch, name }] dans l'ordre d'affichage.
+function ShellyNode({ data }) {
+  const snap      = data.live;
+  const connected = !!snap;
+  const channels  = data.channels || [];
+  return h('div', { className: 'shelly-card' },
+    h('div', { className: 'sh-header' },
+      h('span', { className: 'sh-header-icon' }, '🔀'),
+      h('span', { className: 'sh-header-title' }, data.title || 'Shelly Pro 2PM'),
+      h('div',  { className: `sh-header-dot${connected ? ' live' : ''}` })
+    ),
+    channels.map(function (c) {
+      const d   = snap ? snap['channel_' + c.ch] : null;
+      const on  = d?.output ?? null;
+      const pw  = d?.power_w ?? null;
+      const v   = d?.voltage_v ?? null;
+      const nrj = d?.energy_wh != null ? d.energy_wh / 1000 : null;
+      return h('div', { key: c.ch, className: 'sh-ch' },
+        h('div', { className: 'sh-ch-row1' },
+          h('span', { className: 'sh-ch-name' }, c.name),
+          h('span', { className: 'sh-ch-num' }, `canal ${c.ch}`),
+          h('span', { className: `sh-ch-state ${on == null ? 'unknown' : on ? 'on' : 'off'}` },
+            on == null ? '—' : on ? 'ON' : 'OFF')
+        ),
+        h('div', { className: 'sh-ch-row2' },
+          h('div', { className: 'sh-metric' },
+            h('span', { className: 'sh-metric-lbl' }, 'Puissance'),
+            h('span', { className: 'sh-metric-val' }, pw != null ? `${pw.toFixed(0)} W` : '—')
+          ),
+          h('div', { className: 'sh-metric' },
+            h('span', { className: 'sh-metric-lbl' }, 'Tension'),
+            h('span', { className: 'sh-metric-val' }, v != null ? `${v.toFixed(1)} V` : '—')
+          ),
+          h('div', { className: 'sh-metric' },
+            h('span', { className: 'sh-metric-lbl' }, 'Énergie'),
+            h('span', { className: 'sh-metric-val' }, nrj != null ? `${nrj.toFixed(2)} kWh` : '—')
+          )
+        )
+      );
+    })
+  );
+}
 
 // ── WATERHEATER / CLIMATISATION NODE ─────────────────────────────────────────
 function WaterHeaterNode({ data }) {

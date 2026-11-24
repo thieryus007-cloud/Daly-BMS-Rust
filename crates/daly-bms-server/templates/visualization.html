@@ -44,33 +44,71 @@ const nodeTypes = {
   temperature: TemperatureNode,
   tongouGroup: TongouGroupNode,
   waterheater: WaterHeaterNode,
-  inverter: InverterNode,
+  inverter: InverterNode, inverterRs: InverterRsNode,
   atsreseau: AtsReseauNode, atsonduleur: AtsOnduleurNode, atsmain: AtsMainNode,
-  sankey: SankeyNode
+  sankey: SankeyNode,
+  lynx: LynxNode, bus: BusNode, box: BoxNode, shelly: ShellyNode
 };
 const edgeTypes = { doubleLine: AnimatedFlowEdge, customBezier: CustomBezierEdge, tripleAts: TripleAtsEdge };
 
+// ── Disposition (schéma de l'utilisateur : AC en haut, DC en bas) ────────────
+// Les colonnes sont calculées pour que les liaisons verticales soient droites :
+// I-AC-1 centré sur le Multiplus, II-AC-2 et ET112-AC2 sur les poignées du haut de
+// l'Inverter RS, ATS et ET112-AC1 entre I-AC-1 et II-AC-2, poignées du Lynx sous les
+// onduleurs. Largeurs : visualization.css (.inv-card 280, .pro-node 180,
+// .bms-card-in-viz 275, .tongou-group-card 330, .ss-card 230, .bms-nd 235).
+const W_INV = 280, W_ATS = 180, W_ET = 275, W_TG = 330, W_SS = 230, W_BMS = 235;
+const MP_X = 480, RS_X = 950;                          // Multiplus, Inverter RS
+const RS_ATS_PCT = 25, RS_ET_PCT = 85;                 // poignées du haut de l'Inverter RS
+const MP_C   = MP_X + W_INV / 2;                       // centre du Multiplus
+const RS_C   = RS_X + W_INV / 2;                       // centre de l'Inverter RS
+const I_C    = MP_C;                                   // centre de I-AC-1
+const II_C   = RS_X + W_INV * RS_ATS_PCT / 100;        // centre de II-AC-2
+const ATS_C  = (I_C + II_C) / 2;                       // centre de l'ATS et d'ET112-AC1
+const ET2_C  = RS_X + W_INV * RS_ET_PCT / 100;         // centre d'ET112-AC2
+const ET1_X  = ATS_C - W_ET / 2, ET2_X = ET2_C - W_ET / 2;
+const TG1_X  = ET1_X - 80 - W_TG;                      // Tasmota AC1 à gauche d'ET112-AC1
+const TG2_X  = ET2_X + W_ET + 80;                      // Tasmota AC2 à droite d'ET112-AC2
+const MICRO_X = TG2_X + W_TG + 80;                     // ET112-Micro à droite de Tasmota AC2
+const COL_A  = -120;                                   // Chauffe-eau, Grid, BMS
+const LYNX_X = 440, LYNX_W = 840, LYNX_Y = 1020;
+const LYNX_C = LYNX_X + LYNX_W / 2;
+const pctX   = x => ((x - LYNX_X) / LYNX_W) * 100;
+// BMS (hauteur ~98 px) et barre commune ; le SmartShunt (~137 px) est centré sur le BMS du milieu.
+const BMS_Y = [1034, 1149, 1264], BMS_H = 98;
+const BUS_Y = BMS_Y[0] + BMS_H / 2, BUS_H = BMS_Y[2] - BMS_Y[0];
+
+// Canaux du Shelly Pro 2PM des DEYE, avec les noms qu'ils portent dans Venus
+// (acload instance 51 = canal 1 = DEYE-1, instance 50 = canal 0 = DEYE-2).
+const SHELLY_DEYE_CHANNELS = [{ ch: 1, name: 'DEYE-1' }, { ch: 0, name: 'DEYE-2' }];
+
 const NODES0 = [
-  { id: 'chauffe-eau',   type: 'waterheater', position: { x: 780,  y: 500 }, data: { label: 'Chauffe-eau',   icon: '🚿', live: null, heatpump: null, isClimatisation: false } },
-  { id: 'climatisation', type: 'waterheater', position: { x: 780,  y: 720 }, data: { label: 'Climatisation', icon: '❄️',  live: null, heatpump: null, isClimatisation: true  } },
-  { id: 'micro-ond',   type: 'et112card',   position: { x: -800, y: 520 }, data: { label: 'Micro-onduleurs DEYE', address: 7, live: null } },
-  { id: 'et112-reseau',   type: 'et112card', position: { x: -350, y: 150 }, data: { label: 'ET112-AC2', address: 9, live: null } },
-  { id: 'inverter-rs', type: 'placeholder', position: { x: -330, y: 420 }, data: { label: 'Inverter RS Smart', icon: '🔌' } },
-  { id: 'et112-maison',   type: 'et112card', position: { x: 400, y: -30 }, data: { label: 'ET112-Maison', address: 8, live: null } },
-  { id: 'onduleur',    type: 'inverter',    position: { x: 10,   y: 400 }, data: { live: null } },
-  { id: 'sankey',      type: 'sankey',      position: { x: 400, y: 300 }, data: { microPwr: 0, mpptPwr: 0, batPwr: 0, loadPwr: 0 } },
-  { id: 'hubMPPT',    type: 'hub', position: { x: 148,   y: 650 }, data: { live: null } },
-  { id: 'mppt',        type: 'mpptGroup',   position: { x: 400,  y: 600 }, data: { mppts: [], totalPowerW: 0, totalDcA: 0 } },
-  { id: 'smartshunt',  type: 'smartshunt',  position: { x: 35,   y: 715 }, data: { live: null } },
-  { id: 'hubBMS',    type: 'hub', position: { x: -30,  y: 780 }, data: { live: null } },
-  { id: 'bms1',        type: 'bms', position: { x: -350, y: 620  }, data: { label: 'BMS-360Ah', live: null } },
-  { id: 'bms2',        type: 'bms', position: { x: -350, y: 730  }, data: { label: 'BMS-320Ah', live: null } },
-  { id: 'bms3',        type: 'bms', position: { x: -350, y: 840 }, data: { label: 'BMS-620Ah', live: null } },
-  { id: 'tongou-group', type: 'tongouGroup', position: { x: 780, y: -30 }, data: { title: 'Groupe I · AC-1 (sortie ATS)', switches: [], disabled: false, _rev: 0 } },
-  { id: 'tongou-ac2',   type: 'tongouGroup', position: { x: -800, y: -30 }, data: { title: 'Groupe II · AC-2', switches: [], disabled: false, _rev: 0 } },
-  { id: 'ats-reseau',   type: 'atsreseau',  position: { x: -300, y: -30 }, data: { v2a:'—', sw2:'Ouvert', s2a:'—', cnt2:'0', max2:'—', t2:'—', onForce: null, disabled: false, _rev: 0 } },
-  { id: 'ats-main',     type: 'atsmain',    position: { x: 60, y: -30 }, data: { swRemote:'—', swMode:'—', swFault:'—', middleOFF:'—', sw1:'—', sw2:'—', active_source:'—', onToggleRemote: null, onForceOff: null, disabled: false, _rev: 0 } },
-  { id: 'ats-onduleur', type: 'atsonduleur', position: { x: 60, y: 200 }, data: { v1a:'—', sw1:'Ouvert', s1a:'—', cnt1:'0', max1:'—', t1:'—', onForce: null, disabled: false, _rev: 0 } },
+  // ── AC ──
+  { id: 'chauffe-eau',   type: 'waterheater', position: { x: COL_A, y: 200 }, data: { label: 'Chauffe-eau',   icon: '🚿', live: null, heatpump: null, isClimatisation: false } },
+  { id: 'tongou-group',  type: 'tongouGroup', position: { x: TG1_X, y: 0 },   data: { title: 'Groupe I · AC-1 (sortie ATS)', switches: [], disabled: false, _rev: 0 } },
+  { id: 'et112-maison',  type: 'et112card',   position: { x: ET1_X, y: 204 }, data: { label: 'ET112-AC1', address: 8, live: null } },
+  { id: 'ats-main',      type: 'atsmain',     position: { x: ATS_C - W_ATS / 2, y: 390 }, data: { swRemote:'—', swMode:'—', swFault:'—', middleOFF:'—', sw1:'—', sw2:'—', active_source:'—', onToggleRemote: null, onForceOff: null, disabled: false, _rev: 0 } },
+  { id: 'ats-onduleur',  type: 'atsonduleur', position: { x: I_C - W_ATS / 2,   y: 590 }, data: { v1a:'—', sw1:'Ouvert', s1a:'—', cnt1:'0', max1:'—', t1:'—', onForce: null, disabled: false, _rev: 0 } },
+  { id: 'ats-reseau',    type: 'atsreseau',   position: { x: II_C - W_ATS / 2,  y: 590 }, data: { v2a:'—', sw2:'Ouvert', s2a:'—', cnt2:'0', max2:'—', t2:'—', onForce: null, disabled: false, _rev: 0 } },
+  { id: 'et112-reseau',  type: 'et112card',   position: { x: ET2_X, y: 204 }, data: { label: 'ET112-AC2', address: 9, live: null } },
+  { id: 'tongou-ac2',    type: 'tongouGroup', position: { x: TG2_X, y: 0 },   data: { title: 'Groupe II · AC-2', switches: [], disabled: false, _rev: 0 } },
+  { id: 'micro-ond',     type: 'et112card',   position: { x: MICRO_X, y: 301 }, data: { label: 'ET112-Micro', address: 7, live: null } },
+  { id: 'shelly',        type: 'shelly',      position: { x: MICRO_X + W_ET + 70, y: 301 }, data: { title: 'Shelly Pro 2PM', channels: SHELLY_DEYE_CHANNELS, live: null } },
+  { id: 'climatisation', type: 'waterheater', position: { x: MICRO_X, y: 0 }, data: { label: 'Climatisation', icon: '❄️',  live: null, heatpump: null, isClimatisation: true  } },
+  { id: 'sankey',        type: 'sankey',      position: { x: (TG2_X + MICRO_X + W_ET) / 2 - 140, y: 600 }, data: { microPwr: 0, mpptPwr: 0, batPwr: 0, loadPwr: 0 } },
+  { id: 'grid',          type: 'box',         position: { x: COL_A, y: 800 }, data: { title: 'Grid', badge: 'Off-grid', variant: 'grid' } },
+  // ── Onduleurs ──
+  { id: 'onduleur',      type: 'inverter',    position: { x: MP_X, y: 800 }, data: { live: null } },
+  { id: 'inverter-rs',   type: 'inverterRs',  position: { x: RS_X, y: 800 }, data: { atsPct: RS_ATS_PCT, etPct: RS_ET_PCT } },
+  { id: 'cerbo',         type: 'box',         position: { x: (MP_X + W_INV + RS_X) / 2 - 75, y: 880 }, data: { title: 'Cerbo GX', variant: 'cerbo' } },
+  // ── DC ──
+  { id: 'lynx',          type: 'lynx',        position: { x: LYNX_X, y: LYNX_Y }, data: { width: LYNX_W, mpPct: pctX(MP_C), rsPct: pctX(RS_C), shuntPct: 50 } },
+  { id: 'mppt',          type: 'mpptGroup',   position: { x: (TG2_X + MICRO_X + W_ET) / 2 - 155, y: 1008 }, data: { mppts: [], totalPowerW: 0, totalDcA: 0 } },
+  { id: 'smartshunt',    type: 'smartshunt',  position: { x: LYNX_C - W_SS / 2, y: BMS_Y[1] + BMS_H / 2 - 68 }, data: { live: null } },
+  { id: 'bms-bus',       type: 'bus',         position: { x: COL_A + W_BMS + 60, y: BUS_Y }, data: { height: BUS_H, inPcts: [0, 50, 100], outPct: 50 } },
+  { id: 'bms1',          type: 'bms',         position: { x: COL_A, y: BMS_Y[0] }, data: { label: 'BMS-360Ah', live: null } },
+  { id: 'bms2',          type: 'bms',         position: { x: COL_A, y: BMS_Y[1] }, data: { label: 'BMS-320Ah', live: null } },
+  { id: 'bms3',          type: 'bms',         position: { x: COL_A, y: BMS_Y[2] }, data: { label: 'BMS-620Ah', live: null } },
 ];
 
 const COLOR = { ac: '#2563eb', dc: '#ea580c', bat: '#16a34a', gray: '#94a3b8' };
@@ -87,8 +125,8 @@ function mkEdge(id, src, tgt, color, opts = {}) {
   };
 }
 
-const HIST_ET112_7 = { metric: 'et112_power_w',                    address: '0x07', label: 'Micro-Onduleurs — W (6h)' };
-const HIST_ET112_8 = { metric: 'et112_power_w',                    address: '0x08', label: 'ET112-Maison (AC-1) — W (6h)' };
+const HIST_ET112_7 = { metric: 'et112_power_w',                    address: '0x07', label: 'ET112-Micro — W (6h)' };
+const HIST_ET112_8 = { metric: 'et112_power_w',                    address: '0x08', label: 'ET112-AC1 — W (6h)' };
 const HIST_ET112_9 = { metric: 'et112_power_w',                    address: '0x09', label: 'ET112-AC2 — W (6h)' };
 
 // Tongou (topic MQTT) affichés à part : chauffe-eau, climatisation, et coupure des DEYE
@@ -105,26 +143,31 @@ const HIST_BMS_1   = { metric: 'bms_current',   bms_id: '0x01',                 
 const HIST_BMS_2   = { metric: 'bms_current',   bms_id: '0x02',                    label: 'BMS-320Ah — I (6h)' };
 const HIST_BMS_3   = { metric: 'bms_current',   bms_id: '0x03',                    label: 'BMS-620Ah — I (6h)' };
 const HIST_MPPT    = { metric: 'solar_total_w',                                     label: 'Solaire total — W (6h)' };
-const HIST_INV_DC  = { metric: 'venus_inverter_power_w',                            label: 'Onduleur — P DC (6h)' };
-const HIST_INV_AC  = { metric: 'venus_inverter_ac_output_power_w',                  label: 'Onduleur — P AC sortie (6h)' };
+const HIST_INV_DC  = { metric: 'venus_inverter_power_w',                            label: 'Multiplus — P DC (6h)' };
+const HIST_INV_AC  = { metric: 'venus_inverter_ac_output_power_w',                  label: 'Multiplus — P AC sortie (6h)' };
 const HIST_SHUNT   = { metric: 'venus_shunt_current_a',                             label: 'SmartShunt — I batterie (6h)' };
 
+// Liaisons du schéma. Les arêtes ATS ↔ I-AC-1 / II-AC-2 (ats-e1 / ats-e2) sont ajoutées
+// dans applyData selon la source sélectionnée.
 const EDGES0 = [
-  mkEdge('e-ats-maison', 'ats-main', 'et112-maison',   COLOR.ac,  { sourceHandle: 'main-right', targetHandle: 'tl', type: 'customBezier', history: HIST_ET112_8 }),
-  mkEdge('e-onduleur-ats', 'ats-onduleur', 'onduleur',   COLOR.ac,  { sourceHandle: 'onduleur-bottom', targetHandle: 'tt', history: HIST_INV_AC }),
-  mkEdge('e-maison-switchs', 'et112-maison', 'tongou-group',   COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tl', type: 'customBezier', history: HIST_ET112_8 }),
-  // Réseau AC-2 : Inverter RS Smart → ET112-AC2 → groupe II (+ DEYE via leur Tongou) et entrée II de l'ATS
-  mkEdge('e-rs-ac2',      'et112-reseau', 'inverter-rs',  COLOR.ac,  { sourceHandle: 'sb', targetHandle: 'tt', history: HIST_ET112_9 }),
-  mkEdge('e-ac2-ats',     'et112-reseau', 'ats-reseau',   COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'reseau-in', type: 'customBezier', history: HIST_ET112_9 }),
-  mkEdge('e-ac2-switchs', 'et112-reseau', 'tongou-ac2',   COLOR.ac,  { sourceHandle: 'sl', targetHandle: 'tr', type: 'customBezier', history: HIST_ET112_9 }),
-  mkEdge('e-micro-ac2',   'micro-ond',    'tongou-ac2',   COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tr', type: 'customBezier', history: HIST_ET112_7 }),
-  mkEdge('e-mppt-shu', 'mppt',      'hubMPPT', COLOR.dc,  { sourceHandle: 'sl', targetHandle: 'tr', type: 'customBezier', history: HIST_MPPT }),
-  mkEdge('e-ond-shu',  'onduleur',  'hubMPPT', COLOR.dc,  { sourceHandle: 'sb', targetHandle: 'tt', history: HIST_INV_DC }),
-  mkEdge('e-hub-shu',  'hubMPPT',  'smartshunt', COLOR.dc,  { sourceHandle: 'sb', targetHandle: 'tt', history: HIST_SHUNT }),
-  mkEdge('e-shu-hubBMS', 'hubBMS', 'smartshunt',  COLOR.bat, { sourceHandle: 'sr', targetHandle: 'tl', history: HIST_SHUNT }),
-  mkEdge('e-hubBMS-b1',  'bms1', 'hubBMS',       COLOR.bat, { sourceHandle: 'sr', targetHandle: 'tl', type: 'customBezier', history: HIST_BMS_1 }),
-  mkEdge('e-hubBMS-b2',  'bms2', 'hubBMS',       COLOR.bat, { sourceHandle: 'sr', targetHandle: 'tl', history: HIST_BMS_2 }),
-  mkEdge('e-hubBMS-b3',  'bms3', 'hubBMS',       COLOR.bat, { sourceHandle: 'sr', targetHandle: 'tl', type: 'customBezier', history: HIST_BMS_3 }),
+  // AC-1 : ATS → ET112-AC1 → Tasmota AC1 ; Multiplus → I-AC-1
+  mkEdge('e-ats-maison',     'ats-main',     'et112-maison', COLOR.ac,  { sourceHandle: 'main-top', targetHandle: 'tb', history: HIST_ET112_8 }),
+  mkEdge('e-maison-switchs', 'et112-maison', 'tongou-group', COLOR.ac,  { sourceHandle: 'sl', targetHandle: 'tr', type: 'customBezier', history: HIST_ET112_8 }),
+  mkEdge('e-onduleur-ats',   'ats-onduleur', 'onduleur',     COLOR.ac,  { sourceHandle: 'onduleur-bottom', targetHandle: 'tt', history: HIST_INV_AC }),
+  // AC-2 : Inverter RS → II-AC-2 et → ET112-AC2 → Tasmota AC2 ; ET112-Micro (DEYE) → Tasmota AC2
+  mkEdge('e-rs-ats2',        'inverter-rs',  'ats-reseau',   COLOR.ac,  { sourceHandle: 'st-ats', targetHandle: 'reseau-in' }),
+  mkEdge('e-rs-ac2',         'et112-reseau', 'inverter-rs',  COLOR.ac,  { sourceHandle: 'sb', targetHandle: 'tt-et', history: HIST_ET112_9 }),
+  mkEdge('e-ac2-switchs',    'et112-reseau', 'tongou-ac2',   COLOR.ac,  { sourceHandle: 'sr', targetHandle: 'tlm', type: 'customBezier', history: HIST_ET112_9 }),
+  mkEdge('e-micro-ac2',      'micro-ond',    'tongou-ac2',   COLOR.ac,  { sourceHandle: 'sl', targetHandle: 'tr', type: 'customBezier', history: HIST_ET112_7 }),
+  // DC : Multiplus, Inverter RS, MPPT ↔ Lynx Distributor ↔ SmartShunt ↔ barre BMS ↔ BMS
+  mkEdge('e-ond-lynx',       'onduleur',     'lynx',         COLOR.dc,  { sourceHandle: 'sb', targetHandle: 'in-mp', history: HIST_INV_DC }),
+  mkEdge('e-rs-lynx',        'inverter-rs',  'lynx',         COLOR.dc,  { sourceHandle: 'sb', targetHandle: 'in-rs' }),
+  mkEdge('e-mppt-lynx',      'mppt',         'lynx',         COLOR.dc,  { sourceHandle: 'sl', targetHandle: 'in-mppt', type: 'customBezier', history: HIST_MPPT }),
+  mkEdge('e-lynx-shunt',     'lynx',         'smartshunt',   COLOR.dc,  { sourceHandle: 'out-shunt', targetHandle: 'tt', history: HIST_SHUNT }),
+  mkEdge('e-shu-bus',        'bms-bus',      'smartshunt',   COLOR.bat, { sourceHandle: 'out', targetHandle: 'tl', type: 'customBezier', history: HIST_SHUNT }),
+  mkEdge('e-bus-b1',         'bms1',         'bms-bus',      COLOR.bat, { sourceHandle: 'sr', targetHandle: 'in-b1', type: 'customBezier', history: HIST_BMS_1 }),
+  mkEdge('e-bus-b2',         'bms2',         'bms-bus',      COLOR.bat, { sourceHandle: 'sr', targetHandle: 'in-b2', type: 'customBezier', history: HIST_BMS_2 }),
+  mkEdge('e-bus-b3',         'bms3',         'bms-bus',      COLOR.bat, { sourceHandle: 'sr', targetHandle: 'in-b3', type: 'customBezier', history: HIST_BMS_3 }),
 ];
 
 
@@ -206,22 +249,30 @@ const atsExecRef = useRef(null);
           case 'e-micro-ac2':       fv = Math.abs(et7?.power_w              ?? 0); break;
           // Courant AC sortie onduleur (A) — diviseur adapté aux ampères
           case 'e-onduleur-ats':    fv = Math.abs(inverter?.ac_output_current_a ?? 0); rev = true; speedDiv = 5; break;
+          // Inverter RS pas encore installé : ET112-AC2 en attendant (à brancher à son installation).
+          case 'e-rs-ats2':         fv = Math.abs(et9?.power_w              ?? 0); break;
           case 'e-rs-ac2':          fv = Math.abs(et9?.power_w              ?? 0); rev = true; break;
-          case 'e-ac2-ats':         fv = Math.abs(et9?.power_w              ?? 0); break;
           case 'e-ac2-switchs':     fv = sumOn(tasmotaAc2.filter(t => t.tasmota_id !== DEYE_TASMOTA)); break;
-          case 'e-mppt-shu':        fv = mpptTotalPowerW;                          break;
-          case 'e-ond-shu':         fv = Math.abs(inverter?.power_w         ?? 0); break;
-          case 'e-hub-shu':         fv = mpptTotalPowerW + Math.abs(inverter?.power_w ?? 0); break;
-          case 'e-shu-hubBMS': {
+          case 'e-mppt-lynx':       fv = mpptTotalPowerW;                          break;
+          case 'e-rs-lynx':         fv = 0;                                        break;
+          // Multiplus : P DC < 0 en onduleur (Lynx → Multiplus), > 0 en charge.
+          case 'e-ond-lynx': {
+            const pw = inverter?.power_w ?? 0; fv = Math.abs(pw); rev = pw < 0; break;
+          }
+          // SmartShunt : P > 0 = charge (Lynx → batteries), < 0 = décharge.
+          case 'e-lynx-shunt': {
+            const pw = shunt?.power_w ?? 0; fv = Math.abs(pw); rev = pw < 0; break;
+          }
+          case 'e-shu-bus': {
             const pw = shunt?.power_w ?? 0; fv = Math.abs(pw); rev = pw > 0; break;
           }
-          case 'e-hubBMS-b1': {
+          case 'e-bus-b1': {
             const pw = bms1?.Dc?.Power ?? 0; fv = Math.abs(pw); rev = pw > 0; break;
           }
-          case 'e-hubBMS-b2': {
+          case 'e-bus-b2': {
             const pw = bms2?.Dc?.Power ?? 0; fv = Math.abs(pw); rev = pw > 0; break;
           }
-          case 'e-hubBMS-b3': {
+          case 'e-bus-b3': {
             const pw = bms3?.Dc?.Power ?? 0; fv = Math.abs(pw); rev = pw > 0; break;
           }
         }
@@ -253,7 +304,7 @@ const atsExecRef = useRef(null);
             type: 'tripleAts',
             style: { stroke: sw1C ? '#6366f1' : '#10b981', strokeWidth: 2 },
             data: {
-              useBezier: true,
+              useBezier: false,
               flowValue: e2pwr,
               flowSpeed: Math.min(4, Math.max(0.4, e2pwr / 500)),
               flowColor: sw1C ? '#6366f1' : '#10b981',
@@ -302,6 +353,7 @@ const atsExecRef = useRef(null);
         case 'climatisation': return { ...n, data: { ...n.data, live: tasmotaLive(tasmotaDevices.find(t => t.tasmota_id === CLIM_TASMOTA)), heatpump: hp9 } };
         case 'mppt':        return { ...n, data: { ...n.data, mppts: mpptList, totalPowerW: mpptTotalPowerW, totalDcA: mpptTotalDcA } };
         case 'smartshunt':  return { ...n, data: { ...n.data, live: shunt ?? null } };
+        case 'shelly':      return { ...n, data: { ...n.data, live: d.shelly ?? null } };
         case 'tongou-group': return { ...n, data: { ...n.data, switches: tasmotaAc1, disabled: atsProcessing, _rev: newRev } };
         case 'tongou-ac2':   return { ...n, data: { ...n.data, switches: tasmotaAc2, disabled: atsProcessing, _rev: newRev } };
 
@@ -385,17 +437,20 @@ const atsExecRef = useRef(null);
       const mpptList        = venusResp?.mppts         ?? [];
       const mpptTotalPowerW = venusResp?.total_power_w  ?? 0;
       const mpptTotalDcA    = venusResp?.total_dc_current_a ?? 0;
-      const [shuntResp, inverterResp, heatpumpsResp] = await Promise.all([
+      const [shuntResp, inverterResp, heatpumpsResp, shellyResp] = await Promise.all([
         safe(fetch('/api/v1/venus/smartshunt').then(r => r.ok ? r.json() : null)),
         safe(fetch('/api/v1/venus/inverter').then(r => r.ok ? r.json() : null)),
         safe(fetch('/api/v1/venus/heatpumps').then(r => r.ok ? r.json() : null)),
+        safe(fetch('/api/v1/shelly').then(r => r.ok ? r.json() : null)),
       ]);
       const shunt = shuntResp?.shunt ?? null;
       const inverter = inverterResp?.inverter ?? null;
       const heatpumps = heatpumpsResp?.heatpumps ?? [];
       const ats = atsResp?.values ?? null;
+      // Shelly Pro 2PM des DEYE (seul Shelly configuré) : dernier relevé, null si jamais reçu.
+      const shelly = shellyResp?.shelly?.[0]?.snapshot ?? null;
 
-      applyData({ bms1, bms2, bms3, et7, et8, et9, mpptList, mpptTotalPowerW, mpptTotalDcA, shunt, inverter, ats, tasmotaDevices, heatpumps });
+      applyData({ bms1, bms2, bms3, et7, et8, et9, mpptList, mpptTotalPowerW, mpptTotalDcA, shunt, inverter, ats, tasmotaDevices, heatpumps, shelly });
     }
     fetchAll();
     const timer = setInterval(fetchAll, 2000);

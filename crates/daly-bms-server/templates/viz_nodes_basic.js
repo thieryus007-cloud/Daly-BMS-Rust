@@ -83,6 +83,7 @@ function Et112CardNode({ data }) {
     mkHandle('source', Position.Left,   'sl', { top: '50%' }),
     mkHandle('target', Position.Top,    'tt'),
     mkHandle('source', Position.Bottom, 'sb'),
+    mkHandle('target', Position.Bottom, 'tb'),
     mkHandle('source', Position.Right,  'sr'),
     mkHandle('target', Position.Right,  'tr', { top: '50%' }),
     h('div', { className: `bms-card-in-viz ${connected ? '' : 'offline-card'}`, style: { opacity: connected ? 1 : 0.85 } },
@@ -158,6 +159,41 @@ function HubNode({ data }) {
     h('div', { className: 'hub-icon' }, data.icon),
     h('div', { className: 'hub-lbl'  }, data.label),
     data.sub && h('div', { className: 'hub-sub' }, data.sub)
+  );
+}
+
+// ── LYNX DISTRIBUTOR NODE — barre DC horizontale ──────────────────────────────
+// Positions des poignées en % de la largeur (calculées dans visualization.html) :
+// data.mpPct / data.rsPct (haut, Multiplus / Inverter RS), data.shuntPct (bas, SmartShunt).
+// Le MPPT arrive par la droite.
+function LynxNode({ data }) {
+  return h('div', { className: 'lynx-nd', style: { width: data.width } },
+    mkHandle('target', Position.Top,    'in-mp',     { left: `${data.mpPct}%` }),
+    mkHandle('target', Position.Top,    'in-rs',     { left: `${data.rsPct}%` }),
+    mkHandle('target', Position.Right,  'in-mppt'),
+    mkHandle('source', Position.Bottom, 'out-shunt', { left: `${data.shuntPct}%` }),
+    h('span', { className: 'lynx-lbl' }, 'Lynx Distributor')
+  );
+}
+
+// ── BMS BUS NODE — barre verticale commune des BMS ────────────────────────────
+// data.height (px) ; data.inPcts : % de hauteur des entrées in-b1..in-bN (une par BMS) ;
+// data.outPct : % de hauteur de la sortie vers le SmartShunt.
+function BusNode({ data }) {
+  const ins = (data.inPcts || []).map((pct, i) =>
+    mkHandle('target', Position.Left, `in-b${i + 1}`, { top: `${pct}%` }));
+  return h('div', { className: 'bus-nd', style: { height: data.height } },
+    ...ins,
+    mkHandle('source', Position.Right, 'out', { top: `${data.outPct ?? 50}%` })
+  );
+}
+
+// ── BOX NODE — carte simple sans donnée ni liaison (Grid, Cerbo GX) ──────────
+function BoxNode({ data }) {
+  return h('div', { className: `box-nd${data.variant ? ' box-' + data.variant : ''}` },
+    data.icon && h('span', { className: 'box-icon' }, data.icon),
+    h('span', { className: 'box-title' }, data.title),
+    data.badge && h('span', { className: 'box-badge' }, data.badge)
   );
 }
 

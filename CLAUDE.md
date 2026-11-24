@@ -337,7 +337,8 @@ com.victronenergy.meteo                   Irradiance PRALRAN + TodaysYield (inst
 Services Victron natifs du GX (Cerbo GX MK3) : `vebus.ttyS4` (MultiPlus-II, inst. **276**),
 `solarcharger.*` 273 (250/100 Sud) + 288 (150/70 Toiture) + 289–292 (150/35 Toit montagne,
 T.Nord, T.Sud, T.milieu), `battery.ttyS2` 274 (SmartShunt 300A, moniteur batterie système),
-`switch.HQ2518CFAPP` 50 (GX IO extender 150), `acload.shelly_EC62608840A4_0/1` 50/51.
+`switch.HQ2518CFAPP` 50 (GX IO extender 150), `acload.shelly_EC62608840A4_0/1` 50/51
+(Shelly Pro 2PM des DEYE : canal 0 = « DEYE-2 », canal 1 = « DEYE-1 »).
 Tableau complet : `nanoPi/README.md`.
 
 > **Switches Tongou** : **tous du MÊME modèle** — disjoncteurs/switchs intelligents

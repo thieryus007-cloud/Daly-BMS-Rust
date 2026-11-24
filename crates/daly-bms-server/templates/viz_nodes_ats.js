@@ -12,8 +12,9 @@ function AtsReseauNode({ data }) {
     if (typeof data.onForce === 'function' && !data.disabled) data.onForce();
   }, [data.onForce, data.disabled]);
 
+  // reseau-out (haut) → entrée droite de l'ATS ; reseau-in (bas) ← Inverter RS.
   return h('div', { className: `pro-node${active ? ' active-source' : ''}` },
-    mkHandle('source', Position.Right,  'reseau-out'),
+    mkHandle('source', Position.Top,    'reseau-out'),
     mkHandle('target', Position.Bottom, 'reseau-in'),
     h('div', { className: 'pn-banner' },
       h('div', { className: 'pn-banner-left' },
@@ -127,10 +128,12 @@ function AtsMainNode({ data }) {
     }
   }, [data.onForceOff, data.disabled]);
 
+  // Entrées : source I (I-AC-1, en bas à gauche) par la gauche, source II (II-AC-2, en bas à
+  // droite) par la droite. Sortie : vers ET112-AC1, au-dessus.
   return h('div', { className: 'pro-node' },
-    mkHandle('target', Position.Left,   'ats-in-reseau'),
-    mkHandle('source', Position.Right,  'main-right'),
-    mkHandle('target', Position.Bottom, 'ats-in-onduleur', { top: '65%' }),
+    mkHandle('target', Position.Left,   'ats-in-onduleur'),
+    mkHandle('target', Position.Right,  'ats-in-reseau'),
+    mkHandle('source', Position.Top,    'main-top'),
     h('div', { className: 'pn-banner' },
       h('div', { className: 'pn-banner-left' },
         h('div', { className: 'pn-bicon pn-bicon-ats' }, '🔀'),
@@ -191,7 +194,7 @@ function InverterNode({ data }) {
     mkHandle('source', Position.Left,   'sl', { top: '65%' }),
     h('div', { className: 'inv-hdr' },
       h('span', { className: 'inv-hdr-icon' }, '⚡'),
-      h('span', { className: 'inv-hdr-title' }, 'EasySolar-II'),
+      h('span', { className: 'inv-hdr-title' }, 'Multiplus'),
       h('div', { className: 'inv-dot' })
     ),
     h('div', { className: 'inv-wait' }, 'En attente…')
@@ -226,7 +229,7 @@ function InverterNode({ data }) {
     mkHandle('source', Position.Left,   'sl', { top: '65%' }),
     h('div', { className: 'inv-hdr' },
       h('span', { className: 'inv-hdr-icon' }, '⚡'),
-      h('span', { className: 'inv-hdr-title' }, 'EasySolar-II'),
+      h('span', { className: 'inv-hdr-title' }, 'Multiplus'),
       h('span', { className: `inv-state-badge ${stateClass}` }, state),
       h('div', { className: 'inv-dot live' })
     ),
@@ -246,5 +249,33 @@ function InverterNode({ data }) {
       h('div', { className: 'inv-kpi' }, h('span', { className: 'inv-kpi-lbl' }, 'Courant'),   h('span', { className: 'inv-kpi-val dc' }, dcI != null ? `${dcI.toFixed(1)}A` : '—')),
       h('div', { className: 'inv-kpi' }, h('span', { className: 'inv-kpi-lbl' }, 'Puissance'), h('span', { className: 'inv-kpi-val dc' }, dcP != null ? `${dcP.toFixed(0)}W` : '—'))
     )
+  );
+}
+
+// ── INVERTER RS NODE — réseau AC-2 ────────────────────────────────────────────
+// Même gabarit que le Multiplus. Pas encore installé : « À venir », valeurs « — ».
+// Poignées du haut : st-ats → II-AC-2 (data.atsPct), tt-et ← ET112-AC2 (data.etPct).
+function InverterRsNode({ data }) {
+  const dash = (lbl, cls) => h('div', { className: 'inv-kpi' },
+    h('span', { className: 'inv-kpi-lbl' }, lbl),
+    h('span', { className: `inv-kpi-val ${cls}` }, '—'));
+  return h('div', { className: 'inv-card' },
+    mkHandle('source', Position.Top,    'st-ats', { left: `${data.atsPct ?? 25}%` }),
+    mkHandle('target', Position.Top,    'tt-et',  { left: `${data.etPct ?? 85}%` }),
+    mkHandle('source', Position.Bottom, 'sb'),
+    h('div', { className: 'inv-hdr' },
+      h('span', { className: 'inv-hdr-icon' }, '⚡'),
+      h('span', { className: 'inv-hdr-title' }, 'Inverter RS'),
+      h('span', { className: 'inv-state-badge off' }, 'À venir'),
+      h('div', { className: 'inv-dot' })
+    ),
+    h('div', { className: 'inv-ignore-bar' },
+      h('span', { className: 'inv-ignore-lbl' }, 'Réseau'),
+      h('span', { className: 'inv-ignore-val' }, 'AC-2')
+    ),
+    h('div', { className: 'inv-section-hdr' }, 'AC Out'),
+    h('div', { className: 'inv-kpi-row' }, dash('Tension', 'ac'), dash('Courant', 'ac'), dash('Puissance', 'ac')),
+    h('div', { className: 'inv-section-hdr' }, 'DC'),
+    h('div', { className: 'inv-kpi-row' }, dash('Tension', 'dc'), dash('Courant', 'dc'), dash('Puissance', 'dc'))
   );
 }
