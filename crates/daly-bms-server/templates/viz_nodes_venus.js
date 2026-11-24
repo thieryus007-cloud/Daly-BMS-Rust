@@ -31,7 +31,7 @@ function MPPTGroupNode({ data }) {
     h('div', { className: 'mg-header' },
       h('span', { className: 'mg-header-icon' }, '☀️'),
       h('span', { className: 'mg-header-title' }, 'SmartSolar MPPT'),
-      h('span', { style: { fontSize:'0.65rem', opacity:0.8, marginLeft:'auto' } }, `${displayList.length} chargeurs`)
+      h('span', { className: 'mg-header-count' }, `${displayList.length} chargeurs`)
     ),
     h('div', { className: 'mg-totals' },
       h('div', { className: 'mg-total-chip' },

@@ -58,11 +58,15 @@ const edgeTypes = { doubleLine: AnimatedFlowEdge, customBezier: CustomBezierEdge
 // onduleurs. Largeurs : visualization.css (.inv-card 280, .pro-node 180,
 // .bms-card-in-viz 275, .tongou-group-card 330, .ss-card 280, .bms-nd 280).
 // Hauteurs mesurées dans la page (px du canevas) : Multiplus = SmartShunt = BMS 158,
-// ET112 121, Groupe II (6 prises) 531, Flux énergétique 486, MPPT (6 chargeurs) 291.
-const W_INV = 280, W_ATS = 180, W_ET = 275, W_TG = 330, W_SS = 280, W_BMS = 280;
-const H_DC = 158, H_ET = 121, H_TG2 = 531, H_FLUX = 486, H_MPPT = 291, H_LYNX = 34;
+// ET112 121, Groupe II (6 prises) 531, Flux énergétique 486, MPPT (6 chargeurs) 424,
+// ATS 189, I-AC-1 / II-AC-2 196.
+const W_INV = 280, W_ATS = 270, W_ET = 275, W_TG = 330, W_SS = 280, W_BMS = 280;
+const H_DC = 158, H_ET = 121, H_TG2 = 531, H_FLUX = 486, H_MPPT = 424, H_LYNX = 34;
+const H_ATS = 189, H_I = 196;
 const MP_X = 480, RS_X = 950;                          // Multiplus, Inverter RS
-const I_Y = 640, INV_Y = 850;                          // I-AC-1 / II-AC-2, Multiplus / Inverter RS
+const ATS_Y = 390;                                     // ATS
+const I_Y   = ATS_Y + H_ATS + 50;                      // I-AC-1 / II-AC-2
+const INV_Y = I_Y + H_I + 50;                          // Multiplus / Inverter RS
 const RS_ATS_PCT = 25, RS_ET_PCT = 85;                 // poignées du haut de l'Inverter RS
 const MP_C   = MP_X + W_INV / 2;                       // centre du Multiplus
 const RS_C   = RS_X + W_INV / 2;                       // centre de l'Inverter RS
@@ -97,7 +101,7 @@ const NODES0 = [
   { id: 'chauffe-eau',   type: 'waterheater', position: { x: COL_A, y: 200 }, data: { label: 'Chauffe-eau',   icon: '🚿', live: null, heatpump: null, isClimatisation: false } },
   { id: 'tongou-group',  type: 'tongouGroup', position: { x: TG1_X, y: 0 },   data: { title: 'Groupe I · AC-1 (sortie ATS)', switches: [], disabled: false, _rev: 0 } },
   { id: 'et112-maison',  type: 'et112card',   position: { x: ET1_X, y: 204 }, data: { label: 'ET112-AC1', address: 8, live: null } },
-  { id: 'ats-main',      type: 'atsmain',     position: { x: ATS_C - W_ATS / 2, y: 390 }, data: { swRemote:'—', swMode:'—', swFault:'—', middleOFF:'—', sw1:'—', sw2:'—', active_source:'—', onToggleRemote: null, onForceOff: null, disabled: false, _rev: 0 } },
+  { id: 'ats-main',      type: 'atsmain',     position: { x: ATS_C - W_ATS / 2, y: ATS_Y }, data: { swRemote:'—', swMode:'—', swFault:'—', middleOFF:'—', sw1:'—', sw2:'—', active_source:'—', onToggleRemote: null, onForceOff: null, disabled: false, _rev: 0 } },
   { id: 'ats-onduleur',  type: 'atsonduleur', position: { x: I_C - W_ATS / 2,   y: I_Y }, data: { v1a:'—', sw1:'Ouvert', s1a:'—', cnt1:'0', max1:'—', t1:'—', onForce: null, disabled: false, _rev: 0 } },
   { id: 'ats-reseau',    type: 'atsreseau',   position: { x: II_C - W_ATS / 2,  y: I_Y }, data: { v2a:'—', sw2:'Ouvert', s2a:'—', cnt2:'0', max2:'—', t2:'—', onForce: null, disabled: false, _rev: 0 } },
   { id: 'et112-reseau',  type: 'et112card',   position: { x: ET2_X, y: 204 }, data: { label: 'ET112-AC2', address: 9, live: null } },

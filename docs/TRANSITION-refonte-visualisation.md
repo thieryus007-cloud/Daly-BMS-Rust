@@ -31,7 +31,8 @@ Réorganiser `http://192.168.1.141:8080/visualization` selon le schéma de l'uti
 
 AC en haut, DC en bas. Les lignes sont des liaisons animées. Les blocs sans ligne sont des
 cartes indépendantes. Multiplus, Inverter RS, SmartShunt et les 3 BMS ont le même gabarit
-(280 × 158).
+(280 × 158). Les trois cartes ATS (ATS, I-AC-1, II-AC-2) et le MPPT sont agrandis ×1,5
+(270 et 465 px de large).
 
 ```
                [Tasmota AC1]                      [Tasmota AC2]──[ET112-Micro]   Shelly 2PM
@@ -66,9 +67,9 @@ Tous les endpoints sont servis par daly-bms-server, sur le port 8080.
 |---|---|---|---|
 | Tasmota AC1 | `tongou-group` (`TongouGroupNode`) | `/api/v1/tasmota`, filtré sur `network = "AC-1"` | Déplacer à gauche |
 | ET112-AC1 | `et112-maison` (`Et112CardNode`, 0x08) | `/api/v1/et112/8/status` | Libellé « ET112-AC1 » |
-| ATS | `ats-main` (`AtsMainNode`) | `/api/v1/ats/status` | Placer au centre |
-| I-AC-1 | `ats-onduleur` (`AtsOnduleurNode`) | idem | Sous l'ATS, à gauche |
-| II-AC-2 | `ats-reseau` (`AtsReseauNode`) | idem | Sous l'ATS, à droite |
+| ATS | `ats-main` (`AtsMainNode`) | `/api/v1/ats/status` | Au centre, 270 de large (×1,5) |
+| I-AC-1 | `ats-onduleur` (`AtsOnduleurNode`) | idem | Sous l'ATS, à gauche, 270 de large (×1,5) |
+| II-AC-2 | `ats-reseau` (`AtsReseauNode`) | idem | Sous l'ATS, à droite, 270 de large (×1,5) |
 | Multiplus | `onduleur` (`InverterNode`) | `/api/v1/venus/inverter` | Titre « EasySolar-II » → « Multiplus » (`viz_nodes_ats.js`, 2 occurrences) |
 | Inverter RS | `inverter-rs` (`InverterRsNode`, « À venir ») | aucune tant qu'il n'est pas installé | Vrai bloc à la taille du Multiplus, toujours marqué « À venir » ; données branchées à l'installation (§3.1) |
 | ET112-AC2 | `et112-reseau` (`Et112CardNode`, 0x09) | `/api/v1/et112/9/status` | Placer au-dessus de l'Inverter RS |
@@ -82,7 +83,7 @@ Tous les endpoints sont servis par daly-bms-server, sur le port 8080.
 | Lynx Distributor | `lynx` (`LynxNode`) | — | Barre DC horizontale large |
 | SmartShunt | `smartshunt` (`SmartShuntNode`) | `/api/v1/venus/smartshunt` | Sous le Lynx, 280 × 158 |
 | BMS-360 / 320 / 620 Ah | `bms1`, `bms2`, `bms3` (`BmsNode`) | `/api/v1/bms/{1,2,3}/status` | Colonne à gauche, reliée au SmartShunt par une barre commune (`bms-bus`, `BusNode`) ; 280 × 158, puissance en W |
-| MPPT | `mppt` (`MPPTGroupNode`) | `/api/v1/venus/mppt` | Sous le Flux énergétique, relié au Lynx |
+| MPPT | `mppt` (`MPPTGroupNode`) | `/api/v1/venus/mppt` | Sous le Flux énergétique, relié au Lynx, 465 de large (×1,5) |
 | Flux énergétique | `sankey` (`SankeyNode`) | calculé dans `applyData` | Sous le Groupe II (bord gauche aligné), 560 × 486, sans liaison |
 
 ### 1.4 Liaisons et valeurs animées

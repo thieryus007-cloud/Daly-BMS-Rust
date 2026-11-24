@@ -147,7 +147,7 @@ function AtsMainNode({ data }) {
         onMouseDown: (e) => { e.stopPropagation(); e.preventDefault(); },
         onTouchStart: (e) => { e.stopPropagation(); e.preventDefault(); }
       },
-        h('span', { className: 'pn-volt', style: { fontSize: '9px' } }, data.swMode || '—'),
+        h('span', { className: 'pn-volt', style: { fontSize: '13.5px' } }, data.swMode || '—'),
         h('span', { className: `pn-status${remoteOn ? ' online' : ' offline'}` },
           h('span', { className: `pn-dot${remoteOn ? '' : ' off'}` }),
           h('div', { className: `pn-toggle${remoteOn ? ' on' : ''}` })
