@@ -1,0 +1,297 @@
+# Transition — refonte de la page Visualisation et état du projet
+
+Document de reprise pour une nouvelle session de travail. Il contient la spécification de la
+refonte de `visualization.html`, l'état actuel de l'installation et des développements, les
+points ouverts, et les procédures d'exploitation.
+
+**État du dépôt à la rédaction** : commit `eca5b89` ; copie locale (`C:\Daly-BMS-Rust`),
+GitHub et Pi5 identiques.
+
+**Pour reprendre** :
+
+1. Lire ce document en entier.
+2. Joindre le schéma de l'utilisateur (image), dont le §1.2 est la transcription.
+3. Commencer par le §1.
+
+---
+
+## 1. Refonte de la page Visualisation
+
+### 1.1 Objectif
+
+Réorganiser `http://192.168.1.141:8080/visualization` selon le schéma de l'utilisateur.
+
+À conserver :
+
+- le **bandeau supérieur** (Prod. totale, Production, Batteries, Météo, Température, heure) ;
+- les **animations de flux** sur les liaisons ;
+- les graphiques d'historique au survol des liaisons (`HIST_*`).
+
+### 1.2 Schéma cible
+
+AC en haut, DC en bas. Les lignes sont des liaisons animées. Les blocs sans ligne sont des
+cartes indépendantes.
+
+```
+Chauffe-eau   [Tasmota AC1]──[ET112-AC1]         [ET112-AC2]──[Tasmota AC2]──[ET112-Micro]  Shelly 2PM   Climatisation
+               (groupe I)        │                    │         (groupe II)     (DEYE)
+                            [   ATS   ]               │
+                        [I-AC-1]   [II-AC-2]          │                       ┌──────────────────┐
+Grid                        │          │              │                       │ Flux énergétique │
+                       [Multiplus]  [Inverter RS]─────┘                       └──────────────────┘
+                            │   [Cerbo GX]   │
+                       ═════╧═════ Lynx Distributor ═════╧══════════════════ [      MPPT      ]
+[BMS-360Ah]┐                       │
+[BMS-320Ah]┼─────────────────── [SmartShunt]
+[BMS-620Ah]┘
+```
+
+Liaisons du schéma :
+
+- Tasmota AC1 — ET112-AC1, puis ET112-AC1 — ATS ;
+- ATS — I-AC-1 ou II-AC-2, selon la source sélectionnée (§1.5) ;
+- I-AC-1 — Multiplus, et II-AC-2 — Inverter RS ;
+- ET112-AC2 — Tasmota AC2, et ET112-AC2 — Inverter RS (ligne verticale) ;
+- Tasmota AC2 — ET112-Micro ;
+- Multiplus, Inverter RS et MPPT — Lynx Distributor ;
+- Lynx Distributor — SmartShunt, et SmartShunt — les 3 BMS (barre commune).
+
+### 1.3 Blocs : correspondance avec l'existant et données
+
+Tous les endpoints sont servis par daly-bms-server, sur le port 8080.
+
+| Bloc du schéma | Composant actuel (`id` dans `NODES0`) | Données | Travail |
+|---|---|---|---|
+| Tasmota AC1 | `tongou-group` (`TongouGroupNode`) | `/api/v1/tasmota`, filtré sur `network = "AC-1"` | Déplacer à gauche |
+| ET112-AC1 | `et112-maison` (`Et112CardNode`, 0x08) | `/api/v1/et112/8/status` | Libellé « ET112-AC1 » |
+| ATS | `ats-main` (`AtsMainNode`) | `/api/v1/ats/status` | Placer au centre |
+| I-AC-1 | `ats-onduleur` (`AtsOnduleurNode`) | idem | Sous l'ATS, à gauche |
+| II-AC-2 | `ats-reseau` (`AtsReseauNode`) | idem | Sous l'ATS, à droite |
+| Multiplus | `onduleur` (`InverterNode`) | `/api/v1/venus/inverter` | Titre « EasySolar-II » → « Multiplus » (`viz_nodes_ats.js`, 2 occurrences) |
+| Inverter RS | `inverter-rs` (`PlaceholderNode`, « À venir ») | aucune tant qu'il n'est pas installé | Vrai bloc à la taille du Multiplus, toujours marqué « À venir » ; données branchées à l'installation (§3.1) |
+| ET112-AC2 | `et112-reseau` (`Et112CardNode`, 0x09) | `/api/v1/et112/9/status` | Placer au-dessus de l'Inverter RS |
+| Tasmota AC2 | `tongou-ac2` (`TongouGroupNode`) | `/api/v1/tasmota`, filtré sur `network = "AC-2"` | Placer à droite de l'ET112-AC2 |
+| ET112-Micro | `micro-ond` (`Et112CardNode`, 0x07) | `/api/v1/et112/7/status` | Libellé « ET112-Micro » ; à droite de Tasmota AC2 |
+| Shelly 2PM | — | `/api/v1/shelly` → `shelly[0].snapshot.channel_0` et `channel_1` (`output`, `power_w`, `voltage_v`, `current_a`, `energy_wh`) | **Nouveau** : carte à deux canaux (§1.5) |
+| Chauffe-eau | `chauffe-eau` (`WaterHeaterNode`) | Tongou `tongou_B459B8` + PAC Venus | Déplacer à gauche, sans liaison |
+| Climatisation | `climatisation` (`WaterHeaterNode`) | Tongou `tongou_3BC764` | En haut à droite, sans liaison |
+| Grid | — | aucune | **Nouveau** : carte « Off-grid » (§1.5) |
+| Cerbo GX | — | aucune | **Nouveau** : boîte seule (§1.5) |
+| Lynx Distributor | remplace `hubMPPT` et `hubBMS` (`HubNode`) | — | **Nouveau** : barre DC horizontale large |
+| SmartShunt | `smartshunt` (`SmartShuntNode`) | `/api/v1/venus/smartshunt` | Sous le Lynx |
+| BMS-360 / 320 / 620 Ah | `bms1`, `bms2`, `bms3` (`BmsNode`) | `/api/v1/bms/{1,2,3}/status` | Colonne à gauche, reliée au SmartShunt par une barre commune |
+| MPPT | `mppt` (`MPPTGroupNode`) | `/api/v1/venus/mppt` | Grand bloc en bas à droite |
+| Flux énergétique | `sankey` (`SankeyNode`) | calculé dans `applyData` | À droite, au milieu, sans liaison |
+
+### 1.4 Liaisons et valeurs animées
+
+La vitesse des particules est `flowValue / speedDiv`. Le diviseur vaut 500 par défaut, et 5
+pour un courant en ampères. Le sens s'inverse avec `reverse`.
+
+| Liaison | Valeur animée | Sens / remarque |
+|---|---|---|
+| ET112-AC1 → Tasmota AC1 | `et8.power_w` | vers les charges |
+| ATS → ET112-AC1 | `et8.power_w` | vers les charges |
+| I-AC-1 ou II-AC-2 → ATS | arêtes `ats-e1` / `ats-e2` (type `tripleAts`) déjà calculées selon `sw1` / `sw2` / `middleOFF` | §1.5 |
+| Multiplus → I-AC-1 | `inverter.ac_output_current_a` (diviseur 5) | sortie AC du Multiplus |
+| Inverter RS → II-AC-2 | à brancher à l'installation (aujourd'hui : `et9.power_w`) | — |
+| Inverter RS → ET112-AC2 | `et9.power_w` | — |
+| ET112-AC2 → Tasmota AC2 | somme des prises AC-2, **hors** Tongou DEYE `tongou_0616E4` (il mesure une production) | — |
+| ET112-Micro → Tasmota AC2 | `et7.power_w` | production DEYE vers l'AC-2 |
+| Lynx ↔ Multiplus | `abs(inverter.power_w)` (DC) | inversé selon le signe |
+| Lynx ↔ Inverter RS | à brancher à l'installation | — |
+| MPPT → Lynx | total MPPT (`total_power_w`) | — |
+| Lynx ↔ SmartShunt | `shunt.power_w` | charge / décharge selon le signe |
+| SmartShunt ↔ BMS n | `Dc.Power` de chaque BMS | sens selon le signe (logique `e-hubBMS-bN` actuelle) |
+
+### 1.5 Décisions de l'utilisateur
+
+- **Grid** : carte avec la seule mention « Off-grid », sans donnée ni liaison (installation
+  100 % hors réseau).
+- **Cerbo GX** : la boîte seule, avec son nom. Ni données ni liaison.
+- **Shelly 2PM** (« DEYE — Shelly Pro 2PM ») : les **deux canaux**, chacun avec son état
+  ON/OFF et sa puissance (éventuellement tension et énergie). Données :
+  `/api/v1/shelly`. Pas de liaison.
+- **ATS** : la liaison vers I-AC-1 ou vers II-AC-2 dépend de la **source sélectionnée** ;
+  conserver l'animation existante. Ce sont les arêtes dynamiques `ats-e1` et `ats-e2`, ajoutées
+  dans `applyData` selon `sw1` / `sw2` / `middleOFF`. Les forçages de source (boutons des blocs
+  I et II) restent en place.
+
+### 1.6 Fichiers et contraintes
+
+| Fichier | Rôle |
+|---|---|
+| `crates/daly-bms-server/templates/visualization.html` | `NODES0` (positions), `EDGES0`, `applyData` (valeurs, arêtes ATS dynamiques), `fetchAll` (appels API), constantes `WH_TASMOTA` / `CLIM_TASMOTA` / `DEYE_TASMOTA` |
+| `viz_nodes_ats.js` | ATS, I/II, `InverterNode` (titre Multiplus) |
+| `viz_nodes_basic.js` | `Et112CardNode`, `HubNode`, `PlaceholderNode`, `BmsNode` |
+| `viz_nodes_devices.js` | `TongouGroupNode` (`data.title`), `WaterHeaterNode` |
+| `viz_nodes_venus.js` | `MPPTGroupNode`, `SmartShuntNode` |
+| `viz_edges.js` | arêtes animées (`AnimatedFlowEdge`, `CustomBezierEdge`, `TripleAtsEdge`) — pas de changement prévu |
+| `visualization.css` | styles des nouvelles cartes (Lynx, Grid, Cerbo, Shelly) |
+
+Contraintes :
+
+- **Inclusion à la compilation** : les `viz_*.js` sont inclus par askama
+  (`{% include %}`) dans le binaire daly-bms-server. Ne jamais écrire `{{`, `{%` ou `{#` dans le
+  JavaScript. Tout changement demande une recompilation et un redémarrage de daly-bms.
+- **Poignées React Flow** : une liaison relie une poignée `source` à une poignée `target`
+  (`mkHandle`). Vérifier les poignées disponibles de chaque composant avant de tracer une
+  liaison. `fitView` recadre automatiquement la vue.
+- **Arêtes ATS** : leurs identifiants commencent par `ats-e`, et `applyData` les régénère à
+  chaque rafraîchissement.
+
+### 1.7 Vérification
+
+1. Syntaxe JavaScript, avec les fichiers inclus assemblés (depuis
+   `crates/daly-bms-server/templates`, Git Bash) :
+
+   ```bash
+   awk -v dir="$PWD" '/\{% include "[^"]+" %\}/ { match($0, /"[^"]+"/); f=substr($0, RSTART+1, RLENGTH-2);
+     while ((getline l < (dir "/" f)) > 0) print l; close(dir "/" f); next } { print }' visualization.html > /tmp/viz-full.html
+   awk '/^<script>/{f=1;next}/^<\/script>/{f=0}f' /tmp/viz-full.html > /tmp/viz-full.js && node --check /tmp/viz-full.js
+   ```
+
+2. Tests et compilation sur le Pi5 (§4.2), puis déploiement avec `scripts/deploy-pi5.sh`.
+3. Capture d'écran sans navigateur visible (PowerShell, PC Windows), à comparer au schéma :
+
+   ```powershell
+   $S = "$env:TEMP\viz"; New-Item -ItemType Directory -Force $S | Out-Null
+   Start-Process "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" -Wait -WindowStyle Hidden -ArgumentList @(
+     "--headless","--no-sandbox","--disable-gpu","--hide-scrollbars","--window-size=1900,1150",
+     "--virtual-time-budget=20000","--user-data-dir=$S\prof","--screenshot=$S\viz.png",
+     "http://192.168.1.141:8080/visualization")
+   ```
+
+---
+
+## 2. État de l'installation (référence)
+
+### 2.1 Réseaux AC — installation 100 % hors réseau
+
+Description complète : [ARCHITECTURE.md § Réseaux AC](./ARCHITECTURE.md).
+
+- **AC-1** : MultiPlus → ATS entrée I → sortie ATS → ET112-Maison/AC1 (0x08) → groupe I.
+- **AC-2** : Inverter RS Smart → ET112-AC2 (0x09) → groupe II, et entrée II de l'ATS.
+- **DEYE** : sur l'AC-2, via Tongou 0616E4 → ET112 0x07 → micro-onduleurs, plus le Shelly
+  Pro 2PM.
+- **Avant l'installation de l'Inverter RS** : l'AC-2 est alimenté par l'AC-1.
+- **Batteries** : les deux réseaux partagent les mêmes (BMS 320 / 360 / 620 Ah).
+- **Comptage** : aucun compteur `grid`. Les ET112 0x08 et 0x09 sont des `acload`, et l'ESS
+  tourne sans compteur réseau (`RunWithoutGridMeter = 1`). Le DVCC est désactivé sur le GX.
+
+### 2.2 Prises Tongou (10)
+
+| Groupe | Nom | Topic | IP | `id` | mqtt_index / instance VRM |
+|---|---|---|---|---|---|
+| I (AC-1) | General | `tongou_0A3C14` | .27 | 3 | 4 / 63 |
+| I (AC-1) | AC-4 | `tongou_0A4040` | .28 | 4 | 5 / 64 |
+| I (AC-1) | LG (chauffe-eau) | `tongou_B459B8` | .29 | 6 | 7 / 66 |
+| I (AC-1) | Climatisation | `tongou_3BC764` | .30 | 1 | 2 / 61 |
+| II (AC-2) | DEYE (coupure complète) | `tongou_0616E4` | .21 | 7 | 8 / 67 |
+| II (AC-2) | Tongou 0615D8 | `tongou_0615D8` | .22 | 8 | 9 / 68 |
+| II (AC-2) | Tongou 0616D0 | `tongou_0616D0` | .23 | 9 | 10 / 69 |
+| II (AC-2) | Tongou 061630 | `tongou_061630` | .24 | 10 | 11 / 70 |
+| II (AC-2) | Tongou 3ACC34 | `tongou_3ACC34` | .25 | 5 | 6 / 65 |
+| II (AC-2) | Tongou 0A3FA0 | `tongou_0A3FA0` | .26 | 2 | 3 / 62 |
+
+- Toutes les prises publient vers le broker du GX (`192.168.1.120:1883`).
+- Les noms provisoires du groupe II se changent depuis la console Venus
+  ([renommer-appareils.md](./renommer-appareils.md)).
+
+### 2.3 Fonctions en service
+
+| Fonction | État | Référence |
+|---|---|---|
+| Chauffe-eau LG (energy-manager) | Aucune énergie batterie. Descente d'un cran TURBO → HEAT_PUMP → VACATION sur décharge ; verrou de 30 min ; tolérance de démarrage (300 s, 40 Wh) ; production bridée (MPPT `MppOperationMode = 1`, SOC ≥ 98 %) ; mesure par le Tongou LG | [app-energy-manager.md §4.4](./app-energy-manager.md) |
+| Noms des appareils | Renommage depuis la console Venus, conservé dans `/data/daly-bms/custom-names.json` (GX) ; noms des Tongou repris par les pages du Pi5 | [renommer-appareils.md](./renommer-appareils.md) |
+| Base de métriques (redb, 11,8 Go) | Arrêt propre même pendant une maintenance ou une récupération (`TimeoutStopSec=30min`, compaction interruptible) | [incident-2026-07-09-reboot-redb.md §5.4](./incident-2026-07-09-reboot-redb.md) |
+| ATS | Source I = « AC-1 MultiPlus », source II = « AC-2 Inverter RS » ; `/Position` Venus : 1 = I, 0 = II | [integration-materiel.md](./integration-materiel.md) |
+
+---
+
+## 3. Points ouverts
+
+### 3.1 À l'installation de l'Inverter RS Smart
+
+- **Coupure DEYE (energy-manager, `logic/deye_command`)** : elle lit aujourd'hui la fréquence de
+  sortie du MultiPlus (`N/<portail>/vebus/276/Ac/Out/L1/F`). Comme les DEYE sont sur l'AC-2,
+  elle devra lire la fréquence de sortie de l'Inverter RS. Commencer par relever son service et
+  son instance dans Venus (`dbus -y | grep -i inverter` sur le GX).
+- **Visualisation** : brancher les données du bloc Inverter RS (§1.3) et ses deux liaisons
+  (II-AC-2, Lynx).
+- **ATS** : l'entrée II sera alors réellement alimentée par l'Inverter RS.
+
+### 3.2 BMS 360 Ah (0x01) : trames RS485 altérées
+
+- **Depuis le 20/11 à 13:53**, environ 74 % des réponses du 0x01 arrivent avec des bits
+  isolés modifiés (surtout 0 → 1). Les 0x02 et 0x03 sont intacts, avec le même code.
+- **Impact** : environ 66 relevés complets par heure pour le 0x01, au lieu d'environ 680.
+- **Redémarrage du BMS (commande 0x00)** : essayé, sans effet. La liaison RS485 du 0x01
+  (câble, connecteur, module) reste à contrôler.
+- **Mesure et diagnostic** : [diagnostic-depannage.md §2.1](./diagnostic-depannage.md) et
+  `scripts/diag-bms-trames.sh`.
+
+### 3.3 Autres
+
+- **Chauffe-eau** : tant que le solaire ne couvre pas le TURBO, chaque essai peut coûter
+  jusqu'à 40 Wh, rechargés ensuite par le surplus. Allonger le verrou du TURBO après un
+  dépassement du budget a été proposé, sans décision.
+- **Shelly DEYE dans Venus** : noms personnalisés hérités « Chauffe-eau » / « Eclairage »
+  (instances 50 et 51, service Venus natif), renommables depuis la console.
+- **Healthcheck `histogram_quantile`** de `deploy-pi5.sh` : échec préexistant, connu.
+- **Laissés par la migration vers le Cerbo MK3** (côté utilisateur) : Home Assistant doit
+  utiliser le portail `d81d13b31a8b`, et l'installation VRM orpheline peut être supprimée.
+
+---
+
+## 4. Exploitation
+
+### 4.1 Accès
+
+Identifiants hors dépôt : ne jamais les écrire dans ce dépôt.
+
+- Pi5 : `pi5compute@192.168.1.141` (SSH ; `plink` depuis le PC Windows).
+- GX (Cerbo GX MK3) : `root@192.168.1.120` (SSH, clé d'hôte épinglée dans
+  `C:\GX-migration-MK3\outils\gx.ps1`).
+
+### 4.2 Tests et compilation
+
+`cargo test` ne compile pas sous Windows (dépendance `sd-notify`, Unix uniquement). On teste
+donc sur le Pi5, dans un dossier séparé qui ne touche pas au déploiement :
+
+```bash
+# PC : archive des sources (inclure docs/ : tests « golden » de metrics-store)
+tar --exclude=./target --exclude=./.git -czf wh-src.tgz .   # puis pscp vers /tmp du Pi5
+# Pi5 :
+mkdir -p ~/wh-test && tar -xzf /tmp/wh-src.tgz -C ~/wh-test && cd ~/wh-test
+export CARGO_TARGET_DIR=~/wh-test-target
+ionice -c3 nice -n19 cargo test --locked -j2 -p <crate>
+ionice -c3 nice -n19 cargo clippy --locked -j2 -p <crate> --all-targets -- -D warnings
+```
+
+### 4.3 Déploiement
+
+- **Pi5** : `cd ~/Daly-BMS-Rust && sudo bash scripts/deploy-pi5.sh`. Le script se synchronise
+  sur `origin/main`, compile, installe les unités systemd, redémarre les services modifiés et
+  lance les healthchecks.
+- **GX (dbus-mqtt-venus)** :
+  1. Compiler le binaire Cortex-A53 sur le Pi5 :
+     `CARGO_TARGET_DIR=~/venus-a53-target RUSTFLAGS="-C target-cpu=cortex-a53 -C link-arg=-Wl,--as-needed" cargo build --release --target aarch64-unknown-linux-gnu --bin dbus-mqtt-venus`.
+  2. Vérifier les versions de glibc requises : `objdump -T … | grep -o 'GLIBC_[0-9.]*'` doit
+     rester ≤ 2.39 (version de Venus).
+  3. Copier le binaire sur le GX.
+  4. Sauvegarder l'ancien binaire, puis exécuter
+     `svc -d /service/dbus-mqtt-venus`, remplacer le binaire, `svc -u`.
+  5. Pour la config du GX : modifier `/data/daly-bms/config.toml` (copie de
+     `nanoPi/config-nanopi.toml`), puis `svc -t /service/dbus-mqtt-venus`.
+
+### 4.4 Pièges connus
+
+- **Fins de ligne** : git a `core.autocrlf=true`, et l'index est en LF. Les CRLF de la copie de
+  travail sont normalisés au commit.
+- **Git Bash** : il convertit les chemins absolus des arguments (`/lib/…` → `C:/Program
+  Files/…`). Pour une commande distante, passer `MSYS_NO_PATHCONV=1` à `plink`, mais **pas** à
+  `pscp` : le chemin local doit rester converti.
+- **Redémarrer daly-bms** : sans risque pour la base désormais. Un arrêt pendant la phase
+  d'écriture d'une compaction peut toutefois prendre quelques minutes. Vérifier ensuite
+  `curl http://127.0.0.1:8080/api/v1/redb/healthy` (200 = base prête).
