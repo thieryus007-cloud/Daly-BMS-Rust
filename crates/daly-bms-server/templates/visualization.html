@@ -56,9 +56,13 @@ const edgeTypes = { doubleLine: AnimatedFlowEdge, customBezier: CustomBezierEdge
 // I-AC-1 centré sur le Multiplus, II-AC-2 et ET112-AC2 sur les poignées du haut de
 // l'Inverter RS, ATS et ET112-AC1 entre I-AC-1 et II-AC-2, poignées du Lynx sous les
 // onduleurs. Largeurs : visualization.css (.inv-card 280, .pro-node 180,
-// .bms-card-in-viz 275, .tongou-group-card 330, .ss-card 230, .bms-nd 235).
-const W_INV = 280, W_ATS = 180, W_ET = 275, W_TG = 330, W_SS = 230, W_BMS = 235;
+// .bms-card-in-viz 275, .tongou-group-card 330, .ss-card 280, .bms-nd 280).
+// Hauteurs mesurées dans la page (px du canevas) : Multiplus = SmartShunt = BMS 158,
+// ET112 121, Groupe II (6 prises) 531, Flux énergétique 486, MPPT (6 chargeurs) 291.
+const W_INV = 280, W_ATS = 180, W_ET = 275, W_TG = 330, W_SS = 280, W_BMS = 280;
+const H_DC = 158, H_ET = 121, H_TG2 = 531, H_FLUX = 486, H_MPPT = 291, H_LYNX = 34;
 const MP_X = 480, RS_X = 950;                          // Multiplus, Inverter RS
+const I_Y = 640, INV_Y = 850;                          // I-AC-1 / II-AC-2, Multiplus / Inverter RS
 const RS_ATS_PCT = 25, RS_ET_PCT = 85;                 // poignées du haut de l'Inverter RS
 const MP_C   = MP_X + W_INV / 2;                       // centre du Multiplus
 const RS_C   = RS_X + W_INV / 2;                       // centre de l'Inverter RS
@@ -71,12 +75,18 @@ const TG1_X  = ET1_X - 80 - W_TG;                      // Tasmota AC1 à gauche 
 const TG2_X  = ET2_X + W_ET + 80;                      // Tasmota AC2 à droite d'ET112-AC2
 const MICRO_X = TG2_X + W_TG + 80;                     // ET112-Micro à droite de Tasmota AC2
 const COL_A  = -120;                                   // Chauffe-eau, Grid, BMS
-const LYNX_X = 440, LYNX_W = 840, LYNX_Y = 1020;
+// Flux énergétique sous le Groupe II (bord gauche aligné), MPPT dessous ; le Lynx est
+// centré sur la poignée gauche du MPPT (10 % de sa hauteur).
+const FLUX_Y = H_TG2 + 40, MPPT_Y = FLUX_Y + H_FLUX + 40;
+const LYNX_X = 440, LYNX_W = 840, LYNX_Y = MPPT_Y + H_MPPT * 0.10 - H_LYNX / 2;
 const LYNX_C = LYNX_X + LYNX_W / 2;
 const pctX   = x => ((x - LYNX_X) / LYNX_W) * 100;
-// BMS (hauteur ~98 px) et barre commune ; le SmartShunt (~137 px) est centré sur le BMS du milieu.
-const BMS_Y = [1034, 1149, 1264], BMS_H = 98;
-const BUS_Y = BMS_Y[0] + BMS_H / 2, BUS_H = BMS_Y[2] - BMS_Y[0];
+// SmartShunt sous le Lynx, BMS du milieu à sa hauteur (même gabarit) : liaisons horizontales.
+const SHUNT_Y = LYNX_Y + H_LYNX + 70;
+const BMS_Y = [SHUNT_Y - H_DC - 20, SHUNT_Y, SHUNT_Y + H_DC + 20];
+const BUS_Y = BMS_Y[0] + H_DC / 2, BUS_H = BMS_Y[2] - BMS_Y[0];
+// ET112-Micro en haut à droite : poignée d'arrivée du Groupe II à la hauteur de sa sortie.
+const MICRO_Y = 0, TG2_TR_PCT = ((MICRO_Y + H_ET / 2) / H_TG2) * 100;
 
 // Canaux du Shelly Pro 2PM des DEYE, avec les noms qu'ils portent dans Venus
 // (acload instance 51 = canal 1 = DEYE-1, instance 50 = canal 0 = DEYE-2).
@@ -88,23 +98,24 @@ const NODES0 = [
   { id: 'tongou-group',  type: 'tongouGroup', position: { x: TG1_X, y: 0 },   data: { title: 'Groupe I · AC-1 (sortie ATS)', switches: [], disabled: false, _rev: 0 } },
   { id: 'et112-maison',  type: 'et112card',   position: { x: ET1_X, y: 204 }, data: { label: 'ET112-AC1', address: 8, live: null } },
   { id: 'ats-main',      type: 'atsmain',     position: { x: ATS_C - W_ATS / 2, y: 390 }, data: { swRemote:'—', swMode:'—', swFault:'—', middleOFF:'—', sw1:'—', sw2:'—', active_source:'—', onToggleRemote: null, onForceOff: null, disabled: false, _rev: 0 } },
-  { id: 'ats-onduleur',  type: 'atsonduleur', position: { x: I_C - W_ATS / 2,   y: 590 }, data: { v1a:'—', sw1:'Ouvert', s1a:'—', cnt1:'0', max1:'—', t1:'—', onForce: null, disabled: false, _rev: 0 } },
-  { id: 'ats-reseau',    type: 'atsreseau',   position: { x: II_C - W_ATS / 2,  y: 590 }, data: { v2a:'—', sw2:'Ouvert', s2a:'—', cnt2:'0', max2:'—', t2:'—', onForce: null, disabled: false, _rev: 0 } },
+  { id: 'ats-onduleur',  type: 'atsonduleur', position: { x: I_C - W_ATS / 2,   y: I_Y }, data: { v1a:'—', sw1:'Ouvert', s1a:'—', cnt1:'0', max1:'—', t1:'—', onForce: null, disabled: false, _rev: 0 } },
+  { id: 'ats-reseau',    type: 'atsreseau',   position: { x: II_C - W_ATS / 2,  y: I_Y }, data: { v2a:'—', sw2:'Ouvert', s2a:'—', cnt2:'0', max2:'—', t2:'—', onForce: null, disabled: false, _rev: 0 } },
   { id: 'et112-reseau',  type: 'et112card',   position: { x: ET2_X, y: 204 }, data: { label: 'ET112-AC2', address: 9, live: null } },
-  { id: 'tongou-ac2',    type: 'tongouGroup', position: { x: TG2_X, y: 0 },   data: { title: 'Groupe II · AC-2', switches: [], disabled: false, _rev: 0 } },
-  { id: 'micro-ond',     type: 'et112card',   position: { x: MICRO_X, y: 301 }, data: { label: 'ET112-Micro', address: 7, live: null } },
-  { id: 'shelly',        type: 'shelly',      position: { x: MICRO_X + W_ET + 70, y: 301 }, data: { title: 'Shelly Pro 2PM', channels: SHELLY_DEYE_CHANNELS, live: null } },
-  { id: 'climatisation', type: 'waterheater', position: { x: MICRO_X, y: 0 }, data: { label: 'Climatisation', icon: '❄️',  live: null, heatpump: null, isClimatisation: true  } },
-  { id: 'sankey',        type: 'sankey',      position: { x: (TG2_X + MICRO_X + W_ET) / 2 - 140, y: 600 }, data: { microPwr: 0, mpptPwr: 0, batPwr: 0, loadPwr: 0 } },
-  { id: 'grid',          type: 'box',         position: { x: COL_A, y: 800 }, data: { title: 'Grid', badge: 'Off-grid', variant: 'grid' } },
+  { id: 'tongou-ac2',    type: 'tongouGroup', position: { x: TG2_X, y: 0 },   data: { title: 'Groupe II · AC-2', trPct: TG2_TR_PCT, switches: [], disabled: false, _rev: 0 } },
+  // ET112-Micro et Shelly en haut à droite ; Climatisation dessous, à leur ancienne place.
+  { id: 'micro-ond',     type: 'et112card',   position: { x: MICRO_X, y: MICRO_Y }, data: { label: 'ET112-Micro', address: 7, live: null } },
+  { id: 'shelly',        type: 'shelly',      position: { x: MICRO_X + W_ET + 70, y: MICRO_Y }, data: { title: 'Shelly Pro 2PM', channels: SHELLY_DEYE_CHANNELS, live: null } },
+  { id: 'climatisation', type: 'waterheater', position: { x: MICRO_X, y: 301 }, data: { label: 'Climatisation', icon: '❄️',  live: null, heatpump: null, isClimatisation: true  } },
+  { id: 'sankey',        type: 'sankey',      position: { x: TG2_X, y: FLUX_Y }, data: { microPwr: 0, mpptPwr: 0, batPwr: 0, loadPwr: 0 } },
+  { id: 'grid',          type: 'box',         position: { x: COL_A, y: INV_Y }, data: { title: 'Grid', badge: 'Off-grid', variant: 'grid' } },
   // ── Onduleurs ──
-  { id: 'onduleur',      type: 'inverter',    position: { x: MP_X, y: 800 }, data: { live: null } },
-  { id: 'inverter-rs',   type: 'inverterRs',  position: { x: RS_X, y: 800 }, data: { atsPct: RS_ATS_PCT, etPct: RS_ET_PCT } },
-  { id: 'cerbo',         type: 'box',         position: { x: (MP_X + W_INV + RS_X) / 2 - 75, y: 880 }, data: { title: 'Cerbo GX', variant: 'cerbo' } },
+  { id: 'onduleur',      type: 'inverter',    position: { x: MP_X, y: INV_Y }, data: { live: null } },
+  { id: 'inverter-rs',   type: 'inverterRs',  position: { x: RS_X, y: INV_Y }, data: { atsPct: RS_ATS_PCT, etPct: RS_ET_PCT } },
+  { id: 'cerbo',         type: 'box',         position: { x: (MP_X + W_INV + RS_X) / 2 - 75, y: INV_Y + 80 }, data: { title: 'Cerbo GX', variant: 'cerbo' } },
   // ── DC ──
   { id: 'lynx',          type: 'lynx',        position: { x: LYNX_X, y: LYNX_Y }, data: { width: LYNX_W, mpPct: pctX(MP_C), rsPct: pctX(RS_C), shuntPct: 50 } },
-  { id: 'mppt',          type: 'mpptGroup',   position: { x: (TG2_X + MICRO_X + W_ET) / 2 - 155, y: 1008 }, data: { mppts: [], totalPowerW: 0, totalDcA: 0 } },
-  { id: 'smartshunt',    type: 'smartshunt',  position: { x: LYNX_C - W_SS / 2, y: BMS_Y[1] + BMS_H / 2 - 68 }, data: { live: null } },
+  { id: 'mppt',          type: 'mpptGroup',   position: { x: TG2_X, y: MPPT_Y }, data: { mppts: [], totalPowerW: 0, totalDcA: 0 } },
+  { id: 'smartshunt',    type: 'smartshunt',  position: { x: LYNX_C - W_SS / 2, y: SHUNT_Y }, data: { live: null } },
   { id: 'bms-bus',       type: 'bus',         position: { x: COL_A + W_BMS + 60, y: BUS_Y }, data: { height: BUS_H, inPcts: [0, 50, 100], outPct: 50 } },
   { id: 'bms1',          type: 'bms',         position: { x: COL_A, y: BMS_Y[0] }, data: { label: 'BMS-360Ah', live: null } },
   { id: 'bms2',          type: 'bms',         position: { x: COL_A, y: BMS_Y[1] }, data: { label: 'BMS-320Ah', live: null } },

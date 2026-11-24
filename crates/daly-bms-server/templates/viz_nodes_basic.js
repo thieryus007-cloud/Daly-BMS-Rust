@@ -59,8 +59,8 @@ function BmsNode({ data }) {
         h('div', { className: 'bms-kpi-l' }, 'Courant')
       ),
       h('div', { className: 'bms-kpi' },
-        h('div', { className: 'bms-kpi-v' }, pwr != null ? `${pwr > 0 ? '+' : ''}${(pwr / 1000).toFixed(0)}` : '—'),
-        h('div', { className: 'bms-kpi-l' }, 'kW')
+        h('div', { className: 'bms-kpi-v' }, pwr != null ? `${pwr > 0 ? '+' : ''}${pwr.toFixed(0)}` : '—'),
+        h('div', { className: 'bms-kpi-l' }, 'W')
       )
     )
   );

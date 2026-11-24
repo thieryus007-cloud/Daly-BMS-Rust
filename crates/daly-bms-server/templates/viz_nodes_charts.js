@@ -164,7 +164,7 @@ const SankeyNode = function SankeyNode({ data }) {
         backgroundColor: 'transparent',
         series: [],
         graphic: [{ type: 'text', left: 'center', top: 'middle',
-          style: { text: 'Pas de production\nni de décharge', fill: '#64748b', fontSize: 10 } }]
+          style: { text: 'Pas de production\nni de décharge', fill: '#64748b', fontSize: 14 } }]
       }, { notMerge: true });
       prevKeyRef.current = '';
       return;
@@ -206,11 +206,11 @@ const SankeyNode = function SankeyNode({ data }) {
         left: '5%', right: '15%', top: '10%', bottom: '10%',
         orient: 'horizontal',
         nodeAlign: 'center',
-        nodeWidth: 12,
-        nodeGap: 16,
+        nodeWidth: 18,
+        nodeGap: 24,
         emphasis: { focus: 'adjacency' },
         label: {
-          show: true, fontSize: 9, color: '#94a3b8', position: 'right',
+          show: true, fontSize: 13, color: '#94a3b8', position: 'right',
           formatter: function (p) { return p.name + '\n' + Math.round(p.value) + ' W'; }
         },
         lineStyle: { color: 'gradient', opacity: 0.45, curveness: 0.5 },

@@ -26,7 +26,7 @@ const TongouGroupNode = memo(function TongouGroupNode({ data }) {
     mkHandle('target', Position.Left,  'tl', { top: '20%' }),
     mkHandle('target', Position.Left,  'tlm', { top: '50%' }),
     mkHandle('source', Position.Right,  'sr'),
-    mkHandle('target', Position.Right,  'tr', { top: '68%' }),
+    mkHandle('target', Position.Right,  'tr', { top: `${data.trPct ?? 68}%` }),
     mkHandle('source', Position.Left,   'sl', { top: '68%' }),
     h('div', { className: 'tg-header' },
       h('span', { className: 'tg-header-icon' }, '🔌'),

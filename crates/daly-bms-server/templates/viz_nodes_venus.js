@@ -178,18 +178,18 @@ function SmartShuntNode({ data }) {
         h('span', { className: 'ss-row-lbl' }, 'Puissance'),
         h('span', { className: 'ss-row-val' }, power != null ? `${power > 0 ? '+' : ''}${power.toFixed(0)} W` : '—')
       ),
-      h('div', { style: { display: 'flex', gap: '1rem', flexWrap: 'wrap' } },
-        h('div', { className: 'ss-row', style: { flex: '1 1 0', minWidth: 0 } },
-          h('span', { className: 'ss-row-lbl' }, 'Temps restant'),
-          h('span', { className: 'ss-row-val ttg' }, fmtTtg(ttgMin))
+      h('div', { className: 'ss-grid ss-grid-bottom' },
+        h('div', { className: 'ss-cell' },
+          h('span', { className: 'ss-cell-lbl' }, 'Temps restant'),
+          h('span', { className: 'ss-cell-val ttg' }, fmtTtg(ttgMin))
         ),
-        h('div', { className: 'ss-row', style: { flex: '1 1 0', minWidth: 0 } },
-          h('span', { className: 'ss-row-lbl' }, '⬆ Chargée (auj.)'),
-          h('span', { className: 'ss-row-val pos' }, chargeAh    != null ? `${chargeAh.toFixed(1)} Ah`    : '—')
+        h('div', { className: 'ss-cell' },
+          h('span', { className: 'ss-cell-lbl' }, '⬆ Chargée auj.'),
+          h('span', { className: 'ss-cell-val pos' }, chargeAh    != null ? `${chargeAh.toFixed(1)} Ah`    : '—')
         ),
-        h('div', { className: 'ss-row', style: { flex: '1 1 0', minWidth: 0 } },
-          h('span', { className: 'ss-row-lbl' }, '⬇ Déchargée (auj.)'),
-          h('span', { className: 'ss-row-val neg' }, dischargeAh != null ? `${dischargeAh.toFixed(1)} Ah` : '—')
+        h('div', { className: 'ss-cell' },
+          h('span', { className: 'ss-cell-lbl' }, '⬇ Déchargée auj.'),
+          h('span', { className: 'ss-cell-val neg' }, dischargeAh != null ? `${dischargeAh.toFixed(1)} Ah` : '—')
         )
       )
     ) : h('div', { className: 'ss-wait' }, 'En attente…')

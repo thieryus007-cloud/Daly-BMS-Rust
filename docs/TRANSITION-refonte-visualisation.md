@@ -30,17 +30,19 @@ Réorganiser `http://192.168.1.141:8080/visualization` selon le schéma de l'uti
 ### 1.2 Schéma cible
 
 AC en haut, DC en bas. Les lignes sont des liaisons animées. Les blocs sans ligne sont des
-cartes indépendantes.
+cartes indépendantes. Multiplus, Inverter RS, SmartShunt et les 3 BMS ont le même gabarit
+(280 × 158).
 
 ```
-Chauffe-eau   [Tasmota AC1]──[ET112-AC1]         [ET112-AC2]──[Tasmota AC2]──[ET112-Micro]  Shelly 2PM   Climatisation
-               (groupe I)        │                    │         (groupe II)     (DEYE)
-                            [   ATS   ]               │
-                        [I-AC-1]   [II-AC-2]          │                       ┌──────────────────┐
-Grid                        │          │              │                       │ Flux énergétique │
-                       [Multiplus]  [Inverter RS]─────┘                       └──────────────────┘
-                            │   [Cerbo GX]   │
-                       ═════╧═════ Lynx Distributor ═════╧══════════════════ [      MPPT      ]
+               [Tasmota AC1]                      [Tasmota AC2]──[ET112-Micro]   Shelly 2PM
+Chauffe-eau     (groupe I) ──[ET112-AC1]   [ET112-AC2]── (groupe II)                (DEYE)
+                                 │              │                          [Climatisation]
+                            [   ATS   ]         │
+                        [I-AC-1]   [II-AC-2]    │      ┌──────────────────────┐
+Grid                        │          │        │      │   Flux énergétique   │
+                       [Multiplus]  [Inverter RS]      │      (560 × 486)     │
+                            │   [Cerbo GX]   │         └──────────────────────┘
+                       ═════╧═════ Lynx Distributor ═════╧══ [      MPPT      ]
 [BMS-360Ah]┐                       │
 [BMS-320Ah]┼─────────────────── [SmartShunt]
 [BMS-620Ah]┘
@@ -71,17 +73,17 @@ Tous les endpoints sont servis par daly-bms-server, sur le port 8080.
 | Inverter RS | `inverter-rs` (`InverterRsNode`, « À venir ») | aucune tant qu'il n'est pas installé | Vrai bloc à la taille du Multiplus, toujours marqué « À venir » ; données branchées à l'installation (§3.1) |
 | ET112-AC2 | `et112-reseau` (`Et112CardNode`, 0x09) | `/api/v1/et112/9/status` | Placer au-dessus de l'Inverter RS |
 | Tasmota AC2 | `tongou-ac2` (`TongouGroupNode`) | `/api/v1/tasmota`, filtré sur `network = "AC-2"` | Placer à droite de l'ET112-AC2 |
-| ET112-Micro | `micro-ond` (`Et112CardNode`, 0x07) | `/api/v1/et112/7/status` | Libellé « ET112-Micro » ; à droite de Tasmota AC2 |
+| ET112-Micro | `micro-ond` (`Et112CardNode`, 0x07) | `/api/v1/et112/7/status` | Libellé « ET112-Micro » ; en haut, à droite de Tasmota AC2 |
 | Shelly 2PM | `shelly` (`ShellyNode`) | `/api/v1/shelly` → `shelly[0].snapshot.channel_0` et `channel_1` (`output`, `power_w`, `voltage_v`, `current_a`, `energy_wh`) | Carte à deux canaux, DEYE-1 / DEYE-2 (§1.5) |
 | Chauffe-eau | `chauffe-eau` (`WaterHeaterNode`) | Tongou `tongou_B459B8` + PAC Venus | Déplacer à gauche, sans liaison |
-| Climatisation | `climatisation` (`WaterHeaterNode`) | Tongou `tongou_3BC764` | En haut à droite, sans liaison |
+| Climatisation | `climatisation` (`WaterHeaterNode`) | Tongou `tongou_3BC764` | Sous ET112-Micro et le Shelly, sans liaison |
 | Grid | `grid` (`BoxNode`) | aucune | Carte « Off-grid » (§1.5) |
 | Cerbo GX | `cerbo` (`BoxNode`) | aucune | Boîte seule (§1.5) |
 | Lynx Distributor | `lynx` (`LynxNode`) | — | Barre DC horizontale large |
-| SmartShunt | `smartshunt` (`SmartShuntNode`) | `/api/v1/venus/smartshunt` | Sous le Lynx |
-| BMS-360 / 320 / 620 Ah | `bms1`, `bms2`, `bms3` (`BmsNode`) | `/api/v1/bms/{1,2,3}/status` | Colonne à gauche, reliée au SmartShunt par une barre commune (`bms-bus`, `BusNode`) |
-| MPPT | `mppt` (`MPPTGroupNode`) | `/api/v1/venus/mppt` | Grand bloc en bas à droite |
-| Flux énergétique | `sankey` (`SankeyNode`) | calculé dans `applyData` | À droite, au milieu, sans liaison |
+| SmartShunt | `smartshunt` (`SmartShuntNode`) | `/api/v1/venus/smartshunt` | Sous le Lynx, 280 × 158 |
+| BMS-360 / 320 / 620 Ah | `bms1`, `bms2`, `bms3` (`BmsNode`) | `/api/v1/bms/{1,2,3}/status` | Colonne à gauche, reliée au SmartShunt par une barre commune (`bms-bus`, `BusNode`) ; 280 × 158, puissance en W |
+| MPPT | `mppt` (`MPPTGroupNode`) | `/api/v1/venus/mppt` | Sous le Flux énergétique, relié au Lynx |
+| Flux énergétique | `sankey` (`SankeyNode`) | calculé dans `applyData` | Sous le Groupe II (bord gauche aligné), 560 × 486, sans liaison |
 
 ### 1.4 Liaisons et valeurs animées
 

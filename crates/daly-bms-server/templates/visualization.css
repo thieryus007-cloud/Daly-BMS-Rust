@@ -34,6 +34,16 @@
   .bms-temp { font-size: 0.65rem; color: #4b5563; text-align: center; margin: 6px 0; padding: 2px 0; border-top: 1px solid #e2e8f0; }
   .bms-pwr { font-size: 0.68rem; color: #4b5563; text-align: center; margin-top: 7px; padding-top: 6px; border-top: 1px solid #f0f4f8; font-family: 'JetBrains Mono', monospace; letter-spacing: -0.02em; }
   .bms-wait { font-size: 0.7rem; color: #94a3b8; font-style: italic; text-align: center; padding: 4px 0; }
+  /* BMS de la visualisation : même gabarit que le Multiplus / l'Inverter RS (280 × 158). */
+  .bms-nd { width: 280px; height: 158px; padding: 12px 14px; display: flex; flex-direction: column; }
+  .bms-nd .bms-hdr { height: auto; margin-bottom: 10px; gap: 8px; }
+  .bms-nd .bms-name { font-size: 0.95rem; }
+  .bms-nd .bms-temp { margin: 0; padding: 0; border: none; font-size: 0.78rem; }
+  .bms-nd .bms-bar-bg { height: 8px; border-radius: 4px; margin-bottom: 10px; }
+  .bms-nd .bms-kpis { flex: 1; gap: 6px; }
+  .bms-nd .bms-kpi { display: flex; flex-direction: column; justify-content: center; padding: 4px; }
+  .bms-nd .bms-kpi-v { font-size: 1.12rem; }
+  .bms-nd .bms-kpi-l { font-size: 0.6rem; margin-top: 3px; }
 
   .dev-nd { width: 185px; background: #fff; border: 1px solid #d6dce5; border-radius: 10px; padding: 10px 12px; box-shadow: 0 1px 3px rgba(15,23,42,.06),0 2px 8px rgba(15,23,42,.04); cursor: default; }
   .dev-hdr { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
@@ -372,14 +382,18 @@
   }
 
   /* ── SMARTSHUNT NODE ─────────────────────────────────────────────── */
+  /* Même gabarit que le Multiplus / l'Inverter RS (280 × 158) ; le corps remplit la hauteur. */
   .ss-card {
-    width: 230px;
+    width: 280px;
+    height: 158px;
+    display: flex; flex-direction: column;
     background: #fff;
     border-radius: 10px;
     border: 1px solid #d6dce5;
     box-shadow: 0 1px 3px rgba(15,23,42,.06), 0 2px 8px rgba(15,23,42,.04);
     overflow: hidden;
   }
+  .ss-card > div:last-child { flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; }
   .ss-hdr {
     display: flex; align-items: center; gap: 7px;
     padding: 7px 10px;
@@ -409,12 +423,15 @@
   }
   .ss-cell:last-child { border-right: none; }
   .ss-cell-lbl { font-size: 0.52rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 2px; font-weight: 600; }
-  .ss-cell-val { font-size: 0.82rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: #0f172a; }
+  .ss-cell-val { font-size: 0.95rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: #0f172a; }
   .ss-cell-val.pos { color: #16a34a; }
   .ss-cell-val.neg { color: #dc2626; }
+  .ss-cell-val.ttg { color: #2563eb; }
+  .ss-grid-bottom { border-bottom: none; border-top: 1px solid #f0f4f8; }
+  .ss-grid-bottom .ss-cell-val { font-size: 0.85rem; }
   .ss-row {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 4px 10px; border-bottom: 1px solid #f0f4f8; font-size: 0.67rem;
+    padding: 4px 10px; border-bottom: 1px solid #f0f4f8; font-size: 0.72rem;
   }
   .ss-row:last-child { border-bottom: none; }
   .ss-row-lbl { color: #6b7280; font-weight: 500; }
@@ -807,7 +824,7 @@ html.dark .spiral-hdr { border-bottom-color: rgba(148,163,184,0.12); }
   border: 1px solid #d6dce5;
   border-radius: 14px;
   padding: 10px 12px 8px;
-  width: 280px;
+  width: 560px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.10);
   position: relative;
 }
@@ -820,10 +837,10 @@ html.dark .spiral-hdr { border-bottom-color: rgba(148,163,184,0.12); }
   margin-bottom: 4px;
 }
 .sankey-icon {
-  font-size: 0.85rem;
+  font-size: 1.1rem;
 }
 .sankey-title {
-  font-size: 0.68rem;
+  font-size: 0.85rem;
   font-weight: 600;
   color: #94a3b8;
   text-transform: uppercase;
@@ -831,14 +848,14 @@ html.dark .spiral-hdr { border-bottom-color: rgba(148,163,184,0.12); }
   flex: 1;
 }
 .sankey-total {
-  font-size: 0.72rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: #fbbf24;
   font-family: 'JetBrains Mono', monospace;
 }
 .sankey-chart {
-  width: 256px;
-  height: 195px;
+  width: 536px;
+  height: 433px;
   margin: 0 auto;
   display: block;
 }
