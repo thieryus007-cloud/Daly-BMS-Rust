@@ -13,6 +13,10 @@ Usage :
     python scripts/viz-preview.py build [--pi5 http://192.168.1.141:8080] [--out DOSSIER]
         → DOSSIER/preview.html          (aperçu)
           DOSSIER/preview-measure.html  (aperçu + mesure des cartes, pour --dump-dom)
+    python scripts/viz-preview.py build --open bms1 [--period 1440]
+        → en plus, DOSSIER/preview-open.html : la fiche détail de la box bms1 s'ouvre seule
+          (cible = id d'une box de NODES0, ou edge:N pour le N-ième bouton 📈, compté à partir
+          de 0 ; --period = 60, 360 ou 1440 minutes)
     python scripts/viz-preview.py sizes DOSSIER/dom.html
         → tailles des cartes en px du canevas (largeur, hauteur), au format JSON
 
@@ -50,6 +54,16 @@ MEASURE = """<script>setTimeout(function(){
   var pre = document.createElement('pre'); pre.id = 'sizes'; pre.textContent = JSON.stringify(out);
   document.body.appendChild(pre);
 }, 9000);</script>"""
+
+# Ouvre la fiche détail d'une box (clic sur son nœud) ou d'une liaison (clic sur son 📈).
+OPEN = """<script>setTimeout(function(){
+  var el = %s;
+  if (!el) { document.title = 'CIBLE INTROUVABLE'; return; }
+  el.click();
+  var p = %s;
+  if (p) setTimeout(function(){ document.querySelectorAll('.vd-period').forEach(function(b){
+    if (b.textContent.replace(/\\s/g, '') === p) b.click(); }); }, 1500);
+}, 7000);</script>"""
 
 
 def assemble_template():
@@ -89,6 +103,15 @@ def build(args):
         f.write(page.replace("</body>", MEASURE + "</body>", 1))
     print("Aperçu :", os.path.join(args.out, "preview.html"))
     print("Mesure :", os.path.join(args.out, "preview-measure.html"))
+    if args.open:
+        if args.open.startswith("edge:"):
+            sel = "document.querySelectorAll('.vd-edge-btn')[%d]" % int(args.open[5:])
+        else:
+            sel = "document.querySelector('.react-flow__node[data-id=\"%s\"]')" % args.open
+        period = "'%dh'" % (args.period // 60) if args.period else "null"
+        with open(os.path.join(args.out, "preview-open.html"), "w", encoding="utf-8") as f:
+            f.write(page.replace("</body>", OPEN % (sel, period) + "</body>", 1))
+        print("Fiche  :", os.path.join(args.out, "preview-open.html"))
 
 
 def sizes(args):
@@ -105,6 +128,8 @@ def main():
     b = sub.add_parser("build", help="construit preview.html et preview-measure.html")
     b.add_argument("--pi5", default="http://192.168.1.141:8080")
     b.add_argument("--out", default=os.path.join(tempfile.gettempdir(), "viz-preview"))
+    b.add_argument("--open", help="id d'une box (ex. bms1) ou edge:N : fiche détail ouverte d'office")
+    b.add_argument("--period", type=int, choices=(60, 360, 1440), help="période de la fiche, en minutes")
     s = sub.add_parser("sizes", help="extrait les tailles des cartes d'un DOM sauvegardé")
     s.add_argument("dom")
     args = p.parse_args()

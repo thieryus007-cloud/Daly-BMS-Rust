@@ -30,7 +30,7 @@
 | Nb séries en base | `curl -s http://localhost:8080/api/v1/redb/series \| jq '.data \| length'` |
 | Healthcheck backend | `curl -s http://localhost:8080/-/healthy` |
 | Valider Config.toml avant déploiement | `DALY_CONFIG=Config.toml daly-bms-server --check-config` et `ENERGY_CONFIG=Config.toml energy-manager --check-config` (dry-run : parse + bornes + typos — audit 2026-06 §12) |
-| Aperçu de la page Visualisation **sans compiler ni déployer** (PC Windows ; données réelles du Pi5, écritures bloquées) | `python scripts/viz-preview.py build` puis capture / mesure des cartes avec Edge headless — commandes : `docs/TRANSITION-refonte-visualisation.md` §1.7 |
+| Aperçu de la page Visualisation **sans compiler ni déployer** (PC Windows ; données réelles du Pi5, écritures bloquées) | `python scripts/viz-preview.py build` puis capture / mesure des cartes avec Edge headless ; `--open bms1` ouvre d'office la fiche détail d'une box — commandes : `docs/TRANSITION-refonte-visualisation.md` §1.7 |
 | Diag pic réseau (capture immédiate) | `sudo bash scripts/netdiag.sh` |
 | Profiler une fuite RSS (heap jemalloc, auto-restauré) | `sudo bash scripts/jemalloc-leak-profile.sh 2h` → rapport `/tmp/jeprof/leak-report-*.txt` (cf. docs/diagnostic-depannage.md §18) |
 | Diag pic réseau (veille auto-capture) | `sudo bash scripts/netdiag.sh --watch` → rapport `/tmp/netdiag-*.txt` |

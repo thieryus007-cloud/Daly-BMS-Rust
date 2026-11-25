@@ -155,7 +155,7 @@ const SankeyNode = function SankeyNode({ data }) {
   useEffect(function () {
     if (!chartRef.current || !window.echarts) return;
     if (!instRef.current) {
-      instRef.current = window.echarts.init(chartRef.current, null, { renderer: 'canvas' });
+      instRef.current = window.echarts.init(chartRef.current, null, { renderer: 'svg' });
     }
     const chart = instRef.current;
 

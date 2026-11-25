@@ -870,3 +870,107 @@ html.dark .sankey-node {
 }
 html.dark .sankey-hdr { border-bottom-color: rgba(148,163,184,0.12); }
 html.dark .sankey-title { color: #94a3b8; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FICHE DÉTAIL (viz_detail.js) — clic sur une box ou sur le 📈 d'une liaison
+   ═══════════════════════════════════════════════════════════════════════════ */
+.react-flow__node.vd-clickable { cursor: pointer; }
+.react-flow__node.vd-clickable:hover { outline: 2px solid rgba(37,99,235,.55); outline-offset: 4px; border-radius: 12px; }
+
+.vd-edge-btn {
+  position: absolute; width: 30px; height: 30px; padding: 0; border-radius: 50%;
+  background: #fff; border: 2px solid var(--vd-c); color: var(--vd-c);
+  display: flex; align-items: center; justify-content: center; font-size: 14px; line-height: 1;
+  cursor: pointer; pointer-events: all; z-index: 9; box-shadow: 0 2px 5px rgba(0,0,0,.15);
+  transition: background .15s;
+}
+.vd-edge-btn:hover, .vd-edge-btn:focus-visible { background: var(--vd-c); outline: none; }
+
+.vd-backdrop {
+  position: fixed; inset: 0; z-index: 5000; display: flex; align-items: center; justify-content: center;
+  background: rgba(15,23,42,.45); backdrop-filter: blur(2px);
+}
+.vd-sheet {
+  width: min(1500px, 92vw); height: min(960px, 88vh); display: flex; flex-direction: column;
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;
+  box-shadow: 0 24px 64px rgba(15,23,42,.35);
+}
+.vd-head { display: flex; align-items: center; gap: 14px; padding: 12px 18px; border-bottom: 1px solid #e2e8f0; }
+.vd-title { flex: 1; font-size: 19px; font-weight: 650; color: #0f172a; }
+.vd-periods { display: flex; }
+.vd-period {
+  padding: 6px 14px; font-size: 13.5px; font-weight: 600; color: #334155; background: #fff;
+  border: 1px solid #cbd5e1; cursor: pointer;
+}
+.vd-period + .vd-period { border-left: none; }
+.vd-period:first-child { border-radius: 8px 0 0 8px; }
+.vd-period:last-child  { border-radius: 0 8px 8px 0; }
+.vd-period.on { background: #1e293b; border-color: #1e293b; color: #fff; }
+.vd-close {
+  width: 34px; height: 34px; border-radius: 50%; border: 1px solid #cbd5e1; background: #fff;
+  color: #334155; font-size: 15px; cursor: pointer;
+}
+.vd-close:hover { background: #f1f5f9; }
+.vd-body {
+  flex: 1; min-height: 0; display: grid; gap: 18px; padding: 16px 18px 18px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+}
+.vd-nobox .vd-body { grid-template-columns: minmax(0, 1fr); }
+.vd-box { min-height: 0; border-radius: 10px; background: #f8fafc; }
+.vd-flow { width: 100%; height: 100%; }
+.vd-flow .react-flow__handle { opacity: 0; pointer-events: none; }
+.vd-flow .react-flow__node { cursor: default; }
+.vd-charts { min-height: 0; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+.vd-chart {
+  flex: 1 1 0; min-height: 170px; display: flex; flex-direction: column;
+  border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px 4px;
+}
+.vd-chart-head {
+  display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 14px;
+  margin-bottom: 4px;
+}
+.vd-chart-title { font-size: 14.5px; font-weight: 650; color: #0f172a; }
+.vd-chart-unit  { font-weight: 400; color: #64748b; }
+.vd-chart-stats {
+  display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 12.5px; color: #475569;
+  font-variant-numeric: tabular-nums;
+}
+.vd-chart-stats b { color: #0f172a; }
+.vd-legend { display: flex; flex-wrap: wrap; gap: 2px 6px; margin-bottom: 2px; }
+.vd-leg {
+  display: inline-flex; align-items: center; gap: 6px; padding: 2px 6px; border: none; border-radius: 6px;
+  background: none; font-size: 12.5px; color: #1e293b; cursor: pointer; font-variant-numeric: tabular-nums;
+}
+.vd-leg:hover { background: #f1f5f9; }
+.vd-leg.off { color: #94a3b8; text-decoration: line-through; }
+.vd-leg.off .vd-leg-sw { opacity: .3; }
+.vd-leg-sw { width: 16px; height: 4px; border-radius: 2px; flex-shrink: 0; }
+.vd-leg-en { color: #64748b; }
+.vd-chart-plot   { flex: 1; min-height: 0; position: relative; }
+.vd-chart-canvas { position: absolute; inset: 0; }
+.vd-chart-msg {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 13px; color: #64748b; pointer-events: none;
+}
+@media (max-width: 900px) {
+  .vd-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(220px, 40%) minmax(0, 1fr); }
+  .vd-nobox .vd-body { grid-template-rows: minmax(0, 1fr); }
+}
+
+html.dark .vd-edge-btn { background: #1c2128; }
+html.dark .vd-edge-btn:hover, html.dark .vd-edge-btn:focus-visible { background: var(--vd-c); }
+html.dark .vd-backdrop { background: rgba(1,4,9,.6); }
+html.dark .vd-sheet { background: #161b22; border-color: #30363d; }
+html.dark .vd-head { border-bottom-color: #30363d; }
+html.dark .vd-title, html.dark .vd-chart-title, html.dark .vd-chart-stats b { color: #e6edf3; }
+html.dark .vd-period, html.dark .vd-close { background: #1c2128; border-color: #30363d; color: #c9d1d9; }
+html.dark .vd-period.on { background: #e6edf3; border-color: #e6edf3; color: #0d1117; }
+html.dark .vd-close:hover { background: #22272e; }
+html.dark .vd-box { background: #0d1117; }
+html.dark .vd-chart { border-color: #30363d; }
+html.dark .vd-chart-unit, html.dark .vd-chart-msg { color: #8b949e; }
+html.dark .vd-chart-stats { color: #c9d1d9; }
+html.dark .vd-leg { color: #e6edf3; }
+html.dark .vd-leg:hover { background: #22272e; }
+html.dark .vd-leg.off { color: #6e7681; }
+html.dark .vd-leg-en { color: #8b949e; }

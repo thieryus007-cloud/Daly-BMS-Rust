@@ -25,7 +25,8 @@ Réorganiser `http://192.168.1.141:8080/visualization` selon le schéma de l'uti
 
 - le **bandeau supérieur** (Prod. totale, Production, Batteries, Météo, Température, heure) ;
 - les **animations de flux** sur les liaisons ;
-- les graphiques d'historique au survol des liaisons (`HIST_*`).
+- les historiques des liaisons (`HIST_*`) : bouton 📈 au milieu de chaque liaison, qui ouvre
+  la fiche détail (§1.8).
 
 ### 1.2 Schéma cible
 
@@ -125,13 +126,15 @@ pour un courant en ampères. Le sens s'inverse avec `reverse`.
 
 | Fichier | Rôle |
 |---|---|
-| `crates/daly-bms-server/templates/visualization.html` | constantes de disposition (`MP_X`, `RS_X`, `LYNX_*`, `BMS_Y`… : colonnes calculées pour des liaisons verticales droites), `NODES0` (positions), `EDGES0`, `applyData` (valeurs, arêtes ATS dynamiques), `fetchAll` (appels API), constantes `WH_TASMOTA` / `CLIM_TASMOTA` / `DEYE_TASMOTA` / `SHELLY_DEYE_CHANNELS` |
+| `crates/daly-bms-server/templates/visualization.html` | constantes de disposition (`MP_X`, `RS_X`, `LYNX_*`, `BMS_Y`… : colonnes calculées pour des liaisons verticales droites), `NODES0` (positions), `EDGES0` et historiques des liaisons `HIST_*`, contenu des fiches détail (`NODE_NAMES`, `NODE_DETAIL`, `buildDetail`, §1.8), `applyData` (valeurs, arêtes ATS dynamiques), `fetchAll` (appels API), constantes `WH_TASMOTA` / `CLIM_TASMOTA` / `DEYE_TASMOTA` / `SHELLY_DEYE_CHANNELS` |
+| `viz_detail.js` | fiche détail (§1.8) : `DetailSheet`, `DetailBox` (la box agrandie), `HistChart` (graphiques ECharts), `EdgeHistoryButton` (bouton 📈 des liaisons), contexte `DetailCtx` |
 | `viz_nodes_ats.js` | ATS (entrées I à gauche, II à droite, sortie en haut), I/II, `InverterNode` (Multiplus), `InverterRsNode` |
 | `viz_nodes_basic.js` | `Et112CardNode`, `LynxNode`, `BusNode` (barre BMS), `BoxNode` (Grid, Cerbo GX), `BmsNode` |
 | `viz_nodes_devices.js` | `TongouGroupNode` (`data.title`), `ShellyNode`, `WaterHeaterNode` |
 | `viz_nodes_venus.js` | `MPPTGroupNode`, `SmartShuntNode` |
-| `viz_edges.js` | arêtes animées (`AnimatedFlowEdge`, `CustomBezierEdge`, `TripleAtsEdge`) — pas de changement prévu |
-| `visualization.css` | styles des nouvelles cartes (Lynx, Grid, Cerbo, Shelly) |
+| `viz_nodes_charts.js` | `SankeyNode` (Flux énergétique ; rendu SVG, net une fois agrandi dans la fiche) |
+| `viz_edges.js` | arêtes animées (`AnimatedFlowEdge`, `CustomBezierEdge`, `TripleAtsEdge`) ; une arête avec `data.history` porte le bouton 📈 |
+| `visualization.css` | styles des cartes (Lynx, Grid, Cerbo, Shelly…) et de la fiche détail (classes `vd-*`) |
 
 Contraintes :
 
@@ -172,6 +175,9 @@ Contraintes :
    Start-Process $edge -Wait -WindowStyle Hidden -RedirectStandardOutput "$O\dom.html" -RedirectStandardError "$O\err.txt" `
      -ArgumentList ($c + @("--dump-dom","$u/preview-measure.html"))
    python scripts\viz-preview.py sizes "$O\dom.html"
+   # Fiche détail ouverte d'office (id d'une box, ou edge:N pour le N-ième 📈), période 24 h
+   python scripts\viz-preview.py build --out $O --open bms1 --period 1440
+   Start-Process $edge -Wait -WindowStyle Hidden -ArgumentList ($c + @("--hide-scrollbars","--screenshot=$O\fiche.png","$u/preview-open.html"))
    ```
 
    Les positions de `NODES0` sont calculées à partir des hauteurs mesurées (`H_*` en tête de
@@ -181,6 +187,64 @@ Contraintes :
 4. Capture de la page déployée, à comparer au schéma : même commande que la capture
    ci-dessus, avec l'URL `http://192.168.1.141:8080/visualization`. Juste après un
    déploiement, les MPPT et le Flux énergétique restent vides environ une minute (§4.4).
+
+### 1.8 Fiche détail (clic sur une box ou sur une liaison)
+
+Un clic sur une box, ou sur le bouton 📈 au milieu d'une liaison, ouvre une fiche centrée dans
+la fenêtre (92 % × 88 %, au plus 1500 × 960 px). Elle est posée par-dessus la carte : sa taille
+ne dépend pas du zoom. En vue d'ensemble, la carte est affichée à 58 % sur un écran
+1900 × 1150 et à 35 % sur 1366 × 768.
+
+- **À gauche** : la box elle-même, en direct (mêmes données que la carte, toutes les 2 s),
+  agrandie pour remplir sa moitié de fiche ; une box BMS y fait environ 645 px de large, contre
+  160 sur la carte. C'est un second React Flow qui ne contient que ce nœud (`DetailBox`). Ses
+  boutons restent **actifs**, comme sur la carte : forçage de source ATS, Double OFF avec sa
+  confirmation, prises Tongou (décision de l'utilisateur).
+- **À droite** : les historiques de la box, un graphique par mesure (un seul axe chacun).
+  Période 1 h, 6 h ou 24 h, gardée d'une fiche à l'autre ; relecture chaque minute. En-tête :
+  dernier point avec son heure, min · moy · max, énergie de la période (W → kWh, A → Ah, par
+  la méthode des trapèzes ; séparée en charge et décharge pour une mesure signée). Avec
+  plusieurs courbes : légende cliquable (masquer / afficher), avec l'énergie de chaque courbe.
+- **Liaison** : la même fiche, sans box, avec l'historique `HIST_*` de la liaison.
+- **Fermeture** : ✕, Échap, clic, molette ou glisser sur le fond. Un clic sur un bouton d'une
+  box de la carte déclenche son action sans ouvrir la fiche.
+
+| Box | Graphiques |
+|---|---|
+| BMS (3) | courant, tension, SOC, température max |
+| SmartShunt | courant, puissance, tension, SOC |
+| MPPT | production totale, production par chargeur, ensoleillement |
+| Multiplus | puissance DC, puissance AC en sortie, tension DC |
+| Flux énergétique | production (solaire, micro-onduleurs), batteries |
+| ET112-AC1, ET112-AC2, ET112-Micro | puissance, courant, tension |
+| Groupes I et II | puissance par prise |
+| Chauffe-eau | puissance (Tongou), température de l'eau (PAC Venus `mqtt_index` 1) |
+| Climatisation | puissance (Tongou) |
+| Shelly 2PM | puissance par canal (DEYE-1, DEYE-2) |
+| ATS ; I-AC-1 ; II-AC-2 | tension des deux sources ; tension de la source |
+| Lynx (fiche sans box) | puissances du bus DC : MPPT, Multiplus, batteries |
+| Barre BMS (fiche sans box) | courant des 3 BMS |
+
+Grid, Cerbo GX et Inverter RS (à venir) n'ouvrent pas de fiche : ils n'ont pas d'entrée dans
+`NODE_DETAIL`.
+
+**Données** : `/api/v1/query_range` (PromQL du metrics-store, comme Grafana), une requête par
+courbe, avec des étiquettes qui désignent une seule série : `bms_id` (0x01 à 0x03), `address`
+(0x07 à 0x09), `id` des Tongou et du Shelly, `instance` des MPPT, `mqtt_index` des PAC. Pas
+de lecture : 20 s (1 h), 60 s (6 h), 180 s (24 h). Le dernier point d'un graphique peut
+différer de la valeur de la box : un point par pas, contre un rafraîchissement toutes les
+2 s. `/api/v1/chart/edge-history` n'est pas utilisé par la page.
+
+**Ajouter ou modifier un graphique** : entrée de `NODE_DETAIL` dans `visualization.html`,
+`{ color, box?, charts: (node, ctx) => [{ title, unit, sign?, series: [{ q, name }] }] }`
+(`box: false` = fiche sans box ; `ctx.tasmota` et `ctx.shellyId` viennent du dernier
+`fetchAll`). Vérifier d'abord que la requête renvoie une seule série :
+
+```bash
+now=$(date +%s); curl -s -G http://192.168.1.141:8080/api/v1/query_range \
+  --data-urlencode 'query=tasmota_power_w{id="6"}' --data-urlencode start=$((now-3600)) \
+  --data-urlencode end=$now --data-urlencode step=60 | python -c 'import sys,json; print(len(json.load(sys.stdin)["data"]["result"]), "série(s)")'
+```
 
 ---
 

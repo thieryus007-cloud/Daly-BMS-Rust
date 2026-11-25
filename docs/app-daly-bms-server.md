@@ -513,7 +513,7 @@ Voir [./integration-materiel.md](./integration-materiel.md) pour les registres M
 | Méthode | Endpoint | Description |
 |---------|----------|-------------|
 | `GET` | `/api/v1/chart/history` | Données historiques agrégées pour graphiques (paramètres : `metric`, `from`, `to`, `step`) |
-| `GET` | `/api/v1/chart/edge-history` | Historique des transitions / événements (alarmes, changements état MOS) |
+| `GET` | `/api/v1/chart/edge-history` | Historique d'une mesure (`metric`, `bms_id` ou `address`, `minutes` ≤ 1440), points `HH:MM`. Pas utilisé par `/visualization`, dont la fiche détail lit `/api/v1/query_range` |
 
 > `/api/v1/history/energy` et `/api/v1/dashboards/*` ont été retirés en 2026-06
 > avec la page `/dashboard/history` — l'historique long terme vit dans Grafana
@@ -605,7 +605,7 @@ wscat -c ws://localhost:8080/ws/bms/1/stream
 | `/dashboard/ats` | `ats.html` | État ATS CHINT (source active, tensions, commandes) |
 | `/dashboard/monitor` | `monitor.html` | Règles système (courant Victron, chauffe-eau LG, relais DEYE : état machine, fréquence, gardes îlotage/restore — via `:8081/api/rules-status`) + santé RS485 (CRC, timeouts, taux succès par appareil) |
 | `/dashboard/console` | `console.html` | Console logs WebSocket temps réel |
-| `/dashboard/visualization` | `visualization.html` | Schéma de l'installation en ReactFlow (AC en haut, DC en bas), liaisons animées selon les flux. Disposition, blocs et aperçu local sans déploiement (`scripts/viz-preview.py`) : [TRANSITION-refonte-visualisation.md](./TRANSITION-refonte-visualisation.md) §1 |
+| `/dashboard/visualization` | `visualization.html` | Schéma de l'installation en ReactFlow (AC en haut, DC en bas), liaisons animées selon les flux. Clic sur une box ou sur le 📈 d'une liaison : fiche détail centrée (box agrandie en direct + historiques 1 h / 6 h / 24 h). Disposition, blocs, fiche détail et aperçu local sans déploiement (`scripts/viz-preview.py`) : [TRANSITION-refonte-visualisation.md](./TRANSITION-refonte-visualisation.md) §1 |
 | `/dashboard/alerts` | `alerts.html` | Alertes actives + historique |
 | `/dashboard/logs` | `logs.html` | Logs systèmes (rotation fichiers) |
 | `/dashboard/settings` | `settings.html` | Paramètres configurables (seuils alarmes, affichage) |

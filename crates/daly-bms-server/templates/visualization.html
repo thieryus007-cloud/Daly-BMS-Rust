@@ -35,6 +35,7 @@ function mkHandle(type, pos, id, style) {
 {% include "viz_nodes_venus.js" %}
 {% include "viz_nodes_devices.js" %}
 {% include "viz_nodes_ats.js" %}
+{% include "viz_detail.js" %}
 {% include "viz_edges.js" %}
 {% include "viz_nodes_charts.js" %}
 
@@ -140,9 +141,12 @@ function mkEdge(id, src, tgt, color, opts = {}) {
   };
 }
 
-const HIST_ET112_7 = { metric: 'et112_power_w',                    address: '0x07', label: 'ET112-Micro — W (6h)' };
-const HIST_ET112_8 = { metric: 'et112_power_w',                    address: '0x08', label: 'ET112-AC1 — W (6h)' };
-const HIST_ET112_9 = { metric: 'et112_power_w',                    address: '0x09', label: 'ET112-AC2 — W (6h)' };
+// Historique de chaque liaison (bouton 📈 → fiche détail) : mesure du metrics-store, unité,
+// et pour une mesure signée, le sens de chaque signe.
+const BAT_SIGN = { pos: 'charge', neg: 'décharge' };
+const HIST_ET112_7 = { metric: 'et112_power_w', address: '0x07', unit: 'W', label: 'Puissance ET112-Micro' };
+const HIST_ET112_8 = { metric: 'et112_power_w', address: '0x08', unit: 'W', label: 'Puissance ET112-AC1' };
+const HIST_ET112_9 = { metric: 'et112_power_w', address: '0x09', unit: 'W', label: 'Puissance ET112-AC2' };
 
 // Tongou (topic MQTT) affichés à part : chauffe-eau, climatisation, et coupure des DEYE
 // (ce dernier mesure la production des DEYE : exclu de la somme des charges).
@@ -154,13 +158,13 @@ const tasmotaLive = d => d ? {
   power_w: d.power_w,
   energy_import_wh: d.energy_total_kwh != null ? d.energy_total_kwh * 1000 : null,
 } : null;
-const HIST_BMS_1   = { metric: 'bms_current',   bms_id: '0x01',                    label: 'BMS-360Ah — I (6h)' };
-const HIST_BMS_2   = { metric: 'bms_current',   bms_id: '0x02',                    label: 'BMS-320Ah — I (6h)' };
-const HIST_BMS_3   = { metric: 'bms_current',   bms_id: '0x03',                    label: 'BMS-620Ah — I (6h)' };
-const HIST_MPPT    = { metric: 'solar_total_w',                                     label: 'Solaire total — W (6h)' };
-const HIST_INV_DC  = { metric: 'venus_inverter_power_w',                            label: 'Multiplus — P DC (6h)' };
-const HIST_INV_AC  = { metric: 'venus_inverter_ac_output_power_w',                  label: 'Multiplus — P AC sortie (6h)' };
-const HIST_SHUNT   = { metric: 'venus_shunt_current_a',                             label: 'SmartShunt — I batterie (6h)' };
+const HIST_BMS_1  = { metric: 'bms_current', bms_id: '0x01', unit: 'A', sign: BAT_SIGN, label: 'Courant BMS-360Ah' };
+const HIST_BMS_2  = { metric: 'bms_current', bms_id: '0x02', unit: 'A', sign: BAT_SIGN, label: 'Courant BMS-320Ah' };
+const HIST_BMS_3  = { metric: 'bms_current', bms_id: '0x03', unit: 'A', sign: BAT_SIGN, label: 'Courant BMS-620Ah' };
+const HIST_MPPT   = { metric: 'solar_total_w',                    unit: 'W', label: 'Production solaire totale' };
+const HIST_INV_DC = { metric: 'venus_inverter_power_w',           unit: 'W', sign: BAT_SIGN, label: 'Puissance DC Multiplus' };
+const HIST_INV_AC = { metric: 'venus_inverter_ac_output_power_w', unit: 'W', label: 'Puissance AC en sortie du Multiplus' };
+const HIST_SHUNT  = { metric: 'venus_shunt_current_a',            unit: 'A', sign: BAT_SIGN, label: 'Courant batterie (SmartShunt)' };
 
 // Liaisons du schéma. Les arêtes ATS ↔ I-AC-1 / II-AC-2 (ats-e1 / ats-e2) sont ajoutées
 // dans applyData selon la source sélectionnée.
@@ -185,6 +189,108 @@ const EDGES0 = [
   mkEdge('e-bus-b3',         'bms3',         'bms-bus',      COLOR.bat, { sourceHandle: 'sr', targetHandle: 'in-b3', type: 'customBezier', history: HIST_BMS_3 }),
 ];
 
+// ── Fiche détail (viz_detail.js) : contenu de la fiche de chaque box et de chaque liaison ──
+// Chaque graphique = une mesure (une unité, un seul axe) ; series[].q = requête PromQL sur le
+// metrics-store (étiquettes vérifiées : bms_id 0x01-0x03, address 0x07-0x09, id des Tongou
+// et du Shelly, instance des MPPT, mqtt_index des pompes à chaleur). L'unité fixe les
+// décimales et l'énergie de la période (W → kWh, A → Ah) ; sign nomme les deux sens.
+// Sans entrée ici, une box n'ouvre pas de fiche (Grid, Cerbo GX, Inverter RS à venir).
+const NODE_NAMES = {
+  'chauffe-eau': 'Chauffe-eau', 'tongou-group': 'Groupe I · AC-1', 'et112-maison': 'ET112-AC1',
+  'ats-main': 'ATS', 'ats-onduleur': 'I · AC-1 MultiPlus', 'ats-reseau': 'II · AC-2 Inverter RS',
+  'et112-reseau': 'ET112-AC2', 'tongou-ac2': 'Groupe II · AC-2', 'micro-ond': 'ET112-Micro',
+  shelly: 'Shelly Pro 2PM · DEYE', climatisation: 'Climatisation', sankey: 'Flux énergétique',
+  onduleur: 'Multiplus', 'inverter-rs': 'Inverter RS', lynx: 'Lynx Distributor', mppt: 'MPPT',
+  smartshunt: 'SmartShunt', 'bms-bus': 'Batteries', bms1: 'BMS-360Ah', bms2: 'BMS-320Ah', bms3: 'BMS-620Ah',
+};
+const serie = (q, name) => ({ q, name });
+const bmsCharts = id => [
+  { title: 'Courant', unit: 'A', sign: BAT_SIGN, series: [serie(`bms_current{bms_id="${id}"}`, 'Courant')] },
+  { title: 'Tension', unit: 'V', series: [serie(`bms_voltage{bms_id="${id}"}`, 'Tension')] },
+  { title: 'SOC', unit: '%', series: [serie(`bms_soc{bms_id="${id}"}`, 'SOC')] },
+  { title: 'Température max', unit: '°C', series: [serie(`bms_temp_max{bms_id="${id}"}`, 'Température max')] },
+];
+const et112Charts = addr => [
+  { title: 'Puissance', unit: 'W', series: [serie(`et112_power_w{address="${addr}"}`, 'Puissance')] },
+  { title: 'Courant', unit: 'A', series: [serie(`et112_current_a{address="${addr}"}`, 'Courant')] },
+  { title: 'Tension', unit: 'V', series: [serie(`et112_voltage_v{address="${addr}"}`, 'Tension')] },
+];
+const tongouPower = (tasmota, topic, name) => {
+  const t = tasmota.find(x => x.tasmota_id === topic);
+  return t ? { title: 'Puissance', unit: 'W', series: [serie(`tasmota_power_w{id="${t.id}"}`, name)] } : null;
+};
+const groupCharts = n => {
+  const sw = n.data.switches || [];
+  return sw.length ? [{ title: 'Puissance par prise', unit: 'W',
+    series: sw.map(s => serie(`tasmota_power_w{id="${s.id}"}`, s.name)) }] : [];
+};
+const NODE_DETAIL = {
+  bms1: { color: COLOR.bat, charts: () => bmsCharts('0x01') },
+  bms2: { color: COLOR.bat, charts: () => bmsCharts('0x02') },
+  bms3: { color: COLOR.bat, charts: () => bmsCharts('0x03') },
+  'bms-bus': { color: COLOR.bat, box: false, charts: () => [
+    { title: 'Courant des batteries', unit: 'A', sign: BAT_SIGN, series: [
+      serie('bms_current{bms_id="0x01"}', 'BMS-360Ah'), serie('bms_current{bms_id="0x02"}', 'BMS-320Ah'),
+      serie('bms_current{bms_id="0x03"}', 'BMS-620Ah')] }] },
+  smartshunt: { color: COLOR.dc, charts: () => [
+    { title: 'Courant', unit: 'A', sign: BAT_SIGN, series: [serie('venus_shunt_current_a', 'Courant')] },
+    { title: 'Puissance', unit: 'W', sign: BAT_SIGN, series: [serie('venus_shunt_power_w', 'Puissance')] },
+    { title: 'Tension', unit: 'V', series: [serie('venus_shunt_voltage_v', 'Tension')] },
+    { title: 'SOC', unit: '%', series: [serie('venus_shunt_soc_percent', 'SOC')] }] },
+  lynx: { color: COLOR.dc, box: false, charts: () => [
+    { title: 'Puissances sur le bus DC', unit: 'W', series: [
+      serie('solar_total_w', 'MPPT'), serie('venus_inverter_power_w', 'Multiplus'),
+      serie('venus_shunt_power_w', 'Batteries (SmartShunt)')] }] },
+  mppt: { color: COLOR.dc, charts: n => [
+    { title: 'Production totale', unit: 'W', series: [serie('solar_total_w', 'Production totale')] },
+    { title: 'Production par chargeur', unit: 'W', series: (n.data.mppts || []).map(m =>
+      serie(`venus_mppt_power_w{instance="${m.instance}"}`, m.name || ('MPPT-' + m.instance))) },
+    { title: 'Ensoleillement', unit: 'W/m²', series: [serie('irradiance_wm2', 'Ensoleillement')] },
+  ].filter(c => c.series.length) },
+  onduleur: { color: COLOR.dc, charts: () => [
+    { title: 'Puissance DC', unit: 'W', sign: BAT_SIGN, series: [serie('venus_inverter_power_w', 'Puissance DC')] },
+    { title: 'Puissance AC en sortie', unit: 'W', series: [serie('venus_inverter_ac_output_power_w', 'Puissance AC')] },
+    { title: 'Tension DC', unit: 'V', series: [serie('venus_inverter_voltage_v', 'Tension DC')] }] },
+  sankey: { color: COLOR.dc, charts: () => [
+    { title: 'Production', unit: 'W', series: [
+      serie('solar_total_w', 'Solaire (MPPT)'), serie('et112_power_w{address="0x07"}', 'Micro-onduleurs (ET112-Micro)')] },
+    { title: 'Batteries (SmartShunt)', unit: 'W', sign: BAT_SIGN, series: [serie('venus_shunt_power_w', 'Batteries')] }] },
+  'et112-maison': { color: COLOR.ac, charts: () => et112Charts('0x08') },
+  'et112-reseau': { color: COLOR.ac, charts: () => et112Charts('0x09') },
+  'micro-ond':    { color: COLOR.ac, charts: () => et112Charts('0x07') },
+  'tongou-group': { color: COLOR.ac, charts: groupCharts },
+  'tongou-ac2':   { color: COLOR.ac, charts: groupCharts },
+  'chauffe-eau':  { color: COLOR.ac, charts: (n, ctx) => [
+    tongouPower(ctx.tasmota, WH_TASMOTA, 'Chauffe-eau'),
+    { title: 'Température de l\'eau', unit: '°C', series: [serie('venus_heatpump_temp_c{mqtt_index="1"}', 'Température')] },
+  ].filter(Boolean) },
+  climatisation: { color: COLOR.ac, charts: (n, ctx) => [tongouPower(ctx.tasmota, CLIM_TASMOTA, 'Climatisation')].filter(Boolean) },
+  shelly: { color: COLOR.ac, charts: (n, ctx) => ctx.shellyId == null ? [] : [
+    { title: 'Puissance par canal', unit: 'W', series: SHELLY_DEYE_CHANNELS.map(c =>
+      serie(`shelly_channel_power_w{id="${ctx.shellyId}",channel="${c.ch}"}`, c.name)) }] },
+  'ats-main': { color: COLOR.ac, charts: () => [
+    { title: 'Tension des sources', unit: 'V', series: [serie('ats_v1a', 'Source I · AC-1'), serie('ats_v2a', 'Source II · AC-2')] }] },
+  'ats-onduleur': { color: COLOR.ac, charts: () => [{ title: 'Tension', unit: 'V', series: [serie('ats_v1a', 'Tension')] }] },
+  'ats-reseau':   { color: COLOR.ac, charts: () => [{ title: 'Tension', unit: 'V', series: [serie('ats_v2a', 'Tension')] }] },
+};
+NODES0.forEach(n => { if (NODE_DETAIL[n.id]) n.className = 'vd-clickable'; });
+
+// Fiche ouverte : { kind: 'node' | 'edge', id } → titre, box (ou null) et graphiques.
+function buildDetail(detail, nodes, edges, ctx) {
+  if (detail.kind === 'edge') {
+    const e = edges.find(x => x.id === detail.id), hs = e?.data?.history;
+    if (!hs) return null;
+    const q = hs.bms_id ? `${hs.metric}{bms_id="${hs.bms_id}"}`
+      : hs.address ? `${hs.metric}{address="${hs.address}"}` : hs.metric;
+    return { title: `${NODE_NAMES[e.source] || e.source} ↔ ${NODE_NAMES[e.target] || e.target}`,
+      color: e.style?.stroke, node: null,
+      charts: [{ title: hs.label, unit: hs.unit, sign: hs.sign, series: [serie(q, hs.label)] }] };
+  }
+  const n = nodes.find(x => x.id === detail.id), d = NODE_DETAIL[detail.id];
+  if (!n || !d) return null;
+  return { title: NODE_NAMES[n.id] || n.id, color: d.color, node: d.box === false ? null : n, charts: d.charts(n, ctx) };
+}
+
 
 function ESSFlow() {
   const [nodes, setNodes, onNodesChange] = useNodesState(NODES0);
@@ -196,6 +302,22 @@ function ESSFlow() {
   const [atsRev, setAtsRev] = useState(0);
 const atsExecRef = useRef(null);
   const atsBusyRef = useRef(false);
+
+  // Fiche détail : box ou liaison ouverte, période des historiques (gardée d'une fiche à
+  // l'autre), dernières listes utiles aux requêtes (Tongou, Shelly).
+  const [detail, setDetail] = useState(null);
+  const [detailMinutes, setDetailMinutes] = useState(360);
+  const detailCtxRef = useRef({ tasmota: [], shellyId: null });
+  const openDetail = useCallback((kind, id) => setDetail({ kind, id }), []);
+  const closeDetail = useCallback(() => setDetail(null), []);
+  // Un clic sur un bouton d'une box (ATS, prises) garde son action et n'ouvre pas la fiche.
+  const onNodeClick = useCallback((e, node) => {
+    if (e.target.closest && e.target.closest('button, [data-is-interactive]')) return;
+    if (NODE_DETAIL[node.id]) setDetail({ kind: 'node', id: node.id });
+  }, []);
+  const onEdgeClick = useCallback((e, edge) => {
+    if (edge.data?.history) setDetail({ kind: 'edge', id: edge.id });
+  }, []);
 
   atsExecRef.current = async function(steps) {
     if (atsBusyRef.current) return;
@@ -250,6 +372,8 @@ const atsExecRef = useRef(null);
     const heatpumps = d.heatpumps || [];
     const hp1 = heatpumps.find(h => h.mqtt_index === 1) ?? null;
     const hp9 = heatpumps.find(h => h.mqtt_index === 9) ?? null;
+
+    detailCtxRef.current = { tasmota: tasmotaDevices, shellyId: d.shellyId ?? null };
 
     const validBms = [bms1, bms2, bms3].filter(Boolean);
     const totalPwr = validBms.reduce((s, b) => s + (b.Dc?.Power ?? 0), 0);
@@ -464,8 +588,9 @@ const atsExecRef = useRef(null);
       const ats = atsResp?.values ?? null;
       // Shelly Pro 2PM des DEYE (seul Shelly configuré) : dernier relevé, null si jamais reçu.
       const shelly = shellyResp?.shelly?.[0]?.snapshot ?? null;
+      const shellyId = shellyResp?.shelly?.[0]?.id ?? null;
 
-      applyData({ bms1, bms2, bms3, et7, et8, et9, mpptList, mpptTotalPowerW, mpptTotalDcA, shunt, inverter, ats, tasmotaDevices, heatpumps, shelly });
+      applyData({ bms1, bms2, bms3, et7, et8, et9, mpptList, mpptTotalPowerW, mpptTotalDcA, shunt, inverter, ats, tasmotaDevices, heatpumps, shelly, shellyId });
     }
     fetchAll();
     const timer = setInterval(fetchAll, 2000);
@@ -496,10 +621,14 @@ const atsExecRef = useRef(null);
     { color: COLOR.bat, label: 'Batterie' },
   ];
 
-  return h(ReactFlow, {
+  const detailSpec = detail ? buildDetail(detail, nodes, edges, detailCtxRef.current) : null;
+
+  return h(DetailCtx.Provider, { value: openDetail },
+  h(ReactFlow, {
     nodes, edges, onNodesChange, onEdgesChange, nodeTypes, edgeTypes, fitView: true,
     fitViewOptions: { padding: 0.06 }, minZoom: 0.2, maxZoom: 2.5,
     nodesDraggable: false, nodesConnectable: false, elementsSelectable: false, preventScrolling: false,
+    onNodeClick, onEdgeClick,
   },
     h(Background, { variant: 'dots', gap: 20, size: 1, color: '#c8d3de' }),
     h(Controls, { showInteractive: false }),
@@ -522,6 +651,8 @@ const atsExecRef = useRef(null);
           : `Màj : ${lastUpdate} (${dataAge}s)`
       )
     ),
+  ),
+  detailSpec ? h(DetailSheet, { spec: detailSpec, minutes: detailMinutes, setMinutes: setDetailMinutes, onClose: closeDetail }) : null
   );
 }
 
