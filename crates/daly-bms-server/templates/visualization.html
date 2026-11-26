@@ -292,6 +292,16 @@ function buildDetail(detail, nodes, edges, ctx) {
 }
 
 
+// Zoom au double-clic sur une box (§1.9 de docs/TRANSITION-refonte-visualisation.md).
+// Zone de carte visée autour de la box (unités de la carte), échelle bornée : 1,0 sur un
+// écran 1366×768, ≈ 1,25 sur 1920×1200, 1,5 au-delà ; réduite si la box ne tient pas entière.
+const FOCUS_SPAN = { w: 1320, h: 780 };
+const FOCUS_ZOOM_MIN = 1.0;
+const FOCUS_ZOOM_MAX = 1.5;
+const FOCUS_ANIM_MS = 600;       // durée du déplacement, aller comme retour
+const CLICK_DELAY_MS = 250;      // délai d'ouverture de la fiche au clic simple
+const SLOW_DBLCLICK_MS = 500;    // second clic sur le fond de la fiche dans ce délai = double-clic
+
 function ESSFlow() {
   const [nodes, setNodes, onNodesChange] = useNodesState(NODES0);
   const [edges, setEdges, onEdgesChange] = useEdgesState(EDGES0);
@@ -308,16 +318,72 @@ const atsExecRef = useRef(null);
   const [detail, setDetail] = useState(null);
   const [detailMinutes, setDetailMinutes] = useState(360);
   const detailCtxRef = useRef({ tasmota: [], shellyId: null });
-  const openDetail = useCallback((kind, id) => setDetail({ kind, id }), []);
-  const closeDetail = useCallback(() => setDetail(null), []);
-  // Un clic sur un bouton d'une box (ATS, prises) garde son action et n'ouvre pas la fiche.
+  // Zoom au double-clic : la carte se centre en douceur sur la box (voisines et liaisons
+  // restent visibles autour) ; Échap, un double-clic sur le fond, « Vue d'ensemble » ou ⛶
+  // ramènent à la vue complète.
+  const rfRef = useRef(null);
+  const [focusId, setFocusId] = useState(null);
+  const clickTimerRef = useRef(null);
+  const openedRef = useRef(null);   // { id, t } : fiche ouverte par un clic sur une box
+  const zoomToNode = useCallback(node => {
+    const rf = rfRef.current;
+    const n = rf && rf.getNode(node.id);
+    if (!n || !n.width || !n.height) return;
+    const p = n.positionAbsolute || n.position;
+    const r = document.getElementById('ess-flow-root').getBoundingClientRect();
+    const target = Math.min(r.width / FOCUS_SPAN.w, r.height / FOCUS_SPAN.h);
+    const zoom = Math.min(Math.max(FOCUS_ZOOM_MIN, Math.min(FOCUS_ZOOM_MAX, target)),
+                          0.9 * r.width / n.width, 0.85 * r.height / n.height);
+    rf.setCenter(p.x + n.width / 2, p.y + n.height / 2, { zoom, duration: FOCUS_ANIM_MS });
+    setFocusId(node.id);
+  }, []);
+  const overview = useCallback(() => {
+    if (rfRef.current) rfRef.current.fitView({ padding: 0.06, duration: FOCUS_ANIM_MS });
+    setFocusId(null);
+  }, []);
+
+  const openDetail = useCallback((kind, id) => { openedRef.current = null; setDetail({ kind, id }); }, []);
+  const closeDetail = useCallback(e => {
+    const o = openedRef.current;
+    openedRef.current = null;
+    setDetail(null);
+    // Double-clic lent : son second clic tombe sur le fond de la fiche à peine ouverte.
+    if (o && e && e.type === 'pointerdown' && Date.now() - o.t < SLOW_DBLCLICK_MS) zoomToNode({ id: o.id });
+  }, [zoomToNode]);
+  // Un clic sur un bouton d'une box (ATS, prises) garde son action : ni fiche, ni zoom.
+  const onButton = e => !!(e.target.closest && e.target.closest('button, [data-is-interactive]'));
+  // Un double-clic commence par un clic : la fiche attend CLICK_DELAY_MS avant de s'ouvrir.
   const onNodeClick = useCallback((e, node) => {
-    if (e.target.closest && e.target.closest('button, [data-is-interactive]')) return;
-    if (NODE_DETAIL[node.id]) setDetail({ kind: 'node', id: node.id });
+    if (onButton(e)) return;
+    clearTimeout(clickTimerRef.current);
+    if (e.detail > 1 || !NODE_DETAIL[node.id]) return;
+    clickTimerRef.current = setTimeout(() => {
+      openedRef.current = { id: node.id, t: Date.now() };
+      setDetail({ kind: 'node', id: node.id });
+    }, CLICK_DELAY_MS);
   }, []);
+  const onNodeDoubleClick = useCallback((e, node) => {
+    if (onButton(e)) return;
+    clearTimeout(clickTimerRef.current);
+    zoomToNode(node);
+  }, [zoomToNode]);
+  const onPaneDoubleClick = useCallback(e => {
+    if (e.target.classList && e.target.classList.contains('react-flow__pane')) overview();
+  }, [overview]);
+  // Fiche ouverte : Échap la ferme seule (son écoute en capture arrête l'événement ; la garde
+  // ci-dessous couvre un événement visant window, où l'ordre d'inscription prime).
+  const detailOpenRef = useRef(false);
+  detailOpenRef.current = !!detail;
+  useEffect(() => {
+    if (!focusId) return;
+    const onKey = e => { if (e.key === 'Escape' && !detailOpenRef.current) overview(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [focusId, overview]);
+  useEffect(() => () => clearTimeout(clickTimerRef.current), []);
   const onEdgeClick = useCallback((e, edge) => {
-    if (edge.data?.history) setDetail({ kind: 'edge', id: edge.id });
-  }, []);
+    if (edge.data?.history) openDetail('edge', edge.id);
+  }, [openDetail]);
 
   atsExecRef.current = async function(steps) {
     if (atsBusyRef.current) return;
@@ -628,16 +694,22 @@ const atsExecRef = useRef(null);
     nodes, edges, onNodesChange, onEdgesChange, nodeTypes, edgeTypes, fitView: true,
     fitViewOptions: { padding: 0.06 }, minZoom: 0.2, maxZoom: 2.5,
     nodesDraggable: false, nodesConnectable: false, elementsSelectable: false, preventScrolling: false,
-    onNodeClick, onEdgeClick,
+    zoomOnDoubleClick: false, onInit: inst => { rfRef.current = inst; },
+    onNodeClick, onNodeDoubleClick, onEdgeClick, onDoubleClick: onPaneDoubleClick,
   },
     h(Background, { variant: 'dots', gap: 20, size: 1, color: '#c8d3de' }),
-    h(Controls, { showInteractive: false }),
+    h(Controls, { showInteractive: false, fitViewOptions: { padding: 0.06, duration: FOCUS_ANIM_MS }, onFitView: () => setFocusId(null) }),
+    focusId ? h(Panel, { position: 'top-center' },
+      h('button', { type: 'button', className: 'viz-overview-btn', onClick: overview, title: 'Revenir à la vue complète (Échap)' },
+        '⤢ Vue d\'ensemble', h('kbd', null, 'Échap'))
+    ) : null,
     h(Panel, { position: 'bottom-left' },
       h('div', { className: 'viz-panel viz-legend' },
         ...legend.map(l => h('div', { key: l.color, className: 'viz-leg-item' },
           h('div', { className: 'viz-leg-line', style: { background: l.color } }),
           l.label
-        ))
+        )),
+        h('div', { className: 'viz-leg-hint' }, 'Clic : fiche · Double-clic : zoom')
       )
     ),
     h(Panel, { position: 'bottom-right' },

@@ -210,13 +210,16 @@ function DetailSheet({ spec, minutes, setMinutes, onClose }) {
     const t = setInterval(() => setTick(x => x + 1), 60000);   // historiques relus chaque minute
     return function () { clearInterval(t); };
   }, []);
+  // Écoute en capture + stopImmediatePropagation : Échap ferme la fiche seule, sans atteindre
+  // les autres écoutes de la page (retour à la vue d'ensemble après un zoom).
   useEffect(function () {
-    const onKey = e => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return function () { window.removeEventListener('keydown', onKey); };
+    const onKey = e => { if (e.key === 'Escape') { e.stopImmediatePropagation(); onClose(); } };
+    window.addEventListener('keydown', onKey, true);
+    return function () { window.removeEventListener('keydown', onKey, true); };
   }, [onClose]);
   // Fond : un clic, la molette ou un glisser (= se déplacer dans la page) ferme la fiche.
-  const onBackdrop = e => { if (e.target === e.currentTarget) onClose(); };
+  // L'événement est transmis : un clic sur le fond juste après l'ouverture = double-clic lent.
+  const onBackdrop = e => { if (e.target === e.currentTarget) onClose(e); };
 
   const hasBox = !!spec.node;
   return ReactDOM.createPortal(

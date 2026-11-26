@@ -17,6 +17,8 @@ Usage :
         → en plus, DOSSIER/preview-open.html : la fiche détail de la box bms1 s'ouvre seule
           (cible = id d'une box de NODES0, ou edge:N pour le N-ième bouton 📈, compté à partir
           de 0 ; --period = 60, 360 ou 1440 minutes)
+    python scripts/viz-preview.py build --zoom bms1
+        → en plus, DOSSIER/preview-zoom.html : double-clic simulé sur la box bms1 (zoom sur elle)
     python scripts/viz-preview.py sizes DOSSIER/dom.html
         → tailles des cartes en px du canevas (largeur, hauteur), au format JSON
 
@@ -66,6 +68,16 @@ OPEN = """<script>setTimeout(function(){
 }, 7000);</script>"""
 
 
+# Double-clic simulé sur une box, dans l'ordre d'un vrai double-clic : clic, clic, dblclick.
+ZOOM = """<script>setTimeout(function(){
+  var el = document.querySelector('.react-flow__node[data-id="%s"]');
+  if (!el) { document.title = 'CIBLE INTROUVABLE'; return; }
+  [['click', 1], ['click', 2], ['dblclick', 2]].forEach(function(ev){
+    el.dispatchEvent(new MouseEvent(ev[0], { bubbles: true, cancelable: true, detail: ev[1], view: window }));
+  });
+}, 7000);</script>"""
+
+
 def assemble_template():
     """visualization.html avec ses {% include "..." %} remplacés par le contenu des fichiers."""
     src = open(os.path.join(TEMPLATES, "visualization.html"), encoding="utf-8").read()
@@ -112,6 +124,10 @@ def build(args):
         with open(os.path.join(args.out, "preview-open.html"), "w", encoding="utf-8") as f:
             f.write(page.replace("</body>", OPEN % (sel, period) + "</body>", 1))
         print("Fiche  :", os.path.join(args.out, "preview-open.html"))
+    if args.zoom:
+        with open(os.path.join(args.out, "preview-zoom.html"), "w", encoding="utf-8") as f:
+            f.write(page.replace("</body>", ZOOM % args.zoom + "</body>", 1))
+        print("Zoom   :", os.path.join(args.out, "preview-zoom.html"))
 
 
 def sizes(args):
@@ -129,6 +145,7 @@ def main():
     b.add_argument("--pi5", default="http://192.168.1.141:8080")
     b.add_argument("--out", default=os.path.join(tempfile.gettempdir(), "viz-preview"))
     b.add_argument("--open", help="id d'une box (ex. bms1) ou edge:N : fiche détail ouverte d'office")
+    b.add_argument("--zoom", help="id d'une box (ex. bms1) : double-clic simulé, la carte zoome sur elle")
     b.add_argument("--period", type=int, choices=(60, 360, 1440), help="période de la fiche, en minutes")
     s = sub.add_parser("sizes", help="extrait les tailles des cartes d'un DOM sauvegardé")
     s.add_argument("dom")

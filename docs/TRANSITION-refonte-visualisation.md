@@ -126,7 +126,7 @@ pour un courant en ampères. Le sens s'inverse avec `reverse`.
 
 | Fichier | Rôle |
 |---|---|
-| `crates/daly-bms-server/templates/visualization.html` | constantes de disposition (`MP_X`, `RS_X`, `LYNX_*`, `BMS_Y`… : colonnes calculées pour des liaisons verticales droites), `NODES0` (positions), `EDGES0` et historiques des liaisons `HIST_*`, contenu des fiches détail (`NODE_NAMES`, `NODE_DETAIL`, `buildDetail`, §1.8), `applyData` (valeurs, arêtes ATS dynamiques), `fetchAll` (appels API), constantes `WH_TASMOTA` / `CLIM_TASMOTA` / `DEYE_TASMOTA` / `SHELLY_DEYE_CHANNELS` |
+| `crates/daly-bms-server/templates/visualization.html` | constantes de disposition (`MP_X`, `RS_X`, `LYNX_*`, `BMS_Y`… : colonnes calculées pour des liaisons verticales droites), `NODES0` (positions), `EDGES0` et historiques des liaisons `HIST_*`, contenu des fiches détail (`NODE_NAMES`, `NODE_DETAIL`, `buildDetail`, §1.8), zoom au double-clic (`FOCUS_*`, `zoomToNode`, §1.9), `applyData` (valeurs, arêtes ATS dynamiques), `fetchAll` (appels API), constantes `WH_TASMOTA` / `CLIM_TASMOTA` / `DEYE_TASMOTA` / `SHELLY_DEYE_CHANNELS` |
 | `viz_detail.js` | fiche détail (§1.8) : `DetailSheet`, `DetailBox` (la box agrandie), `HistChart` (graphiques ECharts), `EdgeHistoryButton` (bouton 📈 des liaisons), contexte `DetailCtx` |
 | `viz_nodes_ats.js` | ATS (entrées I à gauche, II à droite, sortie en haut), I/II, `InverterNode` (Multiplus), `InverterRsNode` |
 | `viz_nodes_basic.js` | `Et112CardNode`, `LynxNode`, `BusNode` (barre BMS), `BoxNode` (Grid, Cerbo GX), `BmsNode` |
@@ -134,7 +134,7 @@ pour un courant en ampères. Le sens s'inverse avec `reverse`.
 | `viz_nodes_venus.js` | `MPPTGroupNode`, `SmartShuntNode` |
 | `viz_nodes_charts.js` | `SankeyNode` (Flux énergétique ; rendu SVG, net une fois agrandi dans la fiche) |
 | `viz_edges.js` | arêtes animées (`AnimatedFlowEdge`, `CustomBezierEdge`, `TripleAtsEdge`) ; une arête avec `data.history` porte le bouton 📈 |
-| `visualization.css` | styles des cartes (Lynx, Grid, Cerbo, Shelly…) et de la fiche détail (classes `vd-*`) |
+| `visualization.css` | styles des cartes (Lynx, Grid, Cerbo, Shelly…), de la fiche détail (classes `vd-*`) et du bouton « Vue d'ensemble » (`viz-overview-btn`) |
 
 Contraintes :
 
@@ -178,7 +178,14 @@ Contraintes :
    # Fiche détail ouverte d'office (id d'une box, ou edge:N pour le N-ième 📈), période 24 h
    python scripts\viz-preview.py build --out $O --open bms1 --period 1440
    Start-Process $edge -Wait -WindowStyle Hidden -ArgumentList ($c + @("--hide-scrollbars","--screenshot=$O\fiche.png","$u/preview-open.html"))
+   # Zoom au double-clic sur une box (double-clic simulé au bout de 7 s)
+   python scripts\viz-preview.py build --out $O --zoom ats-main
+   Start-Process $edge -Wait -WindowStyle Hidden -ArgumentList ($c + @("--hide-scrollbars","--screenshot=$O\zoom.png","$u/preview-zoom.html"))
    ```
+
+   En headless, la capture est prise sur toute la hauteur demandée (1150 px), alors que la
+   page s'est mise en place sur une fenêtre plus basse (≈ 1011 px) : une box zoomée y paraît
+   un peu au-dessus du centre. Dans un navigateur normal, elle est centrée.
 
    Les positions de `NODES0` sont calculées à partir des hauteurs mesurées (`H_*` en tête de
    la disposition dans `visualization.html`). Après un changement de taille d'une carte,
@@ -206,6 +213,8 @@ ne dépend pas du zoom. En vue d'ensemble, la carte est affichée à 58 % sur un
   la méthode des trapèzes ; séparée en charge et décharge pour une mesure signée). Avec
   plusieurs courbes : légende cliquable (masquer / afficher), avec l'énergie de chaque courbe.
 - **Liaison** : la même fiche, sans box, avec l'historique `HIST_*` de la liaison.
+- **Ouverture** : la fiche d'une box s'ouvre 250 ms après le clic, le temps de distinguer un
+  double-clic (zoom, §1.9). Le 📈 d'une liaison l'ouvre aussitôt.
 - **Fermeture** : ✕, Échap, clic, molette ou glisser sur le fond. Un clic sur un bouton d'une
   box de la carte déclenche son action sans ouvrir la fiche.
 
@@ -245,6 +254,29 @@ now=$(date +%s); curl -s -G http://192.168.1.141:8080/api/v1/query_range \
   --data-urlencode 'query=tasmota_power_w{id="6"}' --data-urlencode start=$((now-3600)) \
   --data-urlencode end=$now --data-urlencode step=60 | python -c 'import sys,json; print(len(json.load(sys.stdin)["data"]["result"]), "série(s)")'
 ```
+
+### 1.9 Zoom au double-clic sur une box
+
+Un double-clic sur une box centre la carte sur elle en 0,6 s. Les box voisines et les
+liaisons restent visibles autour, avec leurs valeurs en direct et leurs boutons actifs. Toutes
+les box sont concernées, y compris celles sans fiche (Grid, Cerbo GX).
+
+- **Échelle** : la vue montre environ 1320 × 780 unités de carte autour de la box, avec une
+  échelle bornée entre 1,0 et 1,5 (`FOCUS_SPAN`, `FOCUS_ZOOM_MIN`, `FOCUS_ZOOM_MAX`). Cela
+  donne 1,0 sur un écran 1366 × 768 (vue d'ensemble : 0,35), environ 1,25 sur 1920 × 1200
+  (vue d'ensemble : 0,58) et 1,5 sur un écran plus grand. L'échelle est réduite si la box ne
+  tiendrait pas entière à l'écran.
+- **Retour à la vue d'ensemble** : Échap, double-clic sur le fond de la carte, bouton « Vue
+  d'ensemble » (affiché en haut pendant un zoom) ou bouton ⛶ des contrôles. Un double-clic
+  sur le fond ne zoome plus ×2 : ce comportement par défaut de React Flow est désactivé
+  (`zoomOnDoubleClick: false`). La molette et les boutons + et − sont inchangés.
+- **Avec la fiche** : un clic simple ouvre la fiche après 250 ms (`CLICK_DELAY_MS`), sauf si
+  un second clic arrive entre-temps. Pour un double-clic plus lent, le second clic tombe sur
+  le fond de la fiche à peine ouverte : dans les 500 ms (`SLOW_DBLCLICK_MS`), la fiche se
+  ferme et la carte zoome sur la box. Pendant un zoom, Échap ferme d'abord la fiche ouverte ;
+  un second Échap ramène à la vue d'ensemble.
+- **Boutons des box** : un double-clic sur un bouton (ATS, prises) déclenche son action, sans
+  zoom.
 
 ---
 
